@@ -57,9 +57,23 @@ const RoomBookingPortal = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    
+    // Special handling for peopleCount to restrict to 1-3
+    if (name === "peopleCount") {
+      const numValue = Number(value);
+      // Only update if the value is between 1-3 or empty (for user editing)
+      if (value === "" || (numValue >= 1 && numValue <= 3)) {
+        setFormData((prev) => ({
+          ...prev,
+          [name]: value === "" ? "" : numValue,
+        }));
+      }
+      return;
+    }
+    
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "peopleCount" ? Number(value) : value,
+      [name]: value,
     }));
   };
 
@@ -81,16 +95,20 @@ const RoomBookingPortal = () => {
 
     // Adjust room price based on peopleCount
     if (formData.peopleCount === 1) {
-      roomPrice = roomPrice / 3;
+      roomPrice = roomPrice;
     } 
-    // peopleCount 2 or 3 → full price (no change)
+    else if (formData.peopleCount === 2) {
+      roomPrice = roomPrice * 2;
+    } else if (formData.peopleCount === 3) {
+      roomPrice = roomPrice * 3;
+    }
 
     // Add transport charges
     if (formData.transport === "delhi") {
-      roomPrice += 1500;
+      roomPrice += 1500 * formData.peopleCount;
     }
 
-    return Math.round(roomPrice); // Round to avoid decimal issues
+    return Math.round(roomPrice); 
   };
 
   // Send data to Google Sheets
@@ -118,7 +136,6 @@ const RoomBookingPortal = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (
       !formData.name ||
       !formData.contact ||
@@ -133,7 +150,6 @@ const RoomBookingPortal = () => {
     }
 
     setIsSubmitting(true);
-
     try {
       // Calculate price before sending
       const totalPrice = calculateTotalPrice();
@@ -320,7 +336,7 @@ const RoomBookingPortal = () => {
             alt="Hotel"
             className="w-full h-full object-cover transition-all duration-1000 transform scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-orange-600/80 via-red-500/80 to-pink-600/80"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-orange-300/70 via-red-300/80 to-pink-600/80"></div>
         </div>
         
         {/* Floating Header */}
@@ -479,7 +495,7 @@ const RoomBookingPortal = () => {
             {/* Facilitator */}
             <div className="mb-6">
               <label className="block mb-3 text-gray-700 font-semibold">
-                Who is your facilitator?
+                Which preaching area are you connected to?
               </label>
               <select
                 name="facilitator"
@@ -488,7 +504,7 @@ const RoomBookingPortal = () => {
                 className="w-full px-5 py-4 border-2 border-orange-200 rounded-2xl focus:border-orange-500 focus:outline-none transition-all duration-300"
                 required
               >
-                <option value="">Select Facilitator</option>
+                <option value="">Select Preaching Area</option>
                 <option value="A">Gita Essence</option>
                 <option value="B">ISKCON Jia Sarai</option>
                 <option value="C">ISKCON Srinagar</option>
@@ -508,8 +524,25 @@ const RoomBookingPortal = () => {
                 min="1"
                 max="3"
                 onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  // Prevent entering invalid characters
+                  if (e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-' || e.key === '.') {
+                    e.preventDefault();
+                  }
+                }}
+                onBlur={(e) => {
+                  // Ensure value is within range when user leaves the field
+                  const value = Number(e.target.value);
+                  if (value < 1 || value > 3 || isNaN(value)) {
+                    setFormData(prev => ({ ...prev, peopleCount: 1 }));
+                  }
+                }}
                 className="w-full px-5 py-4 border-2 border-orange-200 rounded-2xl focus:border-orange-500 focus:outline-none transition-all duration-300"
+                placeholder="Enter number (1-3)"
               />
+              <p className="text-sm text-gray-500 mt-2">
+                Please enter a number between 1 and 3
+              </p>
             </div>
 
             {/* Total Price Display */}
