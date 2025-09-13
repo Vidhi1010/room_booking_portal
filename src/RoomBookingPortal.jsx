@@ -1,0 +1,546 @@
+import React, { useState, useEffect } from "react";
+import { CheckCircle, Users, Crown, X, Check } from "lucide-react";
+
+const RoomBookingPortal = () => {
+  const [formData, setFormData] = useState({
+    name: "",
+    contact: "",
+    gender: "",
+    age: "",
+    roomType: "",
+    transport: "",
+    facilitator: "",
+    peopleCount: 1,
+  });
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  //Slider images
+  const sliderImages = [
+     "https://www.rupanugabhajanashram.com/wp-content/uploads/2023/12/12-sri-sri-radha-Govinda-dev-ji-mandira-featured.jpg"
+  ];
+
+  // Auto-change slides every 2 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % sliderImages.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [sliderImages.length]);
+
+  // QR codes for different room types (placeholder images)
+  const qrCodes = {
+    semi: "./images/qrCode.jpg", // replace with real QR
+    super: "./images/qrCode.jpg",
+  };
+
+  const roomOptions = [
+    {
+      id: "super",
+      name: "Super Deluxe AC Room (2 bed)",
+      price: "₹5000/night",
+      basePrice: 5000,
+      icon: <Crown className="w-5 h-5" />,
+      description: "Luxury suite with premium amenities",
+    },
+    {
+      id: "semi",
+      name: "Semi Deluxe AC Room (2+1 bed)",
+      price: "₹3700/night",
+      basePrice: 3700,
+      icon: <Users className="w-5 h-5" />,
+      description: "Comfortable room for two guests + 1",
+    },
+  ];
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "peopleCount" ? Number(value) : value,
+    }));
+  };
+
+  const handleRoomSelect = (roomId) => {
+    setFormData((prev) => ({
+      ...prev,
+      roomType: roomId,
+    }));
+  };
+
+  // Helper to calculate total price
+  const calculateTotalPrice = () => {
+    const selectedRoom = roomOptions.find(
+      (room) => room.id === formData.roomType
+    );
+    if (!selectedRoom) return 0;
+
+    let roomPrice = selectedRoom.basePrice;
+
+    // Adjust room price based on peopleCount
+    if (formData.peopleCount === 1) {
+      roomPrice = roomPrice / 3;
+    } 
+    // peopleCount 2 or 3 → full price (no change)
+
+    // Add transport charges
+    if (formData.transport === "delhi") {
+      roomPrice += 1200;
+    }
+
+    return Math.round(roomPrice); // Round to avoid decimal issues
+  };
+
+  // Send data to Google Sheets
+  const submitToGoogleSheets = async (data) => {
+    const GOOGLE_SCRIPT_URL =
+      "https://script.google.com/macros/s/AKfycbzBIQbX__dYo7vhYRldHnH2LiV9uta3tfDDTE052bp8OabmPdZ8CWqlUzxhYC1-lLnW/exec";
+
+    try {
+      const response = await fetch(GOOGLE_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+      
+      console.log("Data submitted to Google Sheets:", data);
+      return true;
+    } catch (error) {
+      console.error("Error submitting to Google Sheets:", error);
+      throw error;
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (
+      !formData.name ||
+      !formData.contact ||
+      !formData.gender ||
+      !formData.age ||
+      !formData.roomType ||
+      !formData.transport ||
+      !formData.facilitator
+    ) {
+      alert("Please fill in all fields");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Calculate price before sending
+      const totalPrice = calculateTotalPrice();
+      const selectedRoom = roomOptions.find(room => room.id === formData.roomType);
+
+      // Prepare comprehensive submission data
+     const submissionData = {
+        name: formData.name,
+        contact: formData.contact,
+        gender: formData.gender,
+        age: formData.age,
+        roomType: formData.roomType,
+        roomName: selectedRoom?.name || "",
+        transport: formData.transport,
+        facilitator: formData.facilitator,
+        peopleCount: formData.peopleCount,
+        totalPrice: totalPrice,
+        basePrice: (selectedRoom?.basePrice || 0).toString(),
+        transportCost: (formData.transport === "delhi" ? 1200 : 0).toString()
+      };
+
+      console.log("Submitting data:", submissionData);
+
+      // Send to Google Sheets
+      await submitToGoogleSheets(submissionData);
+
+      // Show success popup
+      setShowSuccessPopup(true);
+      
+      // Auto-hide popup and show payment screen after 3 seconds
+      setTimeout(() => {
+        setShowSuccessPopup(false);
+        setIsSubmitted(true);
+      }, 3000);
+
+    } catch (error) {
+      console.error("Submission error:", error);
+      alert("Submission failed. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePopupClose = () => {
+    setShowSuccessPopup(false);
+    setIsSubmitted(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      contact: "",
+      gender: "",
+      age: "",
+      roomType: "",
+      transport: "",
+      facilitator: "",
+      peopleCount: 1,
+    });
+    setIsSubmitted(false);
+    setShowSuccessPopup(false);
+  };
+
+  // Success Popup Component
+  const SuccessPopup = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl transform animate-bounce">
+        <div className="text-center">
+          <div className="w-20 h-20 bg-gradient-to-r from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Check className="w-10 h-10 text-white" />
+          </div>
+          
+          <h3 className="text-2xl font-bold text-gray-800 mb-4">
+            Booking Confirmed!
+          </h3>
+          
+          <p className="text-gray-600 mb-2">
+            Hi <span className="font-semibold text-orange-600">{formData.name}</span>!
+          </p>
+          
+          <p className="text-gray-600 mb-6">
+            Your booking information has been successfully saved. 
+            Redirecting to payment portal...
+          </p>
+          
+          <div className="flex justify-center space-x-4">
+            <button
+              onClick={handlePopupClose}
+              className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg"
+            >
+              Continue to Payment
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Payment Screen
+  if (isSubmitted) {
+    const selectedRoom = roomOptions.find(
+      (room) => room.id === formData.roomType
+    );
+    const totalPrice = calculateTotalPrice();
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-red-50">
+        {/* Slider Header for Payment */}
+        <div className="relative h-80 overflow-hidden">
+          <div className="absolute inset-0">
+            <img
+              src={sliderImages[currentSlide]}
+              alt="Hotel"
+              className="w-full h-full object-cover transition-all duration-1000"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-orange-600/80 via-red-500/80 to-pink-600/80"></div>
+          </div>
+          <div className="relative z-10 flex items-center justify-center h-full">
+            <div className="text-center px-4">
+              <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 drop-shadow-lg">
+                Payment Portal
+              </h1>
+              <div className="bg-white/20 backdrop-blur-sm rounded-full px-6 py-2 inline-block">
+                <span className="text-white text-lg font-semibold">Secure Payment Gateway</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="container mx-auto px-4 py-12">
+          <div className="max-w-md mx-auto bg-white rounded-3xl shadow-2xl p-8 border border-orange-100">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-2">
+                Complete Your Payment
+              </h2>
+              <p className="text-gray-600">
+                Hello {formData.name}, please make the payment for your{" "}
+                {selectedRoom?.name}.
+              </p>
+            </div>
+
+            <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-2xl p-6 mb-6 text-center border border-orange-200">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                Scan QR Code
+              </h3>
+              <div className="bg-white rounded-xl p-4 inline-block shadow-lg">
+                <img
+                  src={qrCodes[formData.roomType]}
+                  alt="QR Code"
+                  className="mx-auto w-48 h-48 border rounded-lg"
+                />
+              </div>
+              <p className="mt-4 text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                Total: ₹{totalPrice}
+              </p>
+            </div>
+
+            <button
+              onClick={resetForm}
+              className="w-full bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white py-4 rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
+            >
+              Make Another Booking
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate current total price for display
+  const currentTotalPrice = calculateTotalPrice();
+
+  // Main Booking Form
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-red-50">
+      {/* Success Popup */}
+      {showSuccessPopup && <SuccessPopup />}
+
+      {/* Image Slider Header */}
+      <div className="relative h-96 overflow-hidden">
+        <div className="absolute inset-0">
+          <img
+            src={sliderImages[currentSlide]}
+            alt="Hotel"
+            className="w-full h-full object-cover transition-all duration-1000 transform scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-orange-600/80 via-red-500/80 to-pink-600/80"></div>
+        </div>
+        
+        {/* Floating Header */}
+        <div className="relative z-10 flex items-center justify-center h-full">
+          <div className="text-center px-4 animate-fade-in">
+            <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 drop-shadow-2xl leading-tight">
+              Jaipur Kartik Yatra
+            </h1>
+            <div className="bg-white/20 backdrop-blur-md rounded-full px-8 py-3 inline-block border border-white/30">
+              <span className="text-white text-xl font-semibold">Room Booking Portal</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Slide Indicators */}
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-2">
+          {sliderImages.map((_, index) => (
+            <div
+              key={index}
+              className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                index === currentSlide ? 'bg-white' : 'bg-white/50'
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-16">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 border border-orange-100">
+            <div className="text-center mb-10">
+              <h2 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-4">
+                Reserve Your Room
+              </h2>
+              <div className="w-20 h-1 bg-gradient-to-r from-orange-500 to-red-500 mx-auto rounded-full"></div>
+            </div>
+
+            {/* Name */}
+            <div className="mb-6">
+              <label className="block mb-3 text-gray-700 font-semibold">Full Name</label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                className="w-full px-5 py-4 border-2 border-orange-200 rounded-2xl focus:border-orange-500 focus:outline-none transition-all duration-300"
+                placeholder="Enter your full name"
+                required
+              />
+            </div>
+
+            {/* Contact */}
+            <div className="mb-6">
+              <label className="block mb-3 text-gray-700 font-semibold">Contact Number</label>
+              <input
+                type="tel"
+                name="contact"
+                value={formData.contact}
+                onChange={handleInputChange}
+                className="w-full px-5 py-4 border-2 border-orange-200 rounded-2xl focus:border-orange-500 focus:outline-none transition-all duration-300"
+                placeholder="Enter your contact number"
+                required
+              />
+            </div>
+
+            {/* Age */}
+            <div className="mb-6">
+              <label className="block mb-3 text-gray-700 font-semibold">Age</label>
+              <input
+                type="number"
+                name="age"
+                value={formData.age}
+                onChange={handleInputChange}
+                className="w-full px-5 py-4 border-2 border-orange-200 rounded-2xl focus:border-orange-500 focus:outline-none transition-all duration-300"
+                placeholder="Enter your age"
+                required
+              />
+            </div>
+
+            {/* Gender */}
+            <div className="mb-6">
+              <label className="block mb-3 text-gray-700 font-semibold">Gender</label>
+              <div className="flex gap-6">
+                {["Male", "Female"].map((g) => (
+                  <label key={g} className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="gender"
+                      value={g.toLowerCase()}
+                      checked={formData.gender === g.toLowerCase()}
+                      onChange={handleInputChange}
+                      className="mr-3 w-5 h-5 text-orange-500"
+                    />
+                    <span className="text-gray-700 font-medium">{g}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Room Selection */}
+            <div className="mb-6">
+              <label className="block mb-3 text-gray-700 font-semibold">Choose Room</label>
+              <div className="grid gap-4">
+                {roomOptions.map((room) => (
+                  <div
+                    key={room.id}
+                    onClick={() => handleRoomSelect(room.id)}
+                    className={`p-6 border-2 rounded-2xl cursor-pointer transition-all duration-300 ${
+                      formData.roomType === room.id
+                        ? "border-orange-500 bg-gradient-to-r from-orange-50 to-yellow-50 shadow-lg"
+                        : "border-orange-200 hover:border-orange-300 hover:shadow-md"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center space-x-3">
+                        <div className="text-orange-600">
+                          {room.icon}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-gray-800">{room.name}</span>
+                          <p className="text-sm text-gray-600 mt-1">{room.description}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-bold text-xl bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                          {room.price}
+                        </span>
+                        {formData.roomType === room.id && (
+                          <CheckCircle className="w-6 h-6 text-green-500 mt-2 ml-auto" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Transportation */}
+            <div className="mb-6">
+              <label className="block mb-3 text-gray-700 font-semibold">
+                Do you want transportation?
+              </label>
+              <select
+                name="transport"
+                value={formData.transport}
+                onChange={handleInputChange}
+                className="w-full px-5 py-4 border-2 border-orange-200 rounded-2xl focus:border-orange-500 focus:outline-none transition-all duration-300"
+                required
+              >
+                <option value="">Select Option</option>
+                <option value="no">No</option>
+                <option value="delhi">Yes, from Delhi (+₹1200)</option>
+              </select>
+            </div>
+
+            {/* Facilitator */}
+            <div className="mb-6">
+              <label className="block mb-3 text-gray-700 font-semibold">
+                Who is your facilitator?
+              </label>
+              <select
+                name="facilitator"
+                value={formData.facilitator}
+                onChange={handleInputChange}
+                className="w-full px-5 py-4 border-2 border-orange-200 rounded-2xl focus:border-orange-500 focus:outline-none transition-all duration-300"
+                required
+              >
+                <option value="">Select Facilitator</option>
+                <option value="A">Gita Essence(16)</option>
+                <option value="B">ISKCON Jia Sarai(36)</option>
+                <option value="C">ISKCON Srinagar(21)</option>
+                <option value="D">Siksharthakam(18)</option>
+              </select>
+            </div>
+
+            {/* No. of People */}
+            <div className="mb-6">
+              <label className="block mb-3 text-gray-700 font-semibold">
+                No. of People Registering (Max 3 * for congregation only)
+              </label>
+              <input
+                type="number"
+                name="peopleCount"
+                value={formData.peopleCount}
+                min="1"
+                max="3"
+                onChange={handleInputChange}
+                className="w-full px-5 py-4 border-2 border-orange-200 rounded-2xl focus:border-orange-500 focus:outline-none transition-all duration-300"
+              />
+            </div>
+
+            {/* Total Price Display */}
+            {formData.roomType && (
+              <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-2xl border border-green-200">
+                <div className="text-center">
+                  <p className="text-gray-700 mb-2">Estimated Total Price:</p>
+                  <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+                    ₹{currentTotalPrice}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Submit */}
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className={`w-full py-5 rounded-2xl text-white font-bold text-lg transition-all duration-300 ${
+                isSubmitting
+                  ? "bg-gray-400"
+                  : "bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:scale-105 hover:shadow-xl shadow-lg"
+              }`}
+            >
+              {isSubmitting ? "Processing..." : "Reserve Room & Continue to Payment"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default RoomBookingPortal;
