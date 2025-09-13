@@ -40,7 +40,7 @@ const RoomBookingPortal = () => {
     {
       id: "super",
       name: "Super Deluxe AC Room (2 bed)",
-      price: "₹5000/night",
+      price: "₹5000",
       basePrice: 5000,
       icon: <Crown className="w-5 h-5" />,
       description: "Luxury suite with premium amenities",
@@ -48,7 +48,7 @@ const RoomBookingPortal = () => {
     {
       id: "semi",
       name: "Semi Deluxe AC Room (2+1 bed)",
-      price: "₹3700/night",
+      price: "₹3700",
       basePrice: 3700,
       icon: <Users className="w-5 h-5" />,
       description: "Comfortable room for two guests + 1",
@@ -87,7 +87,7 @@ const RoomBookingPortal = () => {
 
     // Add transport charges
     if (formData.transport === "delhi") {
-      roomPrice += 1200;
+      roomPrice += 1500;
     }
 
     return Math.round(roomPrice); // Round to avoid decimal issues
@@ -152,7 +152,7 @@ const RoomBookingPortal = () => {
         peopleCount: formData.peopleCount,
         totalPrice: totalPrice,
         basePrice: (selectedRoom?.basePrice || 0).toString(),
-        transportCost: (formData.transport === "delhi" ? 1200 : 0).toString()
+        transportCost: (formData.transport === "delhi" ? 1500 : 0).toString()
       };
 
       console.log("Submitting data:", submissionData);
@@ -472,7 +472,7 @@ const RoomBookingPortal = () => {
               >
                 <option value="">Select Option</option>
                 <option value="no">No</option>
-                <option value="delhi">Yes, from Delhi (+₹1200)</option>
+                <option value="delhi">Yes, from Delhi</option>
               </select>
             </div>
 
@@ -489,10 +489,10 @@ const RoomBookingPortal = () => {
                 required
               >
                 <option value="">Select Facilitator</option>
-                <option value="A">Gita Essence(16)</option>
-                <option value="B">ISKCON Jia Sarai(36)</option>
-                <option value="C">ISKCON Srinagar(21)</option>
-                <option value="D">Siksharthakam(18)</option>
+                <option value="A">Gita Essence</option>
+                <option value="B">ISKCON Jia Sarai</option>
+                <option value="C">ISKCON Srinagar</option>
+                <option value="D">Siksharthakam</option>
               </select>
             </div>
 
