@@ -15,11 +15,13 @@ const RoomBookingPortal = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+   const [showUploadSuccessPopup, setShowUploadSuccessPopup] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [paymentProof, setPaymentProof] = useState(null);
 
   //Slider images
   const sliderImages = [
-     "https://www.rupanugabhajanashram.com/wp-content/uploads/2023/12/12-sri-sri-radha-Govinda-dev-ji-mandira-featured.jpg"
+    "https://www.rupanugabhajanashram.com/wp-content/uploads/2023/12/12-sri-sri-radha-Govinda-dev-ji-mandira-featured.jpg",
   ];
 
   // Auto-change slides every 2 seconds
@@ -43,7 +45,7 @@ const RoomBookingPortal = () => {
       price: "₹5000",
       basePrice: 5000,
       icon: <Crown className="w-5 h-5" />,
-      description: "Luxury suite with premium amenities",
+      description: "Luxury room for two guests",
     },
     {
       id: "semi",
@@ -57,7 +59,7 @@ const RoomBookingPortal = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
+
     // Special handling for peopleCount to restrict to 1-3
     if (name === "peopleCount") {
       const numValue = Number(value);
@@ -70,7 +72,7 @@ const RoomBookingPortal = () => {
       }
       return;
     }
-    
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -96,8 +98,7 @@ const RoomBookingPortal = () => {
     // Adjust room price based on peopleCount
     if (formData.peopleCount === 1) {
       roomPrice = roomPrice;
-    } 
-    else if (formData.peopleCount === 2) {
+    } else if (formData.peopleCount === 2) {
       roomPrice = roomPrice * 2;
     } else if (formData.peopleCount === 3) {
       roomPrice = roomPrice * 3;
@@ -108,13 +109,48 @@ const RoomBookingPortal = () => {
       roomPrice += 1500 * formData.peopleCount;
     }
 
-    return Math.round(roomPrice); 
+    return Math.round(roomPrice);
+  };
+
+  const handleFileUpload = async (file) => {
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64Data = reader.result.split(",")[1]; // no need to do extra reading
+
+      const formData = new FormData();
+      formData.append("name", file.name);
+      formData.append("type", file.type);
+      formData.append("data", base64Data);
+
+      try {
+        const response = await fetch(
+          "https://script.google.com/macros/s/AKfycbyV3z9wqNu8x1OpYgcKkWgS3XmCb_tf69t6o1vOxwHjajvm3lykOu8sZhrWtZ8YGyGd/exec",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+        const result = await response.json();
+        console.log("Uploaded File URL:", result.url);
+        alert("Image uploaded! File URL: " + result.url);
+
+        // Save URL in state for your records
+        setFormData((prev) => ({ ...prev, paymentProofUrl: result.url }));
+      } catch (err) {
+        console.error("Upload error:", err);
+        alert("Upload failed. Check console.");
+      }
+    };
+
+    reader.readAsDataURL(file);
   };
 
   // Send data to Google Sheets
   const submitToGoogleSheets = async (data) => {
     const GOOGLE_SCRIPT_URL =
-      "https://script.google.com/macros/s/AKfycbzBIQbX__dYo7vhYRldHnH2LiV9uta3tfDDTE052bp8OabmPdZ8CWqlUzxhYC1-lLnW/exec";
+      "https://script.google.com/macros/s/AKfycbzDAXqkISebBLYqfGcX6TX2pkQxPML5ceYrtChkZ8cVH9hrWdJwcxAJz0sY-F2NpvKQ/exec";
 
     try {
       const response = await fetch(GOOGLE_SCRIPT_URL, {
@@ -125,7 +161,7 @@ const RoomBookingPortal = () => {
         },
         body: JSON.stringify(data),
       });
-      
+
       console.log("Data submitted to Google Sheets:", data);
       return true;
     } catch (error) {
@@ -153,10 +189,12 @@ const RoomBookingPortal = () => {
     try {
       // Calculate price before sending
       const totalPrice = calculateTotalPrice();
-      const selectedRoom = roomOptions.find(room => room.id === formData.roomType);
+      const selectedRoom = roomOptions.find(
+        (room) => room.id === formData.roomType
+      );
 
       // Prepare comprehensive submission data
-     const submissionData = {
+      const submissionData = {
         name: formData.name,
         contact: formData.contact,
         gender: formData.gender,
@@ -168,7 +206,7 @@ const RoomBookingPortal = () => {
         peopleCount: formData.peopleCount,
         totalPrice: totalPrice,
         basePrice: (selectedRoom?.basePrice || 0).toString(),
-        transportCost: (formData.transport === "delhi" ? 1500 : 0).toString()
+        transportCost: (formData.transport === "delhi" ? 1500 : 0).toString(),
       };
 
       console.log("Submitting data:", submissionData);
@@ -178,13 +216,12 @@ const RoomBookingPortal = () => {
 
       // Show success popup
       setShowSuccessPopup(true);
-      
+
       // Auto-hide popup and show payment screen after 3 seconds
       setTimeout(() => {
         setShowSuccessPopup(false);
         setIsSubmitted(true);
       }, 3000);
-
     } catch (error) {
       console.error("Submission error:", error);
       alert("Submission failed. Please try again.");
@@ -221,20 +258,24 @@ const RoomBookingPortal = () => {
           <div className="w-20 h-20 bg-gradient-to-r from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
             <Check className="w-10 h-10 text-white" />
           </div>
-          
+
           <h3 className="text-2xl font-bold text-gray-800 mb-4">
             Booking Confirmed!
           </h3>
-          
+
           <p className="text-gray-600 mb-2">
-            Hi <span className="font-semibold text-orange-600">{formData.name}</span>!
+            Hi{" "}
+            <span className="font-semibold text-orange-600">
+              {formData.name}
+            </span>
+            !
           </p>
-          
+
           <p className="text-gray-600 mb-6">
-            Your booking information has been successfully saved. 
-            Redirecting to payment portal...
+            Your booking information has been successfully saved. Redirecting to
+            payment portal...
           </p>
-          
+
           <div className="flex justify-center space-x-4">
             <button
               onClick={handlePopupClose}
@@ -273,7 +314,9 @@ const RoomBookingPortal = () => {
                 Payment Portal
               </h1>
               <div className="bg-white/20 backdrop-blur-sm rounded-full px-6 py-2 inline-block">
-                <span className="text-white text-lg font-semibold">Secure Payment Gateway</span>
+                <span className="text-white text-lg font-semibold">
+                  Secure Payment Gateway
+                </span>
               </div>
             </div>
           </div>
@@ -286,7 +329,7 @@ const RoomBookingPortal = () => {
                 Complete Your Payment
               </h2>
               <p className="text-gray-600">
-                Hello {formData.name}, please make the payment for your{" "}
+                Hello {formData.name}, Book your room with only ₹2000 (Non-refundable) {" "}
                 {selectedRoom?.name}.
               </p>
             </div>
@@ -305,6 +348,57 @@ const RoomBookingPortal = () => {
               <p className="mt-4 text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
                 Total: ₹{totalPrice}
               </p>
+              {/* Upload Payment Proof */}
+<div className="mt-6 text-center">
+  {/* Hidden File Input */}
+  <input
+    type="file"
+    accept="image/*"
+    id="fileUpload"
+    className="hidden"
+    onChange={(e) => {
+      const file = e.target.files[0];
+      if (file) {
+        // Show preview
+        setPaymentProof(URL.createObjectURL(file));
+        // Save file temporarily for upload
+        setFormData((prev) => ({ ...prev, selectedFile: file }));
+      }
+    }}
+  />
+
+  {/* Styled Button */}
+  <label
+  htmlFor="fileUpload"
+  className="w-full inline-block bg-orange-100 bg-opacity-60 text-orange-700 py-3 rounded-xl font-semibold text-center cursor-pointer hover:bg-orange-200 hover:bg-opacity-80 hover:scale-105 transition-all duration-300"
+>
+  Choose File
+</label>
+
+
+  {/* Upload Button */}
+  {formData.selectedFile && (
+    <button
+      onClick={() => handleFileUpload(formData.selectedFile)}
+      className="mt-4 w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 rounded-xl font-semibold hover:scale-105 transition-all duration-300"
+    >
+      Upload Screenshot
+    </button>
+  )}
+
+  {/* Preview */}
+  {paymentProof && (
+    <div className="mt-4">
+      <p className="text-sm text-gray-600 mb-2">Preview:</p>
+      <img
+        src={paymentProof}
+        alt="Payment Proof Preview"
+        className="w-48 h-48 object-cover rounded-xl border mx-auto"
+      />
+    </div>
+  )}
+</div>
+
             </div>
 
             <button
@@ -338,7 +432,7 @@ const RoomBookingPortal = () => {
           />
           <div className="absolute inset-0 bg-gradient-to-r from-orange-300/70 via-red-300/80 to-pink-600/80"></div>
         </div>
-        
+
         {/* Floating Header */}
         <div className="relative z-10 flex items-center justify-center h-full">
           <div className="text-center px-4 animate-fade-in">
@@ -346,7 +440,9 @@ const RoomBookingPortal = () => {
               Jaipur Kartik Yatra
             </h1>
             <div className="bg-white/20 backdrop-blur-md rounded-full px-8 py-3 inline-block border border-white/30">
-              <span className="text-white text-xl font-semibold">Room Booking Portal</span>
+              <span className="text-white text-xl font-semibold">
+                Room Booking Portal
+              </span>
             </div>
           </div>
         </div>
@@ -357,7 +453,7 @@ const RoomBookingPortal = () => {
             <div
               key={index}
               className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                index === currentSlide ? 'bg-white' : 'bg-white/50'
+                index === currentSlide ? "bg-white" : "bg-white/50"
               }`}
             />
           ))}
@@ -376,7 +472,9 @@ const RoomBookingPortal = () => {
 
             {/* Name */}
             <div className="mb-6">
-              <label className="block mb-3 text-gray-700 font-semibold">Full Name</label>
+              <label className="block mb-3 text-gray-700 font-semibold">
+                Full Name
+              </label>
               <input
                 type="text"
                 name="name"
@@ -390,7 +488,9 @@ const RoomBookingPortal = () => {
 
             {/* Contact */}
             <div className="mb-6">
-              <label className="block mb-3 text-gray-700 font-semibold">Contact Number</label>
+              <label className="block mb-3 text-gray-700 font-semibold">
+                Contact Number
+              </label>
               <input
                 type="tel"
                 name="contact"
@@ -404,7 +504,9 @@ const RoomBookingPortal = () => {
 
             {/* Age */}
             <div className="mb-6">
-              <label className="block mb-3 text-gray-700 font-semibold">Age</label>
+              <label className="block mb-3 text-gray-700 font-semibold">
+                Age
+              </label>
               <input
                 type="number"
                 name="age"
@@ -418,7 +520,9 @@ const RoomBookingPortal = () => {
 
             {/* Gender */}
             <div className="mb-6">
-              <label className="block mb-3 text-gray-700 font-semibold">Gender</label>
+              <label className="block mb-3 text-gray-700 font-semibold">
+                Gender
+              </label>
               <div className="flex gap-6">
                 {["Male", "Female"].map((g) => (
                   <label key={g} className="flex items-center cursor-pointer">
@@ -438,7 +542,9 @@ const RoomBookingPortal = () => {
 
             {/* Room Selection */}
             <div className="mb-6">
-              <label className="block mb-3 text-gray-700 font-semibold">Choose Room</label>
+              <label className="block mb-3 text-gray-700 font-semibold">
+                Choose Room
+              </label>
               <div className="grid gap-4">
                 {roomOptions.map((room) => (
                   <div
@@ -452,12 +558,14 @@ const RoomBookingPortal = () => {
                   >
                     <div className="flex justify-between items-center">
                       <div className="flex items-center space-x-3">
-                        <div className="text-orange-600">
-                          {room.icon}
-                        </div>
+                        <div className="text-orange-600">{room.icon}</div>
                         <div>
-                          <span className="font-semibold text-gray-800">{room.name}</span>
-                          <p className="text-sm text-gray-600 mt-1">{room.description}</p>
+                          <span className="font-semibold text-gray-800">
+                            {room.name}
+                          </span>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {room.description}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -505,10 +613,10 @@ const RoomBookingPortal = () => {
                 required
               >
                 <option value="">Select Preaching Area</option>
-                <option value="A">Gita Essence</option>
-                <option value="B">ISKCON Jia Sarai</option>
-                <option value="C">ISKCON Srinagar</option>
-                <option value="D">Siksharthakam</option>
+                <option value="Gita Essence">Gita Essence</option>
+                <option value="ISKCON Jia Sarai">ISKCON Jia Sarai</option>
+                <option value="ISKCON Srinagar">ISKCON Srinagar</option>
+                <option value="Siksharthakam">Siksharthakam</option>
               </select>
             </div>
 
@@ -526,7 +634,13 @@ const RoomBookingPortal = () => {
                 onChange={handleInputChange}
                 onKeyDown={(e) => {
                   // Prevent entering invalid characters
-                  if (e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-' || e.key === '.') {
+                  if (
+                    e.key === "e" ||
+                    e.key === "E" ||
+                    e.key === "+" ||
+                    e.key === "-" ||
+                    e.key === "."
+                  ) {
                     e.preventDefault();
                   }
                 }}
@@ -534,7 +648,7 @@ const RoomBookingPortal = () => {
                   // Ensure value is within range when user leaves the field
                   const value = Number(e.target.value);
                   if (value < 1 || value > 3 || isNaN(value)) {
-                    setFormData(prev => ({ ...prev, peopleCount: 1 }));
+                    setFormData((prev) => ({ ...prev, peopleCount: 1 }));
                   }
                 }}
                 className="w-full px-5 py-4 border-2 border-orange-200 rounded-2xl focus:border-orange-500 focus:outline-none transition-all duration-300"
@@ -567,7 +681,9 @@ const RoomBookingPortal = () => {
                   : "bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:scale-105 hover:shadow-xl shadow-lg"
               }`}
             >
-              {isSubmitting ? "Processing..." : "Reserve Room & Continue to Payment"}
+              {isSubmitting
+                ? "Processing..."
+                : "Reserve Room & Continue to Payment"}
             </button>
           </div>
         </div>
