@@ -15,7 +15,7 @@ const RoomBookingPortal = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
-   const [showUploadSuccessPopup, setShowUploadSuccessPopup] = useState(false);
+  const [showUploadSuccessPopup, setShowUploadSuccessPopup] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [paymentProof, setPaymentProof] = useState(null);
 
@@ -112,7 +112,7 @@ const RoomBookingPortal = () => {
     return Math.round(roomPrice);
   };
 
-  const handleFileUpload = async (file) => {
+  const handleFileUpload = async (file, e) => {
     if (!file) return;
 
     const reader = new FileReader();
@@ -136,7 +136,9 @@ const RoomBookingPortal = () => {
         );
         const result = await response.json();
         console.log("Uploaded File URL:", result.url);
-        alert("Image uploaded!");
+        // alert("Image uploaded!");
+
+        await handleSubmit(e, result.url);
 
         setIsSubmitting(false);
         resetForm();
@@ -154,7 +156,7 @@ const RoomBookingPortal = () => {
 
   // Send data to Google Sheets
   const submitToGoogleSheets = async (data) => {
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw41BPMqG_4bYBJ5bI2w949vnGJcfi2A_fRC68zJrRrnMZBHSRVRtJST9ioy1s5if5a/exec";
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxl0GFqgmKO6ZDmkdPdGBY6oY6CU76YHU1DGLDrkVQrHA6Q-PRoKIWOrn4Q2nC-iGVu/exec";
 
     try {
       const response = await fetch(GOOGLE_SCRIPT_URL, {
@@ -174,7 +176,7 @@ const RoomBookingPortal = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, fileUrl) => {
     e.preventDefault();
     if (
       !formData.name ||
@@ -207,6 +209,7 @@ const RoomBookingPortal = () => {
         roomName: selectedRoom?.name || "",
         transport: formData.transport,
         facilitator: formData.facilitator,
+        screenshotUrl: fileUrl || formData.paymentProofUrl || "",
         // peopleCount: formData.peopleCount,
         totalPrice: totalPrice,
         basePrice: (selectedRoom?.basePrice || 0).toString(),
@@ -250,8 +253,10 @@ const RoomBookingPortal = () => {
       facilitator: "",
       // peopleCount: 1,
     });
+    setPaymentProof(null);
     setIsSubmitted(false);
-    setShowSuccessPopup(false);
+    // setShowSuccessPopup(false);
+    window.scrollTo(0, 0);
   };
 
   // Success Popup Component
@@ -295,124 +300,10 @@ const RoomBookingPortal = () => {
 
   // Payment Screen
   if (isSubmitted) {
-    const selectedRoom = roomOptions.find(
-      (room) => room.id === formData.roomType
-    );
-    const totalPrice = calculateTotalPrice();
-
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-red-50">
-        {/* Slider Header for Payment */}
-        <div className="relative h-80 overflow-hidden">
-          <div className="absolute inset-0">
-            <img
-              src={sliderImages[currentSlide]}
-              alt="Hotel"
-              className="w-full h-full object-cover transition-all duration-1000"
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-orange-600/80 via-red-500/80 to-pink-600/80"></div>
-          </div>
-          <div className="relative z-10 flex items-center justify-center h-full">
-            <div className="text-center px-4">
-              <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 drop-shadow-lg">
-                Payment Portal
-              </h1>
-              <div className="bg-white/20 backdrop-blur-sm rounded-full px-6 py-2 inline-block">
-                <span className="text-white text-lg font-semibold">
-                  Secure Payment Gateway
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="container mx-auto px-4 py-12">
-          <div className="max-w-md mx-auto bg-white rounded-3xl shadow-2xl p-8 border border-orange-100">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-2">
-                Complete Your Payment
-              </h2>
-              <p className="text-gray-600">
-                You can reserve your seat by paying just ₹2000 now. The remaining amount can be paid later.
-                {/* Hello {formData.name}, Book your room with only ₹2000 (Non-refundable) {" "}
-                {selectedRoom?.name}. */}
-              </p>
-            </div>
-
-            <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-2xl p-6 mb-6 text-center border border-orange-200">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                Scan QR Code
-              </h3>
-              <div className="bg-white rounded-xl p-4 inline-block shadow-lg">
-                <img
-                  src={qrCodes[formData.roomType]}
-                  alt="QR Code"
-                  className="mx-auto w-48 h-48 border rounded-lg"
-                />
-              </div>
-              <p className="mt-4 text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-                Total: ₹{totalPrice}
-              </p>
-              {/* Upload Payment Proof */}
-<div className="mt-6 text-center">
-  {/* Hidden File Input */}
-  <input
-    type="file"
-    accept="image/*"
-    id="fileUpload"
-    className="hidden"
-    onChange={(e) => {
-      const file = e.target.files[0];
-      if (file) {
-        // Show preview
-        setPaymentProof(URL.createObjectURL(file));
-        // Save file temporarily for upload
-        setFormData((prev) => ({ ...prev, selectedFile: file }));
-      }
-    }}
-  />
-
-  {/* Styled Button */}
-  <label
-  htmlFor="fileUpload"
-  className="w-full inline-block bg-orange-100 bg-opacity-60 text-orange-700 py-3 rounded-xl font-semibold text-center cursor-pointer hover:bg-orange-200 hover:bg-opacity-80 hover:scale-105 transition-all duration-300"
->
-  Choose File
-</label>
-
-  {/* Preview */}
-  {paymentProof && (
-    <div className="mt-4">
-      <p className="text-sm text-gray-600 mb-2">Preview:</p>
-      <img
-        src={paymentProof}
-        alt="Payment Proof Preview"
-        className="w-48 h-48 object-cover rounded-xl border mx-auto"
-      />
-    </div>
-  )}
-
-  {/* Upload Button */}
-  {formData.selectedFile && (
-    <button
-      onClick={async () => {
-        if (isSubmitting) return; // Prevent multiple clicks
-        setIsSubmitting(true);
-        await handleFileUpload(formData.selectedFile);
-      }}
-      disabled={isSubmitting}
-      className={`mt-4 w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 rounded-xl font-semibold hover:scale-105 transition-all duration-300 ${isSubmitting ? 'opacity-60 cursor-not-allowed' : ''}`}
-    >
-      {isSubmitting ? 'Submitting...' : 'Submit'}
-    </button>
-  )}
-</div>
-
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    // const selectedRoom = roomOptions.find(
+    //   (room) => room.id === formData.roomType
+    // );
+    // const totalPrice = calculateTotalPrice();
   }
 
   // Calculate current total price for display
@@ -454,9 +345,8 @@ const RoomBookingPortal = () => {
           {sliderImages.map((_, index) => (
             <div
               key={index}
-              className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                index === currentSlide ? "bg-white" : "bg-white/50"
-              }`}
+              className={`w-3 h-3 rounded-full transition-all duration-300 ${index === currentSlide ? "bg-white" : "bg-white/50"
+                }`}
             />
           ))}
         </div>
@@ -552,11 +442,10 @@ const RoomBookingPortal = () => {
                   <div
                     key={room.id}
                     onClick={() => handleRoomSelect(room.id)}
-                    className={`p-6 border-2 rounded-2xl cursor-pointer transition-all duration-300 ${
-                      formData.roomType === room.id
-                        ? "border-orange-500 bg-gradient-to-r from-orange-50 to-yellow-50 shadow-lg"
-                        : "border-orange-200 hover:border-orange-300 hover:shadow-md"
-                    }`}
+                    className={`p-6 border-2 rounded-2xl cursor-pointer transition-all duration-300 ${formData.roomType === room.id
+                      ? "border-orange-500 bg-gradient-to-r from-orange-50 to-yellow-50 shadow-lg"
+                      : "border-orange-200 hover:border-orange-300 hover:shadow-md"
+                      }`}
                   >
                     <div className="flex justify-between items-center">
                       <div className="flex items-center space-x-3">
@@ -634,23 +523,139 @@ const RoomBookingPortal = () => {
               </div>
             )}
 
+            <div className="container mx-auto px-4 py-12">
+              <div className="max-w-md mx-auto bg-white rounded-3xl shadow-2xl p-8 border border-orange-100">
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-2">
+                    Complete Your Payment
+                  </h2>
+                  <p className="text-gray-600">
+                    You can reserve your seat by paying just ₹2000 now. The remaining amount can be paid later.
+                    {/* Hello {formData.name}, Book your room with only ₹2000 (Non-refundable) {" "}
+                {selectedRoom?.name}. */}
+                  </p>
+                </div>
+
+                <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-2xl p-6 mb-6 text-center border border-orange-200">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                    Scan QR Code
+                  </h3>
+                  <div className="bg-white rounded-xl p-4 inline-block shadow-lg">
+                    <img
+                      src={`./images/qrCode.jpg`}
+                      alt="QR Code"
+                      className="mx-auto w-48 h-48 border rounded-lg"
+                    />
+                  </div>
+                  {/* <p className="mt-4 text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                    Total: ₹{currentTotalPrice}
+                  </p> */}
+                  {/* Upload Payment Proof */}
+                  <div className="mt-6 text-center">
+                    {/* Hidden File Input */}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id="fileUpload"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          // Show preview
+                          setPaymentProof(URL.createObjectURL(file));
+                          // Save file temporarily for upload
+                          setFormData((prev) => ({ ...prev, selectedFile: file }));
+                        }
+                      }}
+                    />
+
+                    {/* Styled Button */}
+                    <label
+                      htmlFor="fileUpload"
+                      className="w-full inline-block bg-orange-100 bg-opacity-60 text-orange-700 py-3 rounded-xl font-semibold text-center cursor-pointer hover:bg-orange-200 hover:bg-opacity-80 hover:scale-105 transition-all duration-300"
+                    >
+                      Choose File
+                    </label>
+
+                    {/* Preview */}
+                    {paymentProof && (
+                      <div className="mt-4">
+                        <p className="text-sm text-gray-600 mb-2">Preview:</p>
+                        <img
+                          src={paymentProof}
+                          alt="Payment Proof Preview"
+                          className="w-48 h-48 object-cover rounded-xl border mx-auto"
+                        />
+                      </div>
+                    )}
+
+                    {/* Upload Button */}
+                    {/* {formData.selectedFile && (
+                      <button
+                        onClick={async () => {
+                          if (isSubmitting) return; // Prevent multiple clicks
+                          setIsSubmitting(true);
+                          await handleFileUpload(formData.selectedFile);
+                        }}
+                        disabled={isSubmitting}
+                        className={`mt-4 w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 rounded-xl font-semibold hover:scale-105 transition-all duration-300 ${isSubmitting ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      >
+                        {isSubmitting ? 'Submitting...' : 'Submit'}
+                      </button>
+                    )} */}
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
             {/* Submit */}
             <button
-              onClick={handleSubmit}
+              onClick={async (e) => {
+                setIsSubmitting(true);
+                await handleFileUpload(formData.selectedFile, e);
+              }}
               disabled={isSubmitting}
-              className={`w-full py-5 rounded-2xl text-white font-bold text-lg transition-all duration-300 ${
-                isSubmitting
-                  ? "bg-gray-400"
-                  : "bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:scale-105 hover:shadow-xl shadow-lg"
-              }`}
+              className={`w-full py-5 rounded-2xl text-white font-bold text-lg transition-all duration-300 ${isSubmitting
+                ? "bg-gray-400"
+                : "bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:scale-105 hover:shadow-xl shadow-lg"
+                }`}
             >
               {isSubmitting
                 ? "Processing..."
-                : "Reserve Room & Continue to Payment"}
+                : "Submit"}
             </button>
           </div>
         </div>
       </div>
+
+      (
+      {/* <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-red-50"> */}
+        {/* Slider Header for Payment */}
+        {/* <div className="relative h-80 overflow-hidden">
+          <div className="absolute inset-0">
+            <img
+              src={sliderImages[currentSlide]}
+              alt="Hotel"
+              className="w-full h-full object-cover transition-all duration-1000"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-orange-600/80 via-red-500/80 to-pink-600/80"></div>
+          </div>
+          <div className="relative z-10 flex items-center justify-center h-full">
+            <div className="text-center px-4">
+              <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 drop-shadow-lg">
+                Payment Portal
+              </h1>
+              <div className="bg-white/20 backdrop-blur-sm rounded-full px-6 py-2 inline-block">
+                <span className="text-white text-lg font-semibold">
+                  Secure Payment Gateway
+                </span>
+              </div>
+            </div>
+          </div>
+        </div> */}
+      {/* </div> */}
+      );
     </div>
   );
 };
