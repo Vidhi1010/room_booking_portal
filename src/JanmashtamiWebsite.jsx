@@ -580,11 +580,11 @@ export default function JanmashtamiWebsite() {
                 </div>
                 <div>
                   <div className="font-bold text-xl">Jaipur Kartik Yatra 2025</div>
-                  <div className="text-orange-200 text-sm">Sreshtha Club, IIT Delhi</div>
+                  <div className="text-orange-200 text-sm">ISKCON, Jaipur</div>
                 </div>
               </div>
               <p className="text-orange-200 text-sm leading-relaxed">
-                Join us in celebrating the divine birth of Lord Krishna with devotion, music, and community spirit at IIT Delhi.
+                Join us in celebrating the divine Lord Krishna with devotion, music, and community spirit at ISKCON Jaipur.
               </p>
             </div>
 
