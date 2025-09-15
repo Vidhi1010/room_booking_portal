@@ -119,22 +119,27 @@ const RoomBookingPortal = () => {
     reader.onloadend = async () => {
       const base64Data = reader.result.split(",")[1]; // no need to do extra reading
 
-      const formData = new FormData();
-      formData.append("name", file.name);
-      formData.append("type", file.type);
-      formData.append("data", base64Data);
+      const fileName = formData.name.replace(/\s+/g, "_") + "_" + formData.contact + "_" + file.name;
+
+      const data = new FormData();
+      data.append("name", fileName);
+      data.append("type", file.type);
+      data.append("data", base64Data);
 
       try {
         const response = await fetch(
           "https://script.google.com/macros/s/AKfycbyV3z9wqNu8x1OpYgcKkWgS3XmCb_tf69t6o1vOxwHjajvm3lykOu8sZhrWtZ8YGyGd/exec",
           {
             method: "POST",
-            body: formData,
+            body: data,
           }
         );
         const result = await response.json();
         console.log("Uploaded File URL:", result.url);
-        alert("Image uploaded! File URL: " + result.url);
+        alert("Image uploaded!");
+
+        setIsSubmitting(false);
+        resetForm();
 
         // Save URL in state for your records
         setFormData((prev) => ({ ...prev, paymentProofUrl: result.url }));
@@ -329,8 +334,9 @@ const RoomBookingPortal = () => {
                 Complete Your Payment
               </h2>
               <p className="text-gray-600">
-                Hello {formData.name}, Book your room with only ₹2000 (Non-refundable) {" "}
-                {selectedRoom?.name}.
+                You can reserve your seat by paying just ₹2000 now. The remaining amount can be paid later.
+                {/* Hello {formData.name}, Book your room with only ₹2000 (Non-refundable) {" "}
+                {selectedRoom?.name}. */}
               </p>
             </div>
 
@@ -375,17 +381,6 @@ const RoomBookingPortal = () => {
   Choose File
 </label>
 
-
-  {/* Upload Button */}
-  {formData.selectedFile && (
-    <button
-      onClick={() => handleFileUpload(formData.selectedFile)}
-      className="mt-4 w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 rounded-xl font-semibold hover:scale-105 transition-all duration-300"
-    >
-      Upload Screenshot
-    </button>
-  )}
-
   {/* Preview */}
   {paymentProof && (
     <div className="mt-4">
@@ -397,16 +392,24 @@ const RoomBookingPortal = () => {
       />
     </div>
   )}
+
+  {/* Upload Button */}
+  {formData.selectedFile && (
+    <button
+      onClick={async () => {
+        if (isSubmitting) return; // Prevent multiple clicks
+        setIsSubmitting(true);
+        await handleFileUpload(formData.selectedFile);
+      }}
+      disabled={isSubmitting}
+      className={`mt-4 w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 rounded-xl font-semibold hover:scale-105 transition-all duration-300 ${isSubmitting ? 'opacity-60 cursor-not-allowed' : ''}`}
+    >
+      {isSubmitting ? 'Submitting...' : 'Submit'}
+    </button>
+  )}
 </div>
 
             </div>
-
-            <button
-              onClick={resetForm}
-              className="w-full bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white py-4 rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
-            >
-              Make Another Booking
-            </button>
           </div>
         </div>
       </div>
