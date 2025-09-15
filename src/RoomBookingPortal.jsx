@@ -10,7 +10,7 @@ const RoomBookingPortal = () => {
     roomType: "",
     transport: "",
     facilitator: "",
-    peopleCount: 1,
+    // peopleCount: 1,
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,17 +96,17 @@ const RoomBookingPortal = () => {
     let roomPrice = selectedRoom.basePrice;
 
     // Adjust room price based on peopleCount
-    if (formData.peopleCount === 1) {
-      roomPrice = roomPrice;
-    } else if (formData.peopleCount === 2) {
-      roomPrice = roomPrice * 2;
-    } else if (formData.peopleCount === 3) {
-      roomPrice = roomPrice * 3;
-    }
+    // if (formData.peopleCount === 1) {
+    //   roomPrice = roomPrice;
+    // } else if (formData.peopleCount === 2) {
+    //   roomPrice = roomPrice * 2;
+    // } else if (formData.peopleCount === 3) {
+    //   roomPrice = roomPrice * 3;
+    // }
 
     // Add transport charges
     if (formData.transport === "delhi") {
-      roomPrice += 1500 * formData.peopleCount;
+      roomPrice += 1500;
     }
 
     return Math.round(roomPrice);
@@ -154,8 +154,7 @@ const RoomBookingPortal = () => {
 
   // Send data to Google Sheets
   const submitToGoogleSheets = async (data) => {
-    const GOOGLE_SCRIPT_URL =
-      "https://script.google.com/macros/s/AKfycbzDAXqkISebBLYqfGcX6TX2pkQxPML5ceYrtChkZ8cVH9hrWdJwcxAJz0sY-F2NpvKQ/exec";
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw41BPMqG_4bYBJ5bI2w949vnGJcfi2A_fRC68zJrRrnMZBHSRVRtJST9ioy1s5if5a/exec";
 
     try {
       const response = await fetch(GOOGLE_SCRIPT_URL, {
@@ -208,7 +207,7 @@ const RoomBookingPortal = () => {
         roomName: selectedRoom?.name || "",
         transport: formData.transport,
         facilitator: formData.facilitator,
-        peopleCount: formData.peopleCount,
+        // peopleCount: formData.peopleCount,
         totalPrice: totalPrice,
         basePrice: (selectedRoom?.basePrice || 0).toString(),
         transportCost: (formData.transport === "delhi" ? 1500 : 0).toString(),
@@ -249,7 +248,7 @@ const RoomBookingPortal = () => {
       roomType: "",
       transport: "",
       facilitator: "",
-      peopleCount: 1,
+      // peopleCount: 1,
     });
     setIsSubmitted(false);
     setShowSuccessPopup(false);
@@ -621,45 +620,6 @@ const RoomBookingPortal = () => {
                 <option value="ISKCON Srinagar">ISKCON Srinagar</option>
                 <option value="Siksharthakam">Siksharthakam</option>
               </select>
-            </div>
-
-            {/* No. of People */}
-            <div className="mb-6">
-              <label className="block mb-3 text-gray-700 font-semibold">
-                No. of People Registering (Max 3 * for congregation only)
-              </label>
-              <input
-                type="number"
-                name="peopleCount"
-                value={formData.peopleCount}
-                min="1"
-                max="3"
-                onChange={handleInputChange}
-                onKeyDown={(e) => {
-                  // Prevent entering invalid characters
-                  if (
-                    e.key === "e" ||
-                    e.key === "E" ||
-                    e.key === "+" ||
-                    e.key === "-" ||
-                    e.key === "."
-                  ) {
-                    e.preventDefault();
-                  }
-                }}
-                onBlur={(e) => {
-                  // Ensure value is within range when user leaves the field
-                  const value = Number(e.target.value);
-                  if (value < 1 || value > 3 || isNaN(value)) {
-                    setFormData((prev) => ({ ...prev, peopleCount: 1 }));
-                  }
-                }}
-                className="w-full px-5 py-4 border-2 border-orange-200 rounded-2xl focus:border-orange-500 focus:outline-none transition-all duration-300"
-                placeholder="Enter number (1-3)"
-              />
-              <p className="text-sm text-gray-500 mt-2">
-                Please enter a number between 1 and 3
-              </p>
             </div>
 
             {/* Total Price Display */}
