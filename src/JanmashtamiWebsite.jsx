@@ -94,8 +94,8 @@ export default function JanmashtamiWebsite() {
               <span className="text-white text-xl">🕉️</span>
             </div>
             <div>
-              <div className="text-white font-bold text-lg">Janmashtami 2025</div>
-              <div className="text-orange-200 text-xs">Sreshtha Club • IIT Delhi</div>
+              <div className="text-white font-bold text-lg">Jaipur Kartik Yatra 2025</div>
+              <div className="text-orange-200 text-xs">Jaipur • ISKCON</div>
             </div>
           </div>
 
@@ -174,7 +174,7 @@ export default function JanmashtamiWebsite() {
           </div>
           
           <h1 className="text-5xl md:text-7xl font-extrabold leading-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-orange-300 to-pink-300 mb-4 drop-shadow-lg">
-            जयपुर कार्तिक यात्रा
+            Jaipur Kartik Yatra
           </h1>
           
           <div className="text-2xl md:text-3xl font-bold text-white mb-2">Kartik Yatra 2025</div>
@@ -186,7 +186,7 @@ export default function JanmashtamiWebsite() {
           {/* Event details badge */}
           <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-6 py-3 mb-6">
             <Gift className="w-5 h-5 text-yellow-300" />
-            <span className="text-white font-semibold">Free Entry for All</span>
+            
           </div>
 
           {/* countdown */}
@@ -242,9 +242,9 @@ export default function JanmashtamiWebsite() {
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-6 px-4">
           {[
             { icon: Calendar, title: "Date", value: "August 10, 2025", color: "text-blue-600" },
-            { icon: MapPin, title: "Venue", value: "Kalyan Mandapam, IIT Delhi", color: "text-green-600" },
-            { icon: Gift, title: "Entry", value: "Free for All", color: "text-purple-600" },
-            { icon: Users, title: "Expected", value: "2000+ Devotees", color: "text-orange-600" },
+            { icon: MapPin, title: "Venue", value: " ISKCON, Jaipur", color: "text-green-600" },
+            { icon: Gift, title: "Prasadam", value: "Prasadam", color: "text-purple-600" },
+            { icon: Users, title: "Expected", value: "2000+ Devotees", color: "text-orange-600" }
           ].map((item, idx) => (
             <div key={idx} className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-2xl p-6 text-center shadow-lg hover:scale-105 hover:shadow-xl transition-all border border-orange-100">
               <item.icon className={`mx-auto w-8 h-8 ${item.color} mb-4`} />
@@ -266,14 +266,14 @@ export default function JanmashtamiWebsite() {
         
         <div className="max-w-5xl mx-auto px-4 text-center relative z-10">
           <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-6">
-            About Janmashtami
+            About Yatra
           </h2>
           <div className="w-24 h-1 bg-gradient-to-r from-orange-400 to-red-400 mx-auto mb-8"></div>
           
           <p className="text-lg md:text-xl text-gray-700 max-w-4xl mx-auto leading-relaxed mb-8">
-            Janmashtami celebrates the birth of Lord Krishna — the eighth avatar of Vishnu and the embodiment of love, wisdom, and divine joy. 
+            . 
             This sacred festival brings together devotees from all walks of life to celebrate through devotional songs, cultural performances, 
-            midnight aarti, and the joyous breaking of Dahi Handi.
+            midnight aarti.
           </p>
           
           <div className="grid md:grid-cols-3 gap-8 mt-12">
@@ -452,29 +452,29 @@ export default function JanmashtamiWebsite() {
                     {
                       icon: MapPin,
                       title: "Venue",
-                      value: "Kalyan Mandapam, IIT Delhi",
-                      subtitle: "Hauz Khas, New Delhi - 110016",
+                      value: " ISKCON, Jaipur",
+                      subtitle: "ISKCON, Jaipur - 111111",
                       color: "text-green-600"
                     },
                     {
                       icon: Phone,
                       title: "Contact",
-                      value: "+91-95083-14944",
+                      value: "+91-xxxxx xxxxx",
                       subtitle: "Call for any queries",
                       color: "text-blue-600"
                     },
                     {
                       icon: Mail,
                       title: "Email",
-                      value: "sreshthaclub.cp@gmail.com",
+                      value: "iskonjaipur.cp@gmail.com",
                       subtitle: "For event details and support",
                       color: "text-purple-600"
                     },
                     {
                       icon: Users,
                       title: "Organized By",
-                      value: "Sreshtha Club, IIT Delhi",
-                      subtitle: "Student cultural organization",
+                      value: "ISCKON, Jaipur",
+                      subtitle: "Cultural organization",
                       color: "text-orange-600"
                     }
                   ].map((item, idx) => (
@@ -491,7 +491,7 @@ export default function JanmashtamiWebsite() {
               </div>
 
               <div>
-                <h4 className="text-xl font-bold text-orange-900 mb-4">Follow Sreshtha Club</h4>
+                <h4 className="text-xl font-bold text-orange-900 mb-4">Follow ISKCON Jaipur</h4>
                 <div className="flex gap-4">
                   {[
                     { icon: Instagram, label: "Instagram", color: "hover:bg-pink-600" },
@@ -579,7 +579,7 @@ export default function JanmashtamiWebsite() {
                   <span className="text-2xl">🕉️</span>
                 </div>
                 <div>
-                  <div className="font-bold text-xl">Janmashtami 2025</div>
+                  <div className="font-bold text-xl">Jaipur Kartik Yatra 2025</div>
                   <div className="text-orange-200 text-sm">Sreshtha Club, IIT Delhi</div>
                 </div>
               </div>
@@ -608,7 +608,6 @@ export default function JanmashtamiWebsite() {
               <div className="space-y-2 text-sm text-orange-200">
                 <div>📅 August 10, 2025</div>
                 <div>📍 Kalyan Mandapam, IIT Delhi</div>
-                <div>🎯 Free Entry for All</div>
                 <div>📞 +91-95083-14944</div>
               </div>
             </div>
