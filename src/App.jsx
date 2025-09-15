@@ -1,10 +1,12 @@
-import RoomBookingPortal from './RoomBookingPortal';
+//import RoomBookingPortal from './RoomBookingPortal';
+import JanmashtamiWebsite from './JanmashtamiWebsite'
 
 function App() {
 
   return (
     <>
-      <RoomBookingPortal />
+      {/* <RoomBookingPortal /> */}
+      <JanmashtamiWebsite />
     </>
   )
 }
