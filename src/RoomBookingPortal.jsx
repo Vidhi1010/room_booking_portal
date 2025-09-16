@@ -350,9 +350,8 @@ const RoomBookingPortal = () => {
           {sliderImages.map((_, index) => (
             <div
               key={index}
-              className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                index === currentSlide ? "bg-white" : "bg-white/50"
-              }`}
+              className={`w-3 h-3 rounded-full transition-all duration-300 ${index === currentSlide ? "bg-white" : "bg-white/50"
+                }`}
             />
           ))}
         </div>
@@ -447,11 +446,10 @@ const RoomBookingPortal = () => {
                   <div
                     key={room.id}
                     onClick={() => handleRoomSelect(room.id)}
-                    className={`p-6 border-2 rounded-2xl cursor-pointer transition-all duration-300 ${
-                      formData.roomType === room.id
-                        ? "border-orange-500 bg-gradient-to-r from-orange-50 to-yellow-50 shadow-lg"
-                        : "border-orange-200 hover:border-orange-300 hover:shadow-md"
-                    }`}
+                    className={`p-6 border-2 rounded-2xl cursor-pointer transition-all duration-300 ${formData.roomType === room.id
+                      ? "border-orange-500 bg-gradient-to-r from-orange-50 to-yellow-50 shadow-lg"
+                      : "border-orange-200 hover:border-orange-300 hover:shadow-md"
+                      }`}
                   >
                     <div className="flex justify-between items-center">
                       <div className="flex items-center space-x-3">
@@ -646,11 +644,10 @@ const RoomBookingPortal = () => {
                 await handleFileUpload(formData.selectedFile, e);
               }}
               disabled={isSubmitting}
-              className={`w-full py-5 rounded-2xl text-white font-bold text-lg transition-all duration-300 ${
-                isSubmitting
-                  ? "bg-gray-400"
-                  : "bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:scale-105 hover:shadow-xl shadow-lg"
-              }`}
+              className={`w-full py-5 rounded-2xl text-white font-bold text-lg transition-all duration-300 ${isSubmitting
+                ? "bg-gray-400"
+                : "bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:scale-105 hover:shadow-xl shadow-lg"
+                }`}
             >
               {isSubmitting ? "Processing..." : "Submit"}
             </button>
