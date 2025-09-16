@@ -677,14 +677,6 @@ export default function JanmashtamiWebsite() {
                   <p className="text-gray-600 mb-4 leading-relaxed">
                     {ev.desc}
                   </p>
-                  <div className="text-sm text-gray-500 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" /> {ev.date}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4" /> {ev.time}
-                    </div>
-                  </div>
                 </div>
               </div>
             ))}
