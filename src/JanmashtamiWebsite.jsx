@@ -237,7 +237,6 @@ export default function JanmashtamiWebsite() {
               <div className="text-white font-bold text-lg">
                 Jaipur Kartik Yatra 2025
               </div>
-              <div className="text-orange-200 text-xs">Jaipur • ISKCON</div>
             </div>
           </div>
 
@@ -505,7 +504,7 @@ export default function JanmashtamiWebsite() {
 
 {/* ABOUT */}
 <section
-  id="about"
+  id="aboutevent"
   className="py-20 bg-gradient-to-b from-orange-50 to-yellow-50 relative overflow-hidden"
 >
   <div className="max-w-6xl mx-auto px-4">
@@ -630,50 +629,38 @@ export default function JanmashtamiWebsite() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               {
-                title: "Evening Aarti",
-                date: "August 10, 2025",
-                time: "6:00 PM - 7:30 PM",
-                desc: "Traditional evening prayers and devotional songs to welcome the celebration",
+                title: "Mangal Aarti",
+                desc: "Soulful morning programs to fill your heart with krishna prema",
                 icon: "🪔",
                 gradient: "from-orange-400 to-red-400",
               },
               {
-                title: "Midnight Celebration",
-                date: "August 10-11, 2025",
-                time: "11:30 PM - 12:30 AM",
-                desc: "Sacred midnight aarti marking the birth of Lord Krishna with special prayers",
-                icon: "🌙",
+                title: "Blissful darshans ",
+                desc: "Darshans at Jaipur’s most sacred temples",
+                icon: "🙏",
                 gradient: "from-purple-400 to-pink-400",
               },
               {
-                title: "Dahi Handi",
-                date: "August 11, 2025",
-                time: "10:00 AM - 1:00 PM",
-                desc: "Traditional Dahi Handi competition with teams and exciting cultural performances",
-                icon: "🥛",
+                title: "Hari Kathas",
+                desc: "Enlivening Hari Kathas from senior devotees",
+                icon: "📖",
                 gradient: "from-blue-400 to-cyan-400",
               },
               {
                 title: "Bhajan Sandhya",
-                date: "August 10, 2025",
-                time: "7:30 PM - 9:00 PM",
                 desc: "An enchanting evening of devotional music, bhajans, and spiritual satsang",
                 icon: "🎵",
                 gradient: "from-green-400 to-teal-400",
               },
               {
                 title: "Krishna Leela",
-                date: "August 11, 2025",
-                time: "2:00 PM - 4:00 PM",
                 desc: "Dramatic performances depicting the divine plays and stories of Lord Krishna",
                 icon: "🎭",
                 gradient: "from-yellow-400 to-orange-400",
               },
               {
                 title: "Prasadam Distribution",
-                date: "August 10-11, 2025",
-                time: "Throughout the event",
-                desc: "Sacred food offerings blessed and distributed to all devotees and visitors",
+                desc: "Sacred food offerings blessed and distributed to all devotees",
                 icon: "🍽️",
                 gradient: "from-pink-400 to-rose-400",
               },
@@ -847,14 +834,14 @@ export default function JanmashtamiWebsite() {
               </div>
               <p className="text-orange-200 text-sm leading-relaxed">
                 Join us in celebrating the divine Lord Krishna with devotion,
-                music, and community spirit at ISKCON Jaipur.
+                music, and community.
               </p>
             </div>
 
             <div>
               <h5 className="font-bold text-lg mb-4">Quick Links</h5>
               <div className="space-y-2">
-                {["About Event", "Schedule", "Gallery", "Contact"].map(
+                {["About Event", "Gallery", "Contact"].map(
                   (link) => (
                     <button
                       key={link}
@@ -863,7 +850,7 @@ export default function JanmashtamiWebsite() {
                       }
                       className="block text-orange-200 hover:text-white transition-colors text-sm"
                     >
-                      {link}
+                    {link}
                     </button>
                   )
                 )}
@@ -873,9 +860,9 @@ export default function JanmashtamiWebsite() {
             <div>
               <h5 className="font-bold text-lg mb-4">Event Details</h5>
               <div className="space-y-2 text-sm text-orange-200">
-                <div>📅 August 10, 2025</div>
-                <div>📍 Kalyan Mandapam, IIT Delhi</div>
-                <div>📞 +91-95083-14944</div>
+                <div>📅 October 31, 2025</div>
+                <div>📍 Hotel Amer City Heritage, Jaipur</div>
+                <div>📞 +91-7907737187</div>
               </div>
             </div>
           </div>
