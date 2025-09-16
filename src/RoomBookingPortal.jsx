@@ -119,7 +119,12 @@ const RoomBookingPortal = () => {
     reader.onloadend = async () => {
       const base64Data = reader.result.split(",")[1]; // no need to do extra reading
 
-      const fileName = formData.name.replace(/\s+/g, "_") + "_" + formData.contact + "_" + file.name;
+      const fileName =
+        formData.name.replace(/\s+/g, "_") +
+        "_" +
+        formData.contact +
+        "_" +
+        file.name;
 
       const data = new FormData();
       data.append("name", fileName);
@@ -156,7 +161,8 @@ const RoomBookingPortal = () => {
 
   // Send data to Google Sheets
   const submitToGoogleSheets = async (data) => {
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxl0GFqgmKO6ZDmkdPdGBY6oY6CU76YHU1DGLDrkVQrHA6Q-PRoKIWOrn4Q2nC-iGVu/exec";
+    const GOOGLE_SCRIPT_URL =
+      "https://script.google.com/macros/s/AKfycbxl0GFqgmKO6ZDmkdPdGBY6oY6CU76YHU1DGLDrkVQrHA6Q-PRoKIWOrn4Q2nC-iGVu/exec";
 
     try {
       const response = await fetch(GOOGLE_SCRIPT_URL, {
@@ -314,7 +320,6 @@ const RoomBookingPortal = () => {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-red-50">
       {/* Success Popup */}
       {showSuccessPopup && <SuccessPopup />}
-
       {/* Image Slider Header */}
       <div className="relative h-96 overflow-hidden">
         <div className="absolute inset-0">
@@ -351,7 +356,6 @@ const RoomBookingPortal = () => {
           ))}
         </div>
       </div>
-
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-2xl mx-auto">
           <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 border border-orange-100">
@@ -511,8 +515,29 @@ const RoomBookingPortal = () => {
               </select>
             </div>
 
-            {/* Total Price Display */}
+            {/* Final Price Box */}
             {formData.roomType && (
+              <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-2xl border border-green-200">
+                <div className="text-center">
+                  <p className="text-gray-700 mb-2 font-semibold">
+                    Final Price:
+                  </p>
+                  <p className="text-2xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+                    ₹{currentTotalPrice}
+                  </p>
+
+                  {/* Dynamic Info Text */}
+                  <p className="text-sm text-gray-600 mt-2 italic">
+                    {formData.transport === "delhi"
+                      ? "(Includes internal bus travel, rooms and prasadam. Does not include ToTo or autoricksha.)"
+                      : "(Includes rooms and prasadam. Does not include bus, ToTo or autoricksha.)"}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Total Price Display */}
+            {/* {formData.roomType && (
               <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-2xl border border-green-200">
                 <div className="text-center">
                   <p className="text-gray-700 mb-2">Estimated Total Price:</p>
@@ -521,7 +546,7 @@ const RoomBookingPortal = () => {
                   </p>
                 </div>
               </div>
-            )}
+            )} */}
 
             <div className="container mx-auto px-4 py-12">
               <div className="max-w-md mx-auto bg-white rounded-3xl shadow-2xl p-8 border border-orange-100">
@@ -530,7 +555,8 @@ const RoomBookingPortal = () => {
                     Complete Your Payment
                   </h2>
                   <p className="text-gray-600">
-                    You can reserve your seat by paying just ₹2000 now. The remaining amount can be paid later.
+                    You can reserve your seat by paying just ₹2000 now. The
+                    remaining amount can be paid later.
                     {/* Hello {formData.name}, Book your room with only ₹2000 (Non-refundable) {" "}
                 {selectedRoom?.name}. */}
                   </p>
@@ -564,7 +590,10 @@ const RoomBookingPortal = () => {
                           // Show preview
                           setPaymentProof(URL.createObjectURL(file));
                           // Save file temporarily for upload
-                          setFormData((prev) => ({ ...prev, selectedFile: file }));
+                          setFormData((prev) => ({
+                            ...prev,
+                            selectedFile: file,
+                          }));
                         }
                       }}
                     />
@@ -604,7 +633,6 @@ const RoomBookingPortal = () => {
                       </button>
                     )} */}
                   </div>
-
                 </div>
               </div>
             </div>
@@ -621,18 +649,15 @@ const RoomBookingPortal = () => {
                 : "bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:scale-105 hover:shadow-xl shadow-lg"
                 }`}
             >
-              {isSubmitting
-                ? "Processing..."
-                : "Submit"}
+              {isSubmitting ? "Processing..." : "Submit"}
             </button>
           </div>
         </div>
       </div>
-
       (
       {/* <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-red-50"> */}
-        {/* Slider Header for Payment */}
-        {/* <div className="relative h-80 overflow-hidden">
+      {/* Slider Header for Payment */}
+      {/* <div className="relative h-80 overflow-hidden">
           <div className="absolute inset-0">
             <img
               src={sliderImages[currentSlide]}
