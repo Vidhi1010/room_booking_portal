@@ -10,6 +10,7 @@ const RoomBookingPortal = () => {
     roomType: "",
     transport: "",
     facilitator: "",
+    message: "",
     // peopleCount: 1,
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -40,21 +41,41 @@ const RoomBookingPortal = () => {
 
   const roomOptions = [
     {
-      id: "super",
-      name: "Super Deluxe AC Room (2 bed)",
+      id: "super_with_transport",
+      name: "Super Deluxe AC Room (2 bed) with Transportation",
+      price: "₹6500",
+      basePrice: 6500,
+      icon: <Crown className="w-5 h-5" />,
+      description: "Includes Accommodation, Transportation & Prasadam",
+      transportation: "Yes"
+    },
+    {
+      id: "super_without_transport",
+      name: "Super Deluxe AC Room (2 bed) without Transportation",
       price: "₹5000",
       basePrice: 5000,
       icon: <Crown className="w-5 h-5" />,
-      description: "Luxury room for two guests",
+      description: "Includes only Accommodation & Prasadam",
+      transportation: "No"
     },
     {
-      id: "semi",
-      name: "Semi Deluxe AC Room (2+1 bed)",
+      id: "semi_with_transport",
+      name: "Semi Deluxe AC Room (2+1 bed) with Transportation",
+      price: "₹5200",
+      basePrice: 5200,
+      icon: <Users className="w-5 h-5" />,
+      description: "Includes Accommodation, Transportation & Prasadam",
+      transportation: "Yes"
+    },
+    {
+      id: "semi_without_transport",
+      name: "Semi Deluxe AC Room (2+1 bed) without Transportation",
       price: "₹3700",
       basePrice: 3700,
       icon: <Users className="w-5 h-5" />,
-      description: "Comfortable room for two guests + 1",
-    },
+      description: "Includes only Accommodation & Prasadam",
+      transportation: "No"
+    }
   ];
 
   const handleInputChange = (e) => {
@@ -113,7 +134,11 @@ const RoomBookingPortal = () => {
   };
 
   const handleFileUpload = async (file, e) => {
-    if (!file) return;
+    if (!file || !validateForm()) {
+      alert("Please fill all required fields!");
+      setIsSubmitting(false);
+      return;
+    }
 
     const reader = new FileReader();
     reader.onloadend = async () => {
@@ -162,7 +187,7 @@ const RoomBookingPortal = () => {
   // Send data to Google Sheets
   const submitToGoogleSheets = async (data) => {
     const GOOGLE_SCRIPT_URL =
-      "https://script.google.com/macros/s/AKfycbxl0GFqgmKO6ZDmkdPdGBY6oY6CU76YHU1DGLDrkVQrHA6Q-PRoKIWOrn4Q2nC-iGVu/exec";
+      "https://script.google.com/macros/s/AKfycbwODXNdwrIYs3pvyhtogaMDIRF-nHw9s_JYwE4St8l5e75qXK9tpX-da83kqbyX5F4/exec";
 
     try {
       const response = await fetch(GOOGLE_SCRIPT_URL, {
@@ -182,20 +207,24 @@ const RoomBookingPortal = () => {
     }
   };
 
-  const handleSubmit = async (e, fileUrl) => {
-    e.preventDefault();
+  const validateForm = () => {
     if (
       !formData.name ||
       !formData.contact ||
       !formData.gender ||
       !formData.age ||
       !formData.roomType ||
-      !formData.transport ||
       !formData.facilitator
     ) {
       alert("Please fill in all fields");
-      return;
+      return false;
     }
+
+    return true;
+  }
+
+  const handleSubmit = async (e, fileUrl) => {
+    e.preventDefault();
 
     setIsSubmitting(true);
     try {
@@ -213,10 +242,11 @@ const RoomBookingPortal = () => {
         age: formData.age,
         roomType: formData.roomType,
         roomName: selectedRoom?.name || "",
-        transport: formData.transport,
+        transport: selectedRoom.transportation,
         facilitator: formData.facilitator,
         screenshotUrl: fileUrl || formData.paymentProofUrl || "",
         // peopleCount: formData.peopleCount,
+        message: formData.message || "",
         totalPrice: totalPrice,
         basePrice: (selectedRoom?.basePrice || 0).toString(),
         transportCost: (formData.transport === "delhi" ? 1500 : 0).toString(),
@@ -257,6 +287,7 @@ const RoomBookingPortal = () => {
       roomType: "",
       transport: "",
       facilitator: "",
+      message: "",
       // peopleCount: 1,
     });
     setPaymentProof(null);
@@ -290,12 +321,12 @@ const RoomBookingPortal = () => {
             Your booking information has been successfully saved.
           </p>
 
-          <div className="flex justify-center space-x-4">
+          {/* <div className="flex justify-center space-x-4">
             <button
               onClick={handlePopupClose}
               className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg"
             ></button>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>
@@ -477,7 +508,7 @@ const RoomBookingPortal = () => {
             </div>
 
             {/* Transportation */}
-            <div className="mb-6">
+            {/* <div className="mb-6">
               <label className="block mb-3 text-gray-700 font-semibold">
                 Do you want transportation from Delhi and Jaipur? ?
               </label>
@@ -492,10 +523,10 @@ const RoomBookingPortal = () => {
                 <option value="no">No</option>
                 <option value="delhi">Yes</option>
               </select>
-            </div>
+            </div> */}
 
             {/* Facilitator */}
-            <div className="mb-6">
+            <div className="mb-6 mt-8">
               <label className="block mb-3 text-gray-700 font-semibold">
                 Which preaching area are you connected to?
               </label>
@@ -512,6 +543,24 @@ const RoomBookingPortal = () => {
                 <option value="ISKCON Srinagar">ISKCON Srinagar</option>
                 <option value="Siksharthakam">Siksharthakam</option>
               </select>
+            </div>
+
+            {/* Preferred Room Partner */}
+            <div className="mb-6">
+              <label className="block mb-3 text-gray-700 font-semibold">
+                Preferred Room Partner (Optional)
+              </label>
+              <input
+                type="text"
+                name="message"
+                value={formData.message}
+                onChange={handleInputChange}
+                className="w-full px-5 py-4 border-2 border-orange-200 rounded-2xl focus:border-orange-500 focus:outline-none transition-all duration-300"
+                placeholder="Enter name(s) of devotee(s) you'd prefer to share a room with"
+              />
+              <p className="text-sm text-gray-500 mt-2 italic">
+                ⚠️ Note: We will try to consider this, but final room assignments depend on multiple factors and cannot be guaranteed.
+              </p>
             </div>
 
             {/* Final Price Box */}
@@ -547,7 +596,7 @@ const RoomBookingPortal = () => {
               </div>
             )} */}
 
-            <div className="container mx-auto px-4 py-12">
+            <div className="container mx-auto px-4 py-4">
               <div className="max-w-md mx-auto bg-white rounded-3xl shadow-2xl p-8 border border-orange-100">
                 <div className="text-center mb-8">
                   <h2 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-2">
@@ -571,11 +620,11 @@ const RoomBookingPortal = () => {
                     </span>
                     <div className="flex items-center gap-2 flex-wrap justify-center">
                       <span className="font-semibold text-orange-600 select-all text-sm sm:text-base break-all">
-                        govindam.tkb@ybi
+                        govindam.tkb@ybl
                       </span>
                       <button
                         onClick={() => {
-                          navigator.clipboard.writeText("govindam.tkb@ybi");
+                          navigator.clipboard.writeText("govindam.tkb@ybl@ybl");
                           alert("UPI ID copied!");
                         }}
                         className="px-3 py-1 text-xs sm:text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all whitespace-nowrap"
