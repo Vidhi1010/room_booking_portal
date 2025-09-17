@@ -93,61 +93,61 @@ export default function JanmashtamiWebsite() {
 
   const heroImages = [
     "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=1400&q=80",
-    "https://www.rupanugabhajanashram.com/wp-content/uploads/2023/12/12-sri-sri-radha-Govinda-dev-ji-mandira-featured.jpg",
+    "https://www.rupanugabhajanashram.com/wp-content/uploads/2023/12/12-sri-sri-radha-Govinda-dev-ji-mandira-featured.avif",
   ];
 
   const [gallerySlide, setGallerySlide] = useState(0);
 
   const eventGalleryImages = [
-    "./gallery/1.jpg",
-    "./gallery/7.jpg",
-    "./gallery/5.jpg",
-    "./gallery/14.jpg",
-    "./gallery/19.jpg",
-    "./gallery/27.jpg",
-    "./gallery/30.jpg",
+    "./gallery/1.avif",
+    "./gallery/7.avif",
+    "./gallery/5.avif",
+    "./gallery/14.avif",
+    "./gallery/19.avif",
+    "./gallery/27.avif",
+    "./gallery/30.avif",
   ];
 
   // Gallery images
   const galleryImages = [
-    "./gallery/8.jpg",
-    "./gallery/7.jpg",
-    "./gallery/3.jpg",
-    "./gallery/5.jpg",
-    "./gallery/6.jpg",
-    "./gallery/2.jpg",
-    "./gallery/1.jpg",
-    "./gallery/9.jpg",
-    "./gallery/10.jpg",
-    "./gallery/11.jpg",
-    "./gallery/12.jpg",
-    "./gallery/13.jpg",
-    "./gallery/14.jpg",
-    "./gallery/15.jpg",
-    "./gallery/16.jpg",
-    "./gallery/17.jpg",
-    "./gallery/18.jpg",
-    "./gallery/18.jpg",
-    "./gallery/19.jpg",
-    "./gallery/21.jpg",
-    "./gallery/22.jpg",
-    "./gallery/23.jpg",
-    "./gallery/24.jpg",
-    "./gallery/25.jpg",
-    "./gallery/26.jpg",
-    "./gallery/27.jpg",
-    "./gallery/28.jpg",
-    "./gallery/29.jpg",
-    "./gallery/30.jpg",
-    "./gallery/31.jpg",
-    "./gallery/32.jpg",
-    "./gallery/33.jpg",
-    "./gallery/34.jpg",
-    "./gallery/35.jpg",
-    "./gallery/36.jpg",
-    "./gallery/38.jpg",
-    "./gallery/39.jpg",
-    "./gallery/40.jpg",
+    "./gallery/8.avif",
+    "./gallery/7.avif",
+    "./gallery/3.avif",
+    "./gallery/5.avif",
+    "./gallery/6.avif",
+    "./gallery/2.avif",
+    "./gallery/1.avif",
+    "./gallery/9.avif",
+    "./gallery/10.avif",
+    "./gallery/11.avif",
+    "./gallery/12.avif",
+    "./gallery/13.avif",
+    "./gallery/14.avif",
+    "./gallery/15.avif",
+    "./gallery/16.avif",
+    "./gallery/17.avif",
+    "./gallery/18.avif",
+    "./gallery/19.avif",
+    "./gallery/20.avif",
+    "./gallery/21.avif",
+    "./gallery/22.avif",
+    "./gallery/23.avif",
+    "./gallery/24.avif",
+    "./gallery/25.avif",
+    "./gallery/26.avif",
+    "./gallery/27.avif",
+    "./gallery/28.avif",
+    "./gallery/29.avif",
+    "./gallery/30.avif",
+    "./gallery/31.avif",
+    "./gallery/32.avif",
+    "./gallery/33.avif",
+    "./gallery/34.avif",
+    "./gallery/35.avif",
+    "./gallery/36.avif",
+    "./gallery/38.avif",
+    "./gallery/39.avif",
+    "./gallery/40.avif",
   ];
   const slidesToShow = 1;
   const maxGallerySlide = Math.max(0, galleryImages.length - slidesToShow);
@@ -496,7 +496,7 @@ export default function JanmashtamiWebsite() {
             {/* Left Column - Poster Image */}
             <div className="h-full w-full">
               <img
-                src="./gallery/4.png"
+                src="./gallery/4.avif"
                 alt="Kartik Jaipur Yatra 2025 Poster"
                 className="rounded-2xl shadow-xl w-full h-auto"
                 loading="lazy"
