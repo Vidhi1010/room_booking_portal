@@ -18,6 +18,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { ImageSlider } from "./ImageSlider";
+import { EventCards } from "./EventCards";
 
 const NextArrow = ({ onClick }) => (
   <div
@@ -417,70 +418,6 @@ export default function JanmashtamiWebsite() {
         </div>
       </header>
 
-      {/* QUICK INFO */}
-      <section className="py-12 bg-white shadow-inner">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-6 px-4">
-          {[
-            {
-              icon: Calendar,
-              title: "Yatra Starts in Jaipur",
-              value: "October 31, 2025, 10:00 AM",
-              color: "text-blue-600",
-            },
-            {
-              icon: Calendar,
-              title: "Yatra ends in Jaipur",
-              value: "November 2, 2025, 5:00 PM",
-              color: "text-green-600",
-            },
-            {
-              icon: MapPin,
-              title: "Accommodation",
-              value: "Hotel Amer City Heritage, Jaipur",
-              color: "text-purple-600",
-            },
-            {
-              icon: Users,
-              title: "Expected",
-              value: "200+ Devotees",
-              color: "text-orange-600",
-            },
-          ].map((item, idx) => (
-            <div
-              key={idx}
-              className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-2xl p-6 text-center shadow-lg hover:scale-105 hover:shadow-xl transition-all border border-orange-100"
-            >
-              <item.icon className={`mx-auto w-8 h-8 ${item.color} mb-4`} />
-              <div className="text-2xl font-bold text-gray-800 mb-1">
-                {item.value}
-              </div>
-              <div className="text-sm text-gray-600 font-medium">
-                {item.title}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="py-20 bg-gradient-to-b from-yellow-50 to-orange-50">
-        <div className="max-w-6xl mx-auto px-4 text-center">
-          <h3 className="text-4xl md:text-5xl font-bold text-center bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-4 mb-12">
-            Event Highlights
-          </h3>
-          <div className="w-24 h-1 bg-gradient-to-r from-orange-400 to-red-400 mx-auto mb-12"></div>
-
-          <div className="relative pb-[56.25%] h-0 overflow-hidden rounded-2xl shadow-lg">
-            <iframe
-              className="absolute top-0 left-0 w-full h-full"
-              src="https://www.youtube.com/embed/Tzxcj2Jt3U4"
-              title="Event Video"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            ></iframe>
-          </div>
-        </div>
-      </section>
-
       {/* ABOUT */}
       <section
         id="aboutevent"
@@ -558,6 +495,70 @@ export default function JanmashtamiWebsite() {
             </div>
           </div>
         </div>
+      </section>      
+
+      {/* QUICK INFO */}
+      <section className="py-12 bg-white shadow-inner">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-6 px-4">
+          {[
+            {
+              icon: Calendar,
+              title: "Yatra Starts in Jaipur",
+              value: "October 31, 2025, 10:00 AM",
+              color: "text-blue-600",
+            },
+            {
+              icon: Calendar,
+              title: "Yatra ends in Jaipur",
+              value: "November 2, 2025, 5:00 PM",
+              color: "text-green-600",
+            },
+            {
+              icon: MapPin,
+              title: "Accommodation",
+              value: "Hotel Amer City Heritage, Jaipur",
+              color: "text-purple-600",
+            },
+            {
+              icon: Users,
+              title: "Expected",
+              value: "200+ Devotees",
+              color: "text-orange-600",
+            },
+          ].map((item, idx) => (
+            <div
+              key={idx}
+              className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-2xl p-6 text-center shadow-lg hover:scale-105 hover:shadow-xl transition-all border border-orange-100"
+            >
+              <item.icon className={`mx-auto w-8 h-8 ${item.color} mb-4`} />
+              <div className="text-2xl font-bold text-gray-800 mb-1">
+                {item.value}
+              </div>
+              <div className="text-sm text-gray-600 font-medium">
+                {item.title}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="py-20 bg-gradient-to-b from-yellow-50 to-orange-50">
+        <div className="max-w-6xl mx-auto px-4 text-center">
+          <h3 className="text-4xl md:text-5xl font-bold text-center bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-4 mb-12">
+            Event Highlights
+          </h3>
+          <div className="w-24 h-1 bg-gradient-to-r from-orange-400 to-red-400 mx-auto mb-12"></div>
+
+          <div className="relative pb-[56.25%] h-0 overflow-hidden rounded-2xl shadow-lg">
+            <iframe
+              className="absolute top-0 left-0 w-full h-full"
+              src="https://www.youtube.com/embed/Tzxcj2Jt3U4"
+              title="Event Video"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            ></iframe>
+          </div>
+        </div>
       </section>
 
       {/* EVENTS */}
@@ -567,6 +568,9 @@ export default function JanmashtamiWebsite() {
             Festival Events
           </h3>
           <div className="w-24 h-1 bg-gradient-to-r from-orange-400 to-red-400 mx-auto mb-12"></div>
+
+          <EventCards />
+
           <div className="mb-12">
             <ImageSlider
               settings={{
@@ -617,63 +621,7 @@ export default function JanmashtamiWebsite() {
                 </div>
               ))}
             />
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                title: "Mangal Aarti",
-                desc: "Soulful morning programs to fill your heart with krishna prema",
-                icon: "🪔",
-                gradient: "from-orange-400 to-red-400",
-              },
-              {
-                title: "Blissful darshans ",
-                desc: "Darshans at Jaipur’s most sacred temples",
-                icon: "🙏",
-                gradient: "from-purple-400 to-pink-400",
-              },
-              {
-                title: "Hari Kathas",
-                desc: "Enlivening Hari Kathas from senior devotees",
-                icon: "📖",
-                gradient: "from-blue-400 to-cyan-400",
-              },
-              {
-                title: "Bhajan Sandhya",
-                desc: "An enchanting evening of devotional music, bhajans, and spiritual satsang",
-                icon: "🎵",
-                gradient: "from-green-400 to-teal-400",
-              },
-              {
-                title: "Krishna Leela",
-                desc: "Dramatic performances depicting the divine plays and stories of Lord Krishna",
-                icon: "🎭",
-                gradient: "from-yellow-400 to-orange-400",
-              },
-              {
-                title: "Prasadam Distribution",
-                desc: "Sacred food offerings blessed and distributed to all devotees",
-                icon: "🍽️",
-                gradient: "from-pink-400 to-rose-400",
-              },
-            ].map((ev, i) => (
-              <div
-                key={i}
-                className={`bg-gradient-to-br ${ev.gradient} p-1 rounded-2xl shadow-lg hover:scale-105 transition-all`}
-              >
-                <div className="bg-white rounded-2xl p-6 h-full">
-                  <div className="text-4xl mb-4">{ev.icon}</div>
-                  <h4 className="font-bold text-gray-800 text-xl mb-2">
-                    {ev.title}
-                  </h4>
-                  <p className="text-gray-600 mb-4 leading-relaxed">
-                    {ev.desc}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+          </div>          
         </div>
       </section>
 
@@ -856,7 +804,17 @@ export default function JanmashtamiWebsite() {
 
             <div className="flex items-center gap-4">
               <span className="text-sm text-orange-200">Made with</span>
-              <Heart className="w-4 h-4 text-red-400" />
+              {/* <Heart className="w-4 h-4 text-red-400" /> */}
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                viewBox="0 0 24 24" 
+                width="16" 
+                height="16" 
+                fill="#f87171" 
+                className="text-red-400"
+              >
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>              
               <span className="text-sm text-orange-200">
                 for Krishna devotees
               </span>
