@@ -409,7 +409,7 @@ export default function JanmashtamiWebsite() {
               className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-4 rounded-full font-semibold shadow-xl hover:scale-105 hover:shadow-2xl transition-all flex items-center gap-2"
             >
               <Sparkles className="w-5 h-5" />
-              Join Celebrations
+              Yatra Registration
             </Link>
             <button
               onClick={() => scrollToSection("contact")}
@@ -444,19 +444,19 @@ export default function JanmashtamiWebsite() {
           {[
             {
               icon: Calendar,
-              title: "Start Date",
-              value: "October 31, 2025, 12:00 PM",
+              title: "Yatra Starts in Jaipur",
+              value: "October 31, 2025, 10:00 AM",
               color: "text-blue-600",
             },
             {
               icon: Calendar,
-              title: "End Date",
+              title: "Yatra ends in Jaipur",
               value: "November 2, 2025, 5:00 PM",
               color: "text-green-600",
             },
             {
               icon: MapPin,
-              title: "Venue",
+              title: "Accommodation",
               value: "Hotel Amer City Heritage, Jaipur",
               color: "text-purple-600",
             },
