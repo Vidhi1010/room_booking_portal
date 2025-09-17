@@ -463,7 +463,7 @@ export default function JanmashtamiWebsite() {
             {
               icon: Users,
               title: "Expected",
-              value: "2000+ Devotees",
+              value: "200+ Devotees",
               color: "text-orange-600",
             },
           ].map((item, idx) => (
