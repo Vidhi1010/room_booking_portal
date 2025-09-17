@@ -94,11 +94,9 @@ export default function JanmashtamiWebsite() {
   const heroImages = [
     "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=1400&q=80",
     "https://www.rupanugabhajanashram.com/wp-content/uploads/2023/12/12-sri-sri-radha-Govinda-dev-ji-mandira-featured.jpg",
-    "https://images.unsplash.com/photo-1578928948310-8df65d68b8a8?w=1400&q=80",
-    "https://images.unsplash.com/photo-1627894483866-8ce2e6d16913?w=1400&q=80",
   ];
 
-  const [gallerySlide, setGallerySlide] = useState(0); // Add this line
+  const [gallerySlide, setGallerySlide] = useState(0);
 
   const eventGalleryImages = [
     "./gallery/1.jpg",
@@ -108,9 +106,9 @@ export default function JanmashtamiWebsite() {
     "./gallery/19.jpg",
     "./gallery/27.jpg",
     "./gallery/30.jpg",
-  ]
+  ];
 
-  // Replace your heroImages array with this:
+  // Gallery images
   const galleryImages = [
     "./gallery/8.jpg",
     "./gallery/7.jpg",
@@ -150,7 +148,6 @@ export default function JanmashtamiWebsite() {
     "./gallery/38.jpg",
     "./gallery/39.jpg",
     "./gallery/40.jpg",
-    // ... add all your image paths here
   ];
   const slidesToShow = 1;
   const maxGallerySlide = Math.max(0, galleryImages.length - slidesToShow);
@@ -373,13 +370,8 @@ export default function JanmashtamiWebsite() {
           </div>
 
           <p className="text-lg md:text-xl text-orange-200 mb-6 max-w-3xl mx-auto">
-            🙏
+            🙏🙏🙏
           </p>
-
-          {/* Event details badge */}
-          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-6 py-3 mb-6">
-            <Gift className="w-5 h-5 text-yellow-300" />
-          </div>
 
           {/* countdown */}
           <div className="flex justify-center gap-3 mb-8">
@@ -422,19 +414,6 @@ export default function JanmashtamiWebsite() {
 
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
           <ChevronDown className="w-8 h-8 text-white/80" />
-        </div>
-
-        {/* Slide indicators */}
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex gap-2">
-          {heroImages.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setCurrentSlide(i)}
-              className={`w-3 h-3 rounded-full transition-all ${
-                i === currentSlide ? "bg-white" : "bg-white/40"
-              }`}
-            />
-          ))}
         </div>
       </header>
 
@@ -484,86 +463,102 @@ export default function JanmashtamiWebsite() {
       </section>
 
       <section className="py-20 bg-gradient-to-b from-yellow-50 to-orange-50">
-  <div className="max-w-6xl mx-auto px-4 text-center">
-    <h3 className="text-4xl md:text-5xl font-bold text-center bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-4 mb-12">
-      Event Highlights
-    </h3>
-    <div className="w-24 h-1 bg-gradient-to-r from-orange-400 to-red-400 mx-auto mb-12"></div>
+        <div className="max-w-6xl mx-auto px-4 text-center">
+          <h3 className="text-4xl md:text-5xl font-bold text-center bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-4 mb-12">
+            Event Highlights
+          </h3>
+          <div className="w-24 h-1 bg-gradient-to-r from-orange-400 to-red-400 mx-auto mb-12"></div>
 
-    <div className="relative pb-[56.25%] h-0 overflow-hidden rounded-2xl shadow-lg">
-      <iframe
-        className="absolute top-0 left-0 w-full h-full"
-        src="https://www.youtube.com/embed/Tzxcj2Jt3U4"
-        title="Event Video"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowFullScreen
-      ></iframe>
-    </div>
-  </div>
-</section>
-
-{/* ABOUT */}
-<section
-  id="aboutevent"
-  className="py-20 bg-gradient-to-b from-orange-50 to-yellow-50 relative overflow-hidden"
->
-  <div className="max-w-6xl mx-auto px-4">
-    <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-6 text-center md:text-center">
-      About Yatra
-    </h2>
-    <div className="w-24 h-1 bg-gradient-to-r from-orange-400 to-red-400 mx-auto mb-12"></div>
-
-
-    <div className="grid md:grid-cols-2 gap-12 items-center">
-      {/* Left Column - Poster Image */}
-      <div className="h-full w-full">
-        <img
-          src="./gallery/4.png"
-          alt="Kartik Jaipur Yatra 2025 Poster"
-          className="rounded-2xl shadow-xl w-full h-auto"
-          loading="lazy"
-        />
-      </div>
-
-      {/* Right Column - Text + Button */}
-      <div className="text-gray-700 space-y-4 leading-relaxed text-lg md:text-xl">
-        <p>
-          In the sacred month of Kartik, when every step taken towards devotion brings multiplied blessings, we invite you to embark on a soul-nourishing journey — the Kartik Jaipur Yatra 2025.
-        </p>
-        <p>
-          Over three days, devotees will immerse themselves in the divine atmosphere of Jaipur, visiting historic temples where the presence of the Lord is deeply felt — Govind Dev Ji, Radha Gopinath, Radha Madhav, Galtaji, Khole Ke Hanuman Ji, and the serene Kanak Bagh.
-        </p>
-        <p>
-          This yatra is more than a pilgrimage; it is an opportunity to pause from daily routines and reconnect with what truly matters — satsang, seva, kirtan, and darshan. Surrounded by the company of devotees and guided under the divine association of HG Sundar Gopal Prabhu ji and HG Ashraya Prabhu ji, the holy names resound in every heart, filling the soul with joy, peace, and strength.
-        </p>
-
-        <p className="font-semibold text-orange-700">✨ Why Join?</p>
-        <ul className="list-disc list-inside space-y-2">
-          <li>Receive the mercy of Jaipur’s ancient deities.</li>
-          <li>Deepen your devotion through kirtan, association, and discourses.</li>
-          <li>Experience the warmth of a vibrant devotee community.</li>
-          <li>Recharge spiritually while enjoying the beauty of Jaipur’s sacred heritage.</li>
-        </ul>
-
-        <p>
-          ✨ Whether you come seeking blessings, association, or simply the joy of serving, the Kartik Jaipur Yatra 2025 will leave your heart enriched and uplifted.
-        </p>
-
-        {/* Register Button */}
-        <div className="mt-6">
-          <Link
-            to="/room-booking"
-            className="inline-block bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-4 rounded-full font-semibold shadow-xl hover:scale-105 transition-all"
-          >
-            Register Now
-          </Link>
+          <div className="relative pb-[56.25%] h-0 overflow-hidden rounded-2xl shadow-lg">
+            <iframe
+              className="absolute top-0 left-0 w-full h-full"
+              src="https://www.youtube.com/embed/Tzxcj2Jt3U4"
+              title="Event Video"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            ></iframe>
+          </div>
         </div>
-      </div>
-    </div>
-  </div>
-</section>
+      </section>
 
+      {/* ABOUT */}
+      <section
+        id="aboutevent"
+        className="py-20 bg-gradient-to-b from-orange-50 to-yellow-50 relative overflow-hidden"
+      >
+        <div className="max-w-6xl mx-auto px-4">
+          <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-6 text-center md:text-center">
+            About Yatra
+          </h2>
+          <div className="w-24 h-1 bg-gradient-to-r from-orange-400 to-red-400 mx-auto mb-12"></div>
 
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            {/* Left Column - Poster Image */}
+            <div className="h-full w-full">
+              <img
+                src="./gallery/4.png"
+                alt="Kartik Jaipur Yatra 2025 Poster"
+                className="rounded-2xl shadow-xl w-full h-auto"
+                loading="lazy"
+              />
+            </div>
+
+            {/* Right Column - Text + Button */}
+            <div className="text-gray-700 space-y-4 leading-relaxed text-lg md:text-xl">
+              <p>
+                In the sacred month of Kartik, when every step taken towards
+                devotion brings multiplied blessings, we invite you to embark on
+                a soul-nourishing journey — the Kartik Jaipur Yatra 2025.
+              </p>
+              <p>
+                Over three days, devotees will immerse themselves in the divine
+                atmosphere of Jaipur, visiting historic temples where the
+                presence of the Lord is deeply felt — Govind Dev Ji, Radha
+                Gopinath, Radha Madhav, Galtaji, Khole Ke Hanuman Ji, and the
+                serene Kanak Bagh.
+              </p>
+              <p>
+                This yatra is more than a pilgrimage; it is an opportunity to
+                pause from daily routines and reconnect with what truly matters
+                — satsang, seva, kirtan, and darshan. Surrounded by the company
+                of devotees and guided under the divine association of HG Sundar
+                Gopal Prabhu ji and HG Ashraya Prabhu ji, the holy names resound
+                in every heart, filling the soul with joy, peace, and strength.
+              </p>
+
+              <p className="font-semibold text-orange-700">✨ Why Join?</p>
+              <ul className="list-disc list-inside space-y-2">
+                <li>Receive the mercy of Jaipur’s ancient deities.</li>
+                <li>
+                  Deepen your devotion through kirtan, association, and
+                  discourses.
+                </li>
+                <li>Experience the warmth of a vibrant devotee community.</li>
+                <li>
+                  Recharge spiritually while enjoying the beauty of Jaipur’s
+                  sacred heritage.
+                </li>
+              </ul>
+
+              <p>
+                ✨ Whether you come seeking blessings, association, or simply
+                the joy of serving, the Kartik Jaipur Yatra 2025 will leave your
+                heart enriched and uplifted.
+              </p>
+
+              {/* Register Button */}
+              <div className="mt-6">
+                <Link
+                  to="/room-booking"
+                  className="inline-block bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-4 rounded-full font-semibold shadow-xl hover:scale-105 transition-all"
+                >
+                  Register Now
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* EVENTS */}
       <section id="events" className="py-20 bg-white">
@@ -572,7 +567,7 @@ export default function JanmashtamiWebsite() {
             Festival Events
           </h3>
           <div className="w-24 h-1 bg-gradient-to-r from-orange-400 to-red-400 mx-auto mb-12"></div>
-          <div className="mb-12" >
+          <div className="mb-12">
             <ImageSlider
               settings={{
                 dots: true,
@@ -622,9 +617,7 @@ export default function JanmashtamiWebsite() {
                 </div>
               ))}
             />
-
           </div>
-          
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
@@ -832,19 +825,17 @@ export default function JanmashtamiWebsite() {
             <div>
               <h5 className="font-bold text-lg mb-4">Quick Links</h5>
               <div className="space-y-2">
-                {["About Event", "Gallery", "Contact"].map(
-                  (link) => (
-                    <button
-                      key={link}
-                      onClick={() =>
-                        scrollToSection(link.toLowerCase().replace(" ", ""))
-                      }
-                      className="block text-orange-200 hover:text-white transition-colors text-sm"
-                    >
+                {["About Event", "Gallery", "Contact"].map((link) => (
+                  <button
+                    key={link}
+                    onClick={() =>
+                      scrollToSection(link.toLowerCase().replace(" ", ""))
+                    }
+                    className="block text-orange-200 hover:text-white transition-colors text-sm"
+                  >
                     {link}
-                    </button>
-                  )
-                )}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -860,8 +851,7 @@ export default function JanmashtamiWebsite() {
 
           <div className="border-t border-white/20 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="text-sm text-orange-200">
-              © {new Date().getFullYear()}. All rights
-              reserved.
+              © {new Date().getFullYear()}. All rights reserved.
             </div>
 
             <div className="flex items-center gap-4">
