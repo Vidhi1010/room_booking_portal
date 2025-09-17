@@ -287,8 +287,7 @@ const RoomBookingPortal = () => {
           </p>
 
           <p className="text-gray-600 mb-6">
-            Your booking information has been successfully saved. Redirecting to
-            payment portal...
+            Your booking information has been successfully saved.
           </p>
 
           <div className="flex justify-center space-x-4">
@@ -296,7 +295,6 @@ const RoomBookingPortal = () => {
               onClick={handlePopupClose}
               className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg"
             >
-              Continue to Payment
             </button>
           </div>
         </div>

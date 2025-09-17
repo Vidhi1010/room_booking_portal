@@ -231,7 +231,7 @@ export default function JanmashtamiWebsite() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600 flex items-center justify-center shadow-lg border-2 border-white/20">
-              <span className="text-white text-xl">🕉️</span>
+              <span className="text-white text-xl">🦚</span>
             </div>
             <div>
               <div className="text-white font-bold text-lg">
@@ -589,7 +589,7 @@ export default function JanmashtamiWebsite() {
                 ),
                 appendDots: (dots) => (
                   <div className="mt-4">
-                    <ul className="flex justify-center gap-3 list-none p-0 m-0">
+                    <ul className="flex justify-center gap-1 list-none p-0 m-0">
                       {dots.map((dot, i) => (
                         <li key={i} className="relative">
                           {dot.props.className.includes("slick-active") ? (
@@ -609,15 +609,15 @@ export default function JanmashtamiWebsite() {
                   className="px-2 flex justify-center items-center"
                   style={{
                     width: "100%", // full width of slider
-                    height: "800px", // fixed height for all images
-                    minHeight: "400px", // ensures all slides have same height
+                    height: "600px", // fixed height for all images
+                    minHeight: "300px", // ensures all slides have same height
                     maxHeight: "400px",
                   }}
                 >
                   <img
                     src={src}
                     alt={`Gallery ${i + 1}`}
-                    className="w-[1200px] h-[800px] object-cover rounded-2xl shadow-lg"
+                    className="w-full h-[600px] object-cover rounded-2xl shadow-lg"
                   />
                 </div>
               ))}
@@ -713,7 +713,7 @@ export default function JanmashtamiWebsite() {
                 ),
                 appendDots: (dots) => (
                   <div className="mt-4">
-                    <ul className="flex justify-center gap-3 list-none p-0 m-0">
+                    <ul className="flex justify-center gap-1 list-none p-0 m-0">
                       {dots.map((dot, i) => (
                         <li key={i} className="relative">
                           {dot.props.className.includes("slick-active") ? (
@@ -733,15 +733,15 @@ export default function JanmashtamiWebsite() {
                   className="px-2 flex justify-center items-center"
                   style={{
                     width: "100%", // full width of slider
-                    height: "800px", // fixed height for all images
-                    minHeight: "400px", // ensures all slides have same height
+                    height: "600px", // fixed height for all images
+                    minHeight: "300px", // ensures all slides have same height
                     maxHeight: "400px",
                   }}
                 >
                   <img
                     src={src}
                     alt={`Gallery ${i + 1}`}
-                    className="w-[1200px] h-[800px] object-cover rounded-2xl shadow-lg"
+                    className="w-full h-[600px] object-cover rounded-2xl shadow-lg"
                   />
                 </div>
               ))}
@@ -815,13 +815,12 @@ export default function JanmashtamiWebsite() {
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 flex items-center justify-center shadow-lg">
-                  <span className="text-2xl">🕉️</span>
+                  <span className="text-2xl">🦚</span>
                 </div>
                 <div>
                   <div className="font-bold text-xl">
                     Jaipur Kartik Yatra 2025
                   </div>
-                  <div className="text-orange-200 text-sm">ISKCON, Jaipur</div>
                 </div>
               </div>
               <p className="text-orange-200 text-sm leading-relaxed">
@@ -861,7 +860,7 @@ export default function JanmashtamiWebsite() {
 
           <div className="border-t border-white/20 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="text-sm text-orange-200">
-              © {new Date().getFullYear()} Sreshtha Club, IIT Delhi. All rights
+              © {new Date().getFullYear()}. All rights
               reserved.
             </div>
 
