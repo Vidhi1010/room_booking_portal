@@ -479,8 +479,7 @@ const RoomBookingPortal = () => {
             {/* Transportation */}
             <div className="mb-6">
               <label className="block mb-3 text-gray-700 font-semibold">
-                Do you want transportation from Delhi and Jaipur?
-?
+                Do you want transportation from Delhi and Jaipur? ?
               </label>
               <select
                 name="transport"
@@ -561,80 +560,82 @@ const RoomBookingPortal = () => {
                 </div>
 
                 <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-2xl p-4 sm:p-6 mb-6 text-center border border-orange-200 max-w-md mx-auto">
-  <h3 className="text-lg font-semibold text-gray-800 mb-4">
-    Scan QR Code
-  </h3>
-  
-  {/* ✅ UPI ID Section */}
-  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mb-6">
-    <span className="text-gray-800 font-medium text-sm sm:text-base">UPI ID:</span>
-    <div className="flex items-center gap-2 flex-wrap justify-center">
-      <span className="font-semibold text-orange-600 select-all text-sm sm:text-base break-all">
-        govindam.tkb@ybi
-      </span>
-      <button
-        onClick={() => {
-          navigator.clipboard.writeText("govindam.tkb@ybi");
-          alert("UPI ID copied!");
-        }}
-        className="px-3 py-1 text-xs sm:text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all whitespace-nowrap"
-      >
-        Copy
-      </button>
-    </div>
-  </div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                    Scan QR Code
+                  </h3>
 
-  <div className="bg-white rounded-xl p-3 sm:p-4 inline-block shadow-lg">
-    <img
-      src={`./images/qrCode.jpg`}
-      alt="QR Code"
-      className="mx-auto w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 border rounded-lg"
-    />
-  </div>
+                  {/* ✅ UPI ID Section */}
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mb-6">
+                    <span className="text-gray-800 font-medium text-sm sm:text-base">
+                      UPI ID:
+                    </span>
+                    <div className="flex items-center gap-2 flex-wrap justify-center">
+                      <span className="font-semibold text-orange-600 select-all text-sm sm:text-base break-all">
+                        govindam.tkb@ybi
+                      </span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText("govindam.tkb@ybi");
+                          alert("UPI ID copied!");
+                        }}
+                        className="px-3 py-1 text-xs sm:text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all whitespace-nowrap"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
 
-  {/* Upload Payment Proof */}
-  <div className="mt-6 text-center">
-    {/* Hidden File Input */}
-    <input
-      type="file"
-      accept="image/*"
-      id="fileUpload"
-      className="hidden"
-      onChange={(e) => {
-        const file = e.target.files[0];
-        if (file) {
-          // Show preview
-          setPaymentProof(URL.createObjectURL(file));
-          // Save file temporarily for upload
-          setFormData((prev) => ({
-            ...prev,
-            selectedFile: file,
-          }));
-        }
-      }}
-    />
+                  <div className="bg-white rounded-xl p-3 sm:p-4 inline-block shadow-lg">
+                    <img
+                      src={`./images/qrCode.jpg`}
+                      alt="QR Code"
+                      className="mx-auto w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 border rounded-lg"
+                    />
+                  </div>
 
-    {/* Styled Button */}
-    <label
-      htmlFor="fileUpload"
-      className="w-full inline-block bg-orange-100 bg-opacity-60 text-orange-700 py-3 rounded-xl font-semibold text-center cursor-pointer hover:bg-orange-200 hover:bg-opacity-80 hover:scale-105 transition-all duration-300 text-sm sm:text-base"
-    >
-      Choose File
-    </label>
+                  {/* Upload Payment Proof */}
+                  <div className="mt-6 text-center">
+                    {/* Hidden File Input */}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id="fileUpload"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          // Show preview
+                          setPaymentProof(URL.createObjectURL(file));
+                          // Save file temporarily for upload
+                          setFormData((prev) => ({
+                            ...prev,
+                            selectedFile: file,
+                          }));
+                        }
+                      }}
+                    />
 
-    {/* Preview */}
-    {paymentProof && (
-      <div className="mt-4">
-        <p className="text-sm text-gray-600 mb-2">Preview:</p>
-        <img
-          src={paymentProof}
-          alt="Payment Proof Preview"
-          className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 object-cover rounded-xl border mx-auto"
-        />
-      </div>
-    )}
-  </div>
-</div>
+                    {/* Styled Button */}
+                    <label
+                      htmlFor="fileUpload"
+                      className="w-full inline-block bg-orange-100 bg-opacity-60 text-orange-700 py-3 rounded-xl font-semibold text-center cursor-pointer hover:bg-orange-200 hover:bg-opacity-80 hover:scale-105 transition-all duration-300 text-sm sm:text-base"
+                    >
+                      Choose File
+                    </label>
+
+                    {/* Preview */}
+                    {paymentProof && (
+                      <div className="mt-4">
+                        <p className="text-sm text-gray-600 mb-2">Preview:</p>
+                        <img
+                          src={paymentProof}
+                          alt="Payment Proof Preview"
+                          className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 object-cover rounded-xl border mx-auto"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
