@@ -190,7 +190,7 @@ export default function JanmashtamiWebsite() {
   useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date().getTime();
-      const eventDate = new Date("2025-10-31T12:00:00").getTime(); // Event start
+      const eventDate = new Date("2025-10-05T23:59:59").getTime(); // Event start
       const diff = eventDate - now;
 
       if (diff <= 0) {

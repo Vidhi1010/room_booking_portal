@@ -1,6 +1,7 @@
+import { lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import JanmashtamiWebsite from "./JanmashtamiWebsite";
-import RoomBookingPortal from "./RoomBookingPortal";
+const RoomBookingPortal = lazy(() => import('./RoomBookingPortal'));
 
 function App() {
   return (

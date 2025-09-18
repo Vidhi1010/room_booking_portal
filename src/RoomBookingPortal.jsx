@@ -624,7 +624,7 @@ const RoomBookingPortal = () => {
                       </span>
                       <button
                         onClick={() => {
-                          navigator.clipboard.writeText("govindam.tkb@ybl@ybl");
+                          navigator.clipboard.writeText("govindam.tkb@ybl");
                           alert("UPI ID copied!");
                         }}
                         className="px-3 py-1 text-xs sm:text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all whitespace-nowrap"
