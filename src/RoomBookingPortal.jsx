@@ -573,13 +573,6 @@ const RoomBookingPortal = () => {
                   <p className="text-2xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
                     ₹{currentTotalPrice}
                   </p>
-
-                  {/* Dynamic Info Text */}
-                  <p className="text-sm text-gray-600 mt-2 italic">
-                    {formData.transport === "delhi"
-                      ? "(Includes internal bus travel, rooms and prasadam. Does not include ToTo or autoricksha.)"
-                      : "(Includes rooms and prasadam. Does not include bus, ToTo or autoricksha.)"}
-                  </p>
                 </div>
               </div>
             )}
