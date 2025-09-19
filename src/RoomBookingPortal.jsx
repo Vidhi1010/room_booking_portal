@@ -401,7 +401,7 @@ const RoomBookingPortal = () => {
 
             <div>
               <h6 className="mb-3 text-gray-700 text-m italic">
-                *Age eligibility 16 to 35 years
+                Eligibility: <b>Chanting minimum 8 rounds is mandatory</b>
               </h6>
             </div>
             <br />
@@ -489,26 +489,17 @@ const RoomBookingPortal = () => {
                 onChange={(e) => {
                   const value = parseInt(e.target.value, 10);
                   if (!isNaN(value)) {
-                    if (value < 8) {
-                      setFormData((prev) => ({ ...prev, chantingRounds: 8 }));
-                    } else if (value > 16) {
-                      setFormData((prev) => ({ ...prev, chantingRounds: 16 }));
-                    } else {
-                      setFormData((prev) => ({
-                        ...prev,
-                        chantingRounds: value,
-                      }));
-                    }
+                    setFormData((prev) => ({
+                      ...prev,
+                      chantingRounds: value,
+                    }));
                   } else {
                     setFormData((prev) => ({ ...prev, chantingRounds: "" }));
                   }
                 }}
-                placeholder="Enter rounds (min 8, max 16)"
+                placeholder="Enter chanting rounds"
                 className="w-full px-5 py-4 border-2 border-orange-200 rounded-2xl focus:border-orange-500 focus:outline-none transition-all duration-300"
               />
-              <p className="mt-2 text-sm text-gray-500">
-                Please enter between 8 and 16 rounds (minimum 8 required).
-              </p>
             </div>
 
             {/* Room Selection */}
