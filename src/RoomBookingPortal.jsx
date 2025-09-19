@@ -11,6 +11,7 @@ const RoomBookingPortal = () => {
     transport: "",
     facilitator: "",
     message: "",
+    chantingRounds: "",
     // peopleCount: 1,
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -47,7 +48,7 @@ const RoomBookingPortal = () => {
       basePrice: 6500,
       icon: <Crown className="w-5 h-5" />,
       description: "Includes Accommodation, Transportation & Prasadam",
-      transportation: "Yes"
+      transportation: "Yes",
     },
     {
       id: "super_without_transport",
@@ -56,7 +57,7 @@ const RoomBookingPortal = () => {
       basePrice: 5000,
       icon: <Crown className="w-5 h-5" />,
       description: "Includes only Accommodation & Prasadam",
-      transportation: "No"
+      transportation: "No",
     },
     {
       id: "semi_with_transport",
@@ -65,7 +66,7 @@ const RoomBookingPortal = () => {
       basePrice: 5200,
       icon: <Users className="w-5 h-5" />,
       description: "Includes Accommodation, Transportation & Prasadam",
-      transportation: "Yes"
+      transportation: "Yes",
     },
     {
       id: "semi_without_transport",
@@ -74,8 +75,8 @@ const RoomBookingPortal = () => {
       basePrice: 3700,
       icon: <Users className="w-5 h-5" />,
       description: "Includes only Accommodation & Prasadam",
-      transportation: "No"
-    }
+      transportation: "No",
+    },
   ];
 
   const handleInputChange = (e) => {
@@ -187,7 +188,7 @@ const RoomBookingPortal = () => {
   // Send data to Google Sheets
   const submitToGoogleSheets = async (data) => {
     const GOOGLE_SCRIPT_URL =
-      "https://script.google.com/macros/s/AKfycbwODXNdwrIYs3pvyhtogaMDIRF-nHw9s_JYwE4St8l5e75qXK9tpX-da83kqbyX5F4/exec";
+      "https://script.google.com/macros/s/AKfycbzp-bh_9tzuhnZ2cOnFi04dHwdLZKILMMKWSKVZfSwAXlWjqso1yNWvziYx2UfZD6c/exec";
 
     try {
       const response = await fetch(GOOGLE_SCRIPT_URL, {
@@ -214,14 +215,15 @@ const RoomBookingPortal = () => {
       !formData.gender ||
       !formData.age ||
       !formData.roomType ||
-      !formData.facilitator
+      !formData.facilitator ||
+      !formData.chantingRounds
     ) {
       alert("Please fill in all fields");
       return false;
     }
 
     return true;
-  }
+  };
 
   const handleSubmit = async (e, fileUrl) => {
     e.preventDefault();
@@ -240,6 +242,7 @@ const RoomBookingPortal = () => {
         contact: formData.contact,
         gender: formData.gender,
         age: formData.age,
+        chantingRounds: formData.chantingRounds || 8,
         roomType: formData.roomType,
         roomName: selectedRoom?.name || "",
         transport: selectedRoom.transportation,
@@ -288,6 +291,7 @@ const RoomBookingPortal = () => {
       transport: "",
       facilitator: "",
       message: "",
+      chantingRounds: "",
       // peopleCount: 1,
     });
     setPaymentProof(null);
@@ -395,6 +399,12 @@ const RoomBookingPortal = () => {
               <div className="w-20 h-1 bg-gradient-to-r from-orange-500 to-red-500 mx-auto rounded-full"></div>
             </div>
 
+            <div>
+              <h6 className="mb-3 text-gray-700 text-m italic">
+                *Age eligibility 16 to 35 years
+              </h6>
+            </div>
+            <br />
             {/* Name */}
             <div className="mb-6">
               <label className="block mb-3 text-gray-700 font-semibold">
@@ -463,6 +473,42 @@ const RoomBookingPortal = () => {
                   </label>
                 ))}
               </div>
+            </div>
+
+            {/* Chanting Rounds Input */}
+            <div className="mb-6">
+              <label className="block mb-3 text-gray-700 font-semibold">
+                Chanting Rounds
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="16"
+                name="chantingRounds"
+                value={formData.chantingRounds || ""}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  if (!isNaN(value)) {
+                    if (value < 8) {
+                      setFormData((prev) => ({ ...prev, chantingRounds: 8 }));
+                    } else if (value > 16) {
+                      setFormData((prev) => ({ ...prev, chantingRounds: 16 }));
+                    } else {
+                      setFormData((prev) => ({
+                        ...prev,
+                        chantingRounds: value,
+                      }));
+                    }
+                  } else {
+                    setFormData((prev) => ({ ...prev, chantingRounds: "" }));
+                  }
+                }}
+                placeholder="Enter rounds (min 8, max 16)"
+                className="w-full px-5 py-4 border-2 border-orange-200 rounded-2xl focus:border-orange-500 focus:outline-none transition-all duration-300"
+              />
+              <p className="mt-2 text-sm text-gray-500">
+                Please enter between 8 and 16 rounds (minimum 8 required).
+              </p>
             </div>
 
             {/* Room Selection */}
@@ -559,7 +605,8 @@ const RoomBookingPortal = () => {
                 placeholder="Enter name(s) of devotee(s) you'd prefer to share a room with"
               />
               <p className="text-sm text-gray-500 mt-2 italic">
-                ⚠️ Note: We will try to consider this, but final room assignments depend on multiple factors and cannot be guaranteed.
+                ⚠️ Note: We will try to consider this, but final room
+                assignments depend on multiple factors and cannot be guaranteed.
               </p>
             </div>
 
@@ -685,6 +732,7 @@ const RoomBookingPortal = () => {
             <button
               onClick={async (e) => {
                 setIsSubmitting(true);
+                debugger;
                 await handleFileUpload(formData.selectedFile, e);
               }}
               disabled={isSubmitting}

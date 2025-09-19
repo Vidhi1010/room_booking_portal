@@ -128,7 +128,7 @@ export default function JanmashtamiWebsite() {
     "./gallery/16.jpg",
     "./gallery/17.jpg",
     "./gallery/18.jpg",
-    "./gallery/18.jpg",
+    "./gallery/20.jpg",
     "./gallery/19.jpg",
     "./gallery/21.jpg",
     "./gallery/22.jpg",
