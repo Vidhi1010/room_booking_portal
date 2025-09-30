@@ -1,12 +1,41 @@
-# React + Vite
+# Kartik Jaipur Yatra 2025 – Registration Portal
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A full-stack web application for managing **yatra registrations** with a React-based frontend and Google Sheets backend.  
+Participants can register, select rooms, enter chanting rounds, and upload payment screenshots. Data is stored directly in Google Sheets via an Apps Script web API.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## ✨ Features
 
-## Expanding the ESLint configuration
+- 🎉 **Landing Page** with hero section, countdown timer, yatra poster, and event details.  
+- 🛕 **About Section** describing temples and schedule.  
+- 🖼️ **Gallery Slider** with lazy-loaded festival images.  
+- 📝 **Registration Form** (RoomBookingPortal):
+  - Name, contact, gender, age, facilitator
+  - Room selection with pricing
+  - Transport preferences
+  - Chanting rounds (min 8, max 16)
+  - Screenshot upload (payment proof)
+  - Auto-calculated total price
+- ✅ **Google Sheets Integration** – Form submissions are saved with timestamp.  
+- 📱 **Responsive Design** – Works on mobile, tablet, and desktop.  
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## 🛠️ Tech Stack
+
+### Frontend
+- [React](https://react.dev/) (with functional components + hooks)
+- [React Router](https://reactrouter.com/) for navigation
+- [Tailwind CSS](https://tailwindcss.com/) for styling
+- [Lucide Icons](https://lucide.dev/) for icons
+- [Framer Motion](https://www.framer.com/motion/) for animations
+- [Swiper.js](https://swiperjs.com/) for image slider with lazy loading
+
+### Backend
+- [Google Apps Script](https://developers.google.com/apps-script) as a serverless API
+- Data stored in **Google Sheets**
+
+---
+
+
