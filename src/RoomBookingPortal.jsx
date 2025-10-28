@@ -779,9 +779,7 @@ import { useEffect, useState } from "react";
 
 export default function BookingPage() {
   const sliderImages = [
-    "https://images.unsplash.com/photo-1548013146-72479768bada?q=80&w=1470&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1613652353783-11b7b90010b2?q=80&w=1471&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1564501049412-61c2a3083791?q=80&w=1470&auto=format&fit=crop",
+    "https://www.rupanugabhajanashram.com/wp-content/uploads/2023/12/12-sri-sri-radha-Govinda-dev-ji-mandira-featured.jpg",
   ];
 
   const [currentSlide, setCurrentSlide] = useState(0);
