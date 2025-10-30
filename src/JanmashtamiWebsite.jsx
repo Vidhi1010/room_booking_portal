@@ -375,7 +375,7 @@ export default function JanmashtamiWebsite() {
           </p>
 
           {/* countdown */}
-          <div className="flex justify-center gap-3 mb-8">
+          {/* <div className="flex justify-center gap-3 mb-8">
             {[
               { label: "Days", value: timeLeft.days },
               { label: "Hours", value: timeLeft.hours },
@@ -394,16 +394,30 @@ export default function JanmashtamiWebsite() {
                 </div>
               </div>
             ))}
+          </div> */}
+
+          {/* donation */}
+          <div className="text-center mt-6">
+            <button
+              onClick={() =>
+                window.open("https://pages.razorpay.com/iskjs", "_blank")
+              }
+              className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-4 rounded-full font-semibold shadow-xl hover:scale-105 hover:shadow-2xl transition-all flex items-center gap-2 justify-center mx-auto"
+            >
+              🙏 Donate & Support the Yatra
+            </button>
+            <br />
+            <br />
           </div>
 
           <div className="flex gap-4 justify-center flex-wrap">
-            <Link
+            {/* <Link
               to="/room-booking"
               className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-4 rounded-full font-semibold shadow-xl hover:scale-105 hover:shadow-2xl transition-all flex items-center gap-2"
             >
               <Sparkles className="w-5 h-5" />
               Yatra Registration
-            </Link>
+            </Link> */}
             <button
               onClick={() => scrollToSection("contact")}
               className="border-2 border-white/60 text-white px-8 py-4 rounded-full font-semibold hover:bg-white hover:text-orange-900 transition-all backdrop-blur-md bg-white/10"
@@ -495,7 +509,7 @@ export default function JanmashtamiWebsite() {
             </div>
           </div>
         </div>
-      </section>      
+      </section>
 
       {/* QUICK INFO */}
       <section className="py-12 bg-white shadow-inner">
@@ -621,7 +635,7 @@ export default function JanmashtamiWebsite() {
                 </div>
               ))}
             />
-          </div>          
+          </div>
         </div>
       </section>
 
@@ -805,16 +819,16 @@ export default function JanmashtamiWebsite() {
             <div className="flex items-center gap-4">
               <span className="text-sm text-orange-200">Made with</span>
               {/* <Heart className="w-4 h-4 text-red-400" /> */}
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                viewBox="0 0 24 24" 
-                width="16" 
-                height="16" 
-                fill="#f87171" 
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="#f87171"
                 className="text-red-400"
               >
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-              </svg>              
+              </svg>
               <span className="text-sm text-orange-200">
                 for Krishna devotees
               </span>
