@@ -434,7 +434,7 @@ export default function JanmashtamiWebsite() {
 
       {/* ABOUT */}
       <section
-        id="aboutevent"
+        id="about"
         className="py-20 bg-gradient-to-b from-orange-50 to-yellow-50 relative overflow-hidden"
       >
         <div className="max-w-6xl mx-auto px-4">
