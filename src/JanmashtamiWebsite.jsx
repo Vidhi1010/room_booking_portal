@@ -233,7 +233,7 @@ export default function JanmashtamiWebsite() {
             </div>
             <div>
               <div className="text-white font-bold text-lg">
-                Jaipur Kartik Yatra 2025
+                Vrindavan Kartik Yatra 2026
               </div>
             </div>
           </div>
@@ -363,15 +363,15 @@ export default function JanmashtamiWebsite() {
           </div>
 
           <h1 className="text-5xl md:text-7xl font-extrabold leading-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-orange-300 to-pink-300 mb-4 drop-shadow-lg">
-            Jaipur Kartik Yatra 2025
+            Vrindavan Kartik Yatra 2026
           </h1>
 
           <div className="text-2xl md:text-3xl font-bold text-white mb-2">
-            A sacred spiritual journey through Jaipur’s most revered temples
+            A sacred spiritual journey through Vrindavan’s most revered temples
           </div>
 
           <p className="text-lg md:text-xl text-orange-200 mb-6 max-w-3xl mx-auto">
-            🙏🙏🙏
+            🙏🙏🙏 Coming Soon 🙏🙏🙏
           </p>
 
           {/* countdown */}
