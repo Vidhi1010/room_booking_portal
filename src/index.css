@@ -13,7 +13,7 @@ html {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0a0a0f;
+  background: var(--t-scrollbar-track, #F7F0E4);
 }
 ::-webkit-scrollbar-thumb {
   background: rgba(251, 191, 36, 0.3);
@@ -26,7 +26,7 @@ html {
 /* selection color */
 ::selection {
   background: rgba(251, 191, 36, 0.3);
-  color: white;
+  color: var(--t-selection-color, #2D1810);
 }
 
 /* bento card shimmer */
