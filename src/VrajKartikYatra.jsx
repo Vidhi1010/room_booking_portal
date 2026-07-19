@@ -510,6 +510,7 @@ export default function VrajKartikYatra() {
             <img
               src="/images/poster_vraj_yatra.jpeg"
               alt="Kartik Vraj Yatra 2026 Poster"
+              loading="lazy"
               className="relative rounded-2xl shadow-2xl w-full object-cover border border-white/10"
             />
             <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/10" />
@@ -608,6 +609,7 @@ export default function VrajKartikYatra() {
                     <img
                       src={item.img}
                       alt={item.title}
+                      loading="lazy"
                       className="absolute inset-0 w-full h-full object-cover transition-transform duration-[1.2s] ease-out group-hover:scale-110"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 group-hover:via-black/50 transition-all duration-700" />
