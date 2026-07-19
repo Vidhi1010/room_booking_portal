@@ -1,13 +1,13 @@
 import { lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import JanmashtamiWebsite from "./JanmashtamiWebsite";
+import VrajKartikYatra from "./VrajKartikYatra";
 const RoomBookingPortal = lazy(() => import('./RoomBookingPortal'));
 
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<JanmashtamiWebsite />} />
+        <Route path="/" element={<VrajKartikYatra />} />
         <Route path="/room-booking" element={<RoomBookingPortal />} />
       </Routes>
     </Router>
