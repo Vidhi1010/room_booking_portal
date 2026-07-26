@@ -15,8 +15,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { defaultTheme } from "./themes";
-
-const API_BASE = "https://23bqlz3il2.execute-api.ap-south-1.amazonaws.com/stg";
+import { API_BASE } from "./config";
 
 const GENDER_OPTIONS = ["Male", "Female"];
 

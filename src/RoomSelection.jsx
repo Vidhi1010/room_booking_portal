@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Users, ArrowRight, ArrowLeft, Bed, Loader2 } from "lucide-react";
 import { defaultTheme } from "./themes";
-
-const API_BASE = "https://23bqlz3il2.execute-api.ap-south-1.amazonaws.com/stg";
+import { API_BASE } from "./config";
 
 const ROOM_ICONS = {
   "2bed": "🛏️🛏️",
