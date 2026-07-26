@@ -13,10 +13,10 @@ const ROOM_ICONS = {
 };
 
 const ROOM_LABELS = {
-  "2bed": "Private Double",
-  "2+1bed": "Triple Room",
-  "4bed": "Quad Room",
-  "6bed": "Dormitory",
+  "2bed": "Private Double with Prasadam",
+  "2+1bed": "Triple Room with Prasadam",
+  "4bed": "Quad Room with Prasadam",
+  "6bed": "Dormitory with Prasadam",
 };
 
 export default function RoomSelection() {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -66,6 +66,61 @@ function SelectField({ label, value, onChange, options, error, required }) {
   );
 }
 
+function AutocompleteField({ label, value, onChange, suggestions, placeholder, error }) {
+  const [open, setOpen] = useState(false);
+  const [filtered, setFiltered] = useState([]);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    if (value) {
+      const q = value.toLowerCase();
+      setFiltered(suggestions.filter((s) => s.toLowerCase().includes(q)).slice(0, 8));
+    } else {
+      setFiltered([]);
+    }
+  }, [value, suggestions]);
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <label className="block text-sm font-medium mb-1.5">{label}</label>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+        className={`w-full px-4 py-3 rounded-xl text-sm outline-none transition-all duration-200 focus:ring-2 focus:ring-amber-500/30 ${error ? "ring-2 ring-red-400/50" : ""}`}
+        style={INPUT_STYLE}
+      />
+      {open && filtered.length > 0 && (
+        <ul
+          className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto rounded-xl shadow-lg text-sm"
+          style={{ backgroundColor: "var(--t-bg)", border: "1px solid var(--t-border-strong)" }}
+        >
+          {filtered.map((item) => (
+            <li
+              key={item}
+              onClick={() => { onChange(item); setOpen(false); }}
+              className="px-4 py-2.5 cursor-pointer transition-colors hover:bg-amber-500/10"
+            >
+              {item}
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+    </div>
+  );
+}
+
 const emptyMember = () => ({
   name: "",
   contact_number: "",
@@ -79,6 +134,11 @@ export default function Checkout() {
   const navigate = useNavigate();
   const room = location.state?.room;
   const theme = defaultTheme;
+
+  // scroll to top on mount
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   // redirect if no room selected
   if (!room) {
@@ -123,6 +183,9 @@ export default function Checkout() {
   const [transportOpted, setTransportOpted] = useState(false);
   const [selectedTransport, setSelectedTransport] = useState(null);
 
+  // user names for room partner autocomplete
+  const [userNames, setUserNames] = useState([]);
+
   // fetch transport options
   useEffect(() => {
     fetch(`${API_BASE}/get-transport`)
@@ -131,6 +194,15 @@ export default function Checkout() {
         const list = Array.isArray(data) ? data : data.transport || data.body || [];
         setTransportOptions(list);
         if (list.length === 1) setSelectedTransport(list[0]);
+      })
+      .catch(() => {});
+
+    // fetch user names
+    fetch(`${API_BASE}/get-users`)
+      .then((res) => res.ok ? res.json() : { users: [] })
+      .then((data) => {
+        const names = Array.isArray(data?.users) ? data.users : [];
+        setUserNames(names);
       })
       .catch(() => {});
   }, []);
@@ -237,7 +309,7 @@ export default function Checkout() {
         // show modal with payment instructions
         setShowPaymentModal(true);
       } else {
-        setResult({ success: false, message: data.message || "Booking failed. Please try again." });
+        setResult({ success: false, message: data.error || "Booking failed. Please try again." });
       }
     } catch {
       setResult({ success: false, message: "Network error. Please check your connection." });
@@ -332,7 +404,7 @@ export default function Checkout() {
           <div className="flex items-center gap-3">
             <Bed className="w-5 h-5" style={{ color: "var(--t-accent-from)" }} />
             <div>
-              <p className="font-bold">{room.name}</p>
+              <p className="font-bold">{`${room.name} with Prasadam`}</p>
               <p className="text-xs" style={{ color: "var(--t-text-muted)" }}>
                 Up to {room.capacity} guests · ₹{room.price}/person
               </p>
@@ -465,11 +537,12 @@ export default function Checkout() {
                 />
               </div>
               <div className="mb-8">
-                <InputField
+                <AutocompleteField
                   label="Preferred Room Partner"
                   value={primary.preferred_room_partner}
                   onChange={(v) => updatePrimary("preferred_room_partner", v)}
-                  placeholder="Name of preferred partner (optional)"
+                  suggestions={userNames}
+                  placeholder="Start typing a name..."
                 />
               </div>
             </motion.div>
