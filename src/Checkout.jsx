@@ -730,6 +730,12 @@ export default function Checkout() {
               </motion.div>
             )}
 
+            {/* registration note */}
+            <div className="p-4 rounded-xl text-center mb-4" style={{ backgroundColor: "var(--t-bg-alt)", border: "1px solid var(--t-border)" }}>
+              <p className="text-sm font-semibold" style={{ color: "var(--t-accent-from)" }}>💰 Book your seat today with just ₹500</p>
+              <p className="text-xs mt-1" style={{ color: "var(--t-text-muted)" }}>Pay the registration amount now and settle the remaining balance later.</p>
+            </div>
+
             {/* submit */}
             <motion.div
               initial={{ opacity: 0 }}
