@@ -4,6 +4,8 @@ import VrajKartikYatra from "./VrajKartikYatra";
 const RoomBookingPortal = lazy(() => import('./RoomBookingPortal'));
 const RoomSelection = lazy(() => import('./RoomSelection'));
 const Checkout = lazy(() => import('./Checkout'));
+const AdminLogin = lazy(() => import('./AdminLogin'));
+const AdminDashboard = lazy(() => import('./AdminDashboard'));
 
 function App() {
   return (
@@ -14,6 +16,8 @@ function App() {
           <Route path="/register" element={<RoomSelection />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/room-booking" element={<RoomBookingPortal />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin" element={<AdminDashboard />} />
         </Routes>
       </Suspense>
     </Router>

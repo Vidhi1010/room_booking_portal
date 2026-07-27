@@ -10,7 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.3.2",
     "@tailwindcss/vite": "^4.1.13",
+    "antd": "^6.5.2",
     "framer-motion": "^12.42.2",
     "lucide-react": "^0.544.0",
     "react": "^19.1.1",
