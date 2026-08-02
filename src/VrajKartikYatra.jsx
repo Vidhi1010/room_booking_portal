@@ -311,10 +311,10 @@ export default function VrajKartikYatra() {
               <Sun className="w-5 h-5 text-white" />
             </div>
             <span className="text-lg font-bold tracking-wide" style={{ background: `linear-gradient(to right, var(--t-accent-from), var(--t-accent-to))`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              Kartik Vraj Yatra
+              Vraj Dham Yatra
             </span>
           </motion.div>
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium" style={{ color: "var(--t-nav-text)" }}>
+          <div className="hidden md:flex items-center gap-8 text-sm font-medium" style={{ color: "#f54f00" }}>
             {[
               ["about", "About"],
               ["highlights", "Highlights"],
@@ -406,7 +406,7 @@ export default function VrajKartikYatra() {
           {/* main title — stays constant */}
           <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black leading-[0.9] tracking-tight">
             <span className="block bg-gradient-to-r from-amber-200 via-amber-400 to-orange-400 bg-clip-text text-transparent">
-              Kartik Vraj
+              Vraj Dham
             </span>
             <span className="block text-white/90 mt-2">Yatra 2026</span>
           </h1>
@@ -694,11 +694,16 @@ export default function VrajKartikYatra() {
               Yatra{" "}
               <span style={{ background: `linear-gradient(to right, var(--t-accent-from), var(--t-accent-to))`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Itinerary</span>
             </h2>
-            <p className="mt-4 text-lg max-w-2xl mx-auto" style={{ color: "var(--t-text-muted)" }}>Six days of divine experiences, carefully planned for your spiritual transformation.</p>
+            <p className="mt-4 text-lg max-w-2xl mx-auto" style={{ color: "var(--t-text-muted)" }}>Three days of divine experiences, carefully planned for your spiritual transformation.</p>
           </div>
           <div className="relative">
             <div className="absolute left-8 md:left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-amber-400/40 via-amber-400/20 to-transparent" />
-            {itinerary.map((item, i) => (
+            {/* itinerary items - to be announced soon */}
+            <div className="text-center py-16">
+              <p className="text-lg font-semibold" style={{ color: "var(--t-accent-from)" }}>To be announced soon</p>
+              <p className="text-sm mt-2" style={{ color: "var(--t-text-muted)" }}>Detailed day-wise itinerary will be shared shortly. Stay tuned!</p>
+            </div>
+            {/* {itinerary.map((item, i) => (
               <motion.div key={i} initial={{ opacity: 0, x: i % 2 === 0 ? -40 : 40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1, duration: 0.6 }} className={`relative flex items-start gap-8 mb-12 ${i % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"}`}>
                 <div className="absolute left-8 md:left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-amber-500 z-10 shadow-lg shadow-amber-400/30" style={{ border: "4px solid var(--t-bg)" }} />
                 <div className={`ml-16 md:ml-0 md:w-[calc(50%-2rem)] ${i % 2 === 0 ? "md:pr-8 md:text-right" : "md:pl-8"}`}>
@@ -707,7 +712,7 @@ export default function VrajKartikYatra() {
                   <p className="text-sm leading-relaxed" style={{ color: "var(--t-text-muted)" }}>{item.desc}</p>
                 </div>
               </motion.div>
-            ))}
+            ))} */}
           </div>
         </div>
       </Section>
