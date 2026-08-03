@@ -158,6 +158,7 @@ export default function Checkout() {
       gender: primary.gender,
       chanting_rounds: Number(primary.chanting_rounds),
       preaching_area_connected: primary.preaching_area_connected.trim(),
+      facilitator_name: primary.facilitator_name?.trim() || undefined,
       preferred_room_partner: primary.preferred_room_partner?.trim() || undefined,
       room_id: room.id,
       transport_opted: transportOpted,
@@ -169,6 +170,7 @@ export default function Checkout() {
             age: Number(m.age),
             gender: m.gender,
             chanting_rounds: Number(m.chanting_rounds),
+            facilitator_name: m.facilitator_name?.trim() || undefined,
           }))
         : undefined,
     };
@@ -294,17 +296,35 @@ export default function Checkout() {
                 <Bed className="w-4 h-4" />
                 Room Selected
               </h2>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-xl font-bold">{room.name} with Prasadam + Internal Travel</h3>
-                  <div className="flex items-center gap-4 mt-2">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold">{room.name}</h3>
+                  <div className="flex items-center gap-4 mt-1">
                     <div className="flex items-center gap-1.5 text-sm" style={{ color: "var(--t-text-muted)" }}>
                       <Users className="w-4 h-4" style={{ color: "var(--t-accent-from)" }} />
-                      Up to {room.capacity} guests
+                      Up to {room.capacity} beds
                     </div>
-                    <div className="text-sm" style={{ color: "var(--t-text-muted)" }}>
+                    <div className="text-sm font-semibold" style={{ color: "var(--t-accent-from)" }}>
                       ₹{room.price}/person
                     </div>
+                  </div>
+
+                  <div className="mt-4 pt-3" style={{ borderTop: "1px solid var(--t-border)" }}>
+                    <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "var(--t-text-muted)" }}>What's Included</p>
+                    <ul className="space-y-1.5 text-sm" style={{ color: "var(--t-text-secondary)" }}>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-green-500" />
+                        <span>Yatra Fees <span style={{ color: "var(--t-text-faint)" }}>(seminar hall + lecture hall facilities)</span></span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-green-500" />
+                        <span>3 days Prasadam</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-green-500" />
+                        <span>Internal Travel <span style={{ color: "var(--t-text-faint)" }}>(bus facilities within Vraj)</span></span>
+                      </li>
+                    </ul>
                   </div>
                 </div>
                 {room.img && (
@@ -359,6 +379,10 @@ export default function Checkout() {
                   <div>
                     <span className="flex items-center gap-1" style={{ color: "var(--t-text-faint)" }}><MapPin className="w-3 h-3" />Preaching Area</span>
                     <p className="font-semibold">{primary.preaching_area_connected}</p>
+                  </div>
+                  <div>
+                    <span style={{ color: "var(--t-text-faint)" }}>Facilitator</span>
+                    <p className="font-semibold">{primary.facilitator_name}</p>
                   </div>
                 </div>
                 {primary.preferred_room_partner && (
@@ -535,6 +559,35 @@ export default function Checkout() {
               </p>
               <p className="text-sm mt-1.5" style={{ color: "var(--t-text-muted)" }}>
                 Pay at least ₹{minPayment} now and settle the remaining balance later.
+              </p>
+            </motion.div>
+
+            {/* ── Yatra Schedule ── */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.36 }}
+              className="p-5 rounded-2xl mb-4 flex items-start gap-3"
+              style={{ backgroundColor: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)" }}
+            >
+              <span className="text-lg flex-shrink-0">🗓️</span>
+              <div className="text-sm" style={{ color: "var(--t-text-secondary)" }}>
+                <p><strong>Yatra starts:</strong> 2nd October, 9:00 AM</p>
+                <p className="mt-1"><strong>Yatra ends:</strong> 4th October, 7:00 PM</p>
+              </div>
+            </motion.div>
+
+            {/* ── Early Arrival Note ── */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.37 }}
+              className="p-5 rounded-2xl mb-4 flex items-start gap-3"
+              style={{ backgroundColor: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)" }}
+            >
+              <span className="text-lg flex-shrink-0">📌</span>
+              <p className="text-sm" style={{ color: "var(--t-text-secondary)" }}>
+                If you are arriving a day prior to the yatra, please contact <strong>Apurv Prem Prabhu (97114 60737)</strong> to make a separate booking for that night.
               </p>
             </motion.div>
 

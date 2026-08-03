@@ -122,6 +122,7 @@ const emptyMember = () => ({
   age: "",
   gender: "",
   chanting_rounds: "",
+  facilitator_name: "",
 });
 
 export default function RoomSelection() {
@@ -146,6 +147,7 @@ export default function RoomSelection() {
     gender: "",
     chanting_rounds: "",
     preaching_area_connected: "",
+    facilitator_name: "",
     preferred_room_partner: "",
   });
 
@@ -236,6 +238,8 @@ export default function RoomSelection() {
       errs.chanting_rounds = "Required";
     if (!primary.preaching_area_connected.trim())
       errs.preaching_area_connected = "Required";
+    if (!primary.facilitator_name.trim())
+      errs.facilitator_name = "Required";
     if (!selectedRoomType) errs.room = "Please select a room";
 
     members.forEach((m, i) => {
@@ -246,6 +250,7 @@ export default function RoomSelection() {
       if (!m.gender) errs[`member_${i}_gender`] = "Required";
       if (m.chanting_rounds === "" || m.chanting_rounds < 0)
         errs[`member_${i}_chanting_rounds`] = "Required";
+      if (!m.facilitator_name.trim()) errs[`member_${i}_facilitator_name`] = "Required";
     });
 
     setErrors(errs);
@@ -337,7 +342,8 @@ export default function RoomSelection() {
             <InputField label="Chanting Rounds" type="number" value={primary.chanting_rounds} onChange={(v) => updatePrimary("chanting_rounds", v)} placeholder="Daily rounds" error={errors.chanting_rounds} required />
             <SelectField label="Preaching Area" value={primary.preaching_area_connected} onChange={(v) => updatePrimary("preaching_area_connected", v)} options={["Gita Essence", "ISKCON Jia Sarai", "ISKCON Srinagar", "Siksharthakam"]} error={errors.preaching_area_connected} required />
           </div>
-          <div className="mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+            <InputField label="Facilitator Name" value={primary.facilitator_name} onChange={(v) => updatePrimary("facilitator_name", v)} placeholder="Enter facilitator name" error={errors.facilitator_name} required />
             <AutocompleteField label="Preferred Room Partner" value={primary.preferred_room_partner} onChange={(v) => updatePrimary("preferred_room_partner", v)} suggestions={userNames} placeholder="Start typing a name..." />
           </div>
         </motion.div>
@@ -525,6 +531,7 @@ export default function RoomSelection() {
                     <InputField label="Contact Number" type="tel" value={member.contact_number} onChange={(v) => updateMember(i, "contact_number", v)} placeholder="10-digit phone" error={errors[`member_${i}_contact_number`]} required />
                     <SelectField label="Gender" value={member.gender} onChange={(v) => updateMember(i, "gender", v)} options={GENDER_OPTIONS} error={errors[`member_${i}_gender`]} required />
                     <InputField label="Chanting Rounds" type="number" value={member.chanting_rounds} onChange={(v) => updateMember(i, "chanting_rounds", v)} placeholder="Daily rounds" error={errors[`member_${i}_chanting_rounds`]} required />
+                    <InputField label="Facilitator Name" value={member.facilitator_name} onChange={(v) => updateMember(i, "facilitator_name", v)} placeholder="Enter facilitator name" error={errors[`member_${i}_facilitator_name`]} required />
                   </div>
                 </motion.div>
               ))}
