@@ -260,7 +260,7 @@ export default function VrajKartikYatra() {
     {
       icon: <Star className="w-7 h-7" />,
       title: "Temple Darshans",
-      desc: "Special darshan arrangements at Banke Bihari, Radha Raman, ISKCON, Prem Mandir & many more sacred temples.",
+      desc: "Special darshan arrangements at various lila sthalis & many more sacred temples.",
       stat: "15+",
       statLabel: "Temples",
       span: "md:col-span-2"
@@ -314,7 +314,7 @@ export default function VrajKartikYatra() {
               Vraj Dham Yatra
             </span>
           </motion.div>
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium" style={{ color: "#f54f00" }}>
+          <div className="hidden md:flex items-center gap-8 text-sm font-medium" style={{ color: navSolid ? "var(--t-text)" : "#ffffff" }}>
             {[
               ["about", "About"],
               ["highlights", "Highlights"],
@@ -328,7 +328,7 @@ export default function VrajKartikYatra() {
                 className="transition-colors duration-300 relative group"
                 style={{ "--hover-color": "var(--t-accent-hover)" }}
                 onMouseEnter={(e) => e.currentTarget.style.color = "var(--t-accent-hover)"}
-                onMouseLeave={(e) => e.currentTarget.style.color = ""}
+                onMouseLeave={(e) => e.currentTarget.style.color = navSolid ? "var(--t-text)" : "#ffffff"}
               >
                 {label}
                 <span className="absolute -bottom-1 left-0 w-0 h-[2px] group-hover:w-full transition-all duration-300" style={{ backgroundColor: "var(--t-accent-from)" }} />
