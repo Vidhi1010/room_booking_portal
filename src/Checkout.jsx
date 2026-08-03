@@ -60,7 +60,7 @@ export default function Checkout() {
   const roomTotal = room.price * totalOccupants;
   const transportTotal = transportOpted && selectedTransport ? selectedTransport.price * totalOccupants : 0;
   const totalAmount = roomTotal + transportTotal;
-  const minPayment = 1 * totalOccupants;
+  const minPayment = 2000 * totalOccupants;
 
   // UI state
   const [payAmount, setPayAmount] = useState(minPayment);
