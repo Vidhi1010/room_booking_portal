@@ -852,7 +852,7 @@ export default function VrajKartikYatra() {
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
-            <p className="mt-6 text-sm" style={{ color: "var(--t-text-faint)" }}>Registration opens soon • Stay tuned for updates</p>
+            {/* <p className="mt-6 text-sm" style={{ color: "var(--t-text-faint)" }}>Registration opens soon • Stay tuned for updates</p> */}
           </motion.div>
         </div>
       </Section>
