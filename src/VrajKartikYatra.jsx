@@ -490,24 +490,6 @@ export default function VrajKartikYatra() {
               </button>
             ))}
           </div>
-
-          {/* stats strip */}
-          <div className="mt-10 flex items-center justify-center gap-8 sm:gap-16 text-white/50">
-            {[
-              ["3", "Days"],
-              ["200+", "Devotees"],
-              ["15+", "Visits"],
-            ].map(([num, label]) => (
-              <div key={label} className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-amber-400">
-                  {num}
-                </div>
-                <div className="text-xs sm:text-sm mt-1 uppercase tracking-wider">
-                  {label}
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* scroll indicator */}
