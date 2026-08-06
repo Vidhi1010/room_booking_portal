@@ -483,7 +483,7 @@ export default function RoomSelection() {
                 </span>
                 Additional Members
                 <span className="text-sm font-normal" style={{ color: "var(--t-text-muted)" }}>
-                  ({members.length}/{maxMembers})
+                  ({members.length}/{maxMembers}) — sharing the same room
                 </span>
               </h2>
               {members.length < maxMembers && (
@@ -606,6 +606,20 @@ export default function RoomSelection() {
             ))}
           </motion.div>
         )}
+
+        {/* ── Early Arrival Note ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.37 }}
+          className="p-5 rounded-2xl mb-4 flex items-start gap-3"
+          style={{ backgroundColor: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)" }}
+        >
+          <span className="text-lg flex-shrink-0">📌</span>
+          <p className="text-sm" style={{ color: "var(--t-text-secondary)" }}>
+            If you are arriving a day prior to the yatra, please contact <strong>Apurv Prem Prabhu (97114 60737)</strong> to make a separate booking for that night.
+          </p>
+        </motion.div>
 
         {/* continue button */}
         <motion.div

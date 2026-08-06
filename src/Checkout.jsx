@@ -65,6 +65,7 @@ export default function Checkout() {
   // UI state
   const [payAmount, setPayAmount] = useState(minPayment);
   const [submitting, setSubmitting] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const [toast, setToast] = useState(null);
   const [bookingId, setBookingId] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState(null);
@@ -577,20 +578,6 @@ export default function Checkout() {
               </div>
             </motion.div>
 
-            {/* ── Early Arrival Note ── */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.37 }}
-              className="p-5 rounded-2xl mb-4 flex items-start gap-3"
-              style={{ backgroundColor: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)" }}
-            >
-              <span className="text-lg flex-shrink-0">📌</span>
-              <p className="text-sm" style={{ color: "var(--t-text-secondary)" }}>
-                If you are arriving a day prior to the yatra, please contact <strong>Apurv Prem Prabhu (97114 60737)</strong> to make a separate booking for that night.
-              </p>
-            </motion.div>
-
             {/* ── Cancellation Policy ── */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -616,11 +603,22 @@ export default function Checkout() {
               className="flex flex-col items-center gap-3"
             >
               {!bookingId ? (
-                <div className="flex flex-col items-center gap-3">
+                <div className="flex flex-col items-center gap-4">
+                  <label className="flex items-start gap-3 cursor-pointer select-none max-w-md">
+                    <input
+                      type="checkbox"
+                      checked={agreed}
+                      onChange={(e) => setAgreed(e.target.checked)}
+                      className="mt-1 w-4 h-4 rounded accent-amber-500 flex-shrink-0"
+                    />
+                    <span className="text-sm" style={{ color: "var(--t-text-secondary)" }}>
+                      I agree to the no cancellation/no refund policy.
+                    </span>
+                  </label>
                   <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={submitting || payAmount < minPayment || payAmount > totalAmount}
+                    disabled={submitting || !agreed || payAmount < minPayment || payAmount > totalAmount}
                     className="group flex items-center gap-2 px-10 py-4 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white font-bold text-lg transition-all duration-300 hover:shadow-2xl hover:shadow-amber-500/30 hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
                   >
                     {submitting ? (

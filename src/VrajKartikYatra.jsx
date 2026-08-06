@@ -22,6 +22,7 @@ import {
   Music,
   Camera,
   X,
+  Clock,
 } from "lucide-react";
 import { defaultTheme } from "./themes";
 
@@ -177,6 +178,24 @@ export default function VrajKartikYatra() {
   const [navSolid, setNavSolid] = useState(false);
   const [lightboxImg, setLightboxImg] = useState(null);
   const [heroSlide, setHeroSlide] = useState(0);
+  const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    const target = new Date("2026-09-15T23:59:59").getTime();
+    const tick = () => {
+      const now = Date.now();
+      const diff = Math.max(0, target - now);
+      setCountdown({
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+        minutes: Math.floor((diff / (1000 * 60)) % 60),
+        seconds: Math.floor((diff / 1000) % 60),
+      });
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const heroSlides = [
     {
@@ -238,10 +257,10 @@ export default function VrajKartikYatra() {
     },
     {
       icon: <Calendar className="w-7 h-7" />,
-      title: "Kartik Month",
-      desc: "Experience the most auspicious month of the Vedic calendar with daily kirtans, aartis, and parikramas.",
-      stat: "30",
-      statLabel: "Sacred Days",
+      title: "Mangal Aarti",
+      desc: "Experience the bliss of early morning mangal aarti in Govardhan — a spiritually uplifting start to each day.",
+      stat: "3",
+      statLabel: "Aartis",
     },
     {
       icon: <Users className="w-7 h-7" />,
@@ -307,11 +326,11 @@ export default function VrajKartikYatra() {
             animate={{ opacity: 1, x: 0 }}
             className="flex items-center gap-3"
           >
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center">
-              <Sun className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center">
+              <img src="https://iskcontt.com/_nuxt/iskcon_logo_fill.BxaQBvzU.png" alt="ISKCON" className="w-full h-full object-cover" />
             </div>
             <span className="text-lg font-bold tracking-wide" style={{ background: `linear-gradient(to right, var(--t-accent-from), var(--t-accent-to))`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              Vraj Dham Yatra
+              ISKCON Yatra
             </span>
           </motion.div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium" style={{ color: navSolid ? "var(--t-text)" : "#ffffff" }}>
@@ -500,6 +519,36 @@ export default function VrajKartikYatra() {
           <ChevronDown className="w-8 h-8 text-amber-400/60" />
         </motion.div>
       </header>
+
+      {/* ═══════════════════ COUNTDOWN TIMER ═══════════════════ */}
+      <div className="relative py-8 px-6" style={{ backgroundColor: "var(--t-bg-alt)", borderBottom: "1px solid var(--t-border)" }}>
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-5 sm:gap-8">
+          <div className="flex items-center gap-2">
+            <Clock className="w-5 h-5" style={{ color: "var(--t-accent-from)" }} />
+            <span className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--t-accent-from)" }}>Registration closes in</span>
+          </div>
+          <div className="flex items-center gap-3">
+            {[
+              [countdown.days, "Days"],
+              [countdown.hours, "Hrs"],
+              [countdown.minutes, "Min"],
+              [countdown.seconds, "Sec"],
+            ].map(([value, label]) => (
+              <div key={label} className="flex items-center gap-1">
+                <span
+                  className="inline-flex items-center justify-center w-12 h-12 rounded-xl text-xl font-black tabular-nums"
+                  style={{ backgroundColor: "var(--t-card-tint)", border: "1px solid var(--t-border)", color: "var(--t-text)" }}
+                >
+                  {String(value).padStart(2, "0")}
+                </span>
+                <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--t-text-muted)" }}>{label}</span>
+                {label !== "Sec" && <span className="text-lg font-bold mx-1" style={{ color: "var(--t-text-faint)" }}>:</span>}
+              </div>
+            ))}
+          </div>
+          <span className="text-xs" style={{ color: "var(--t-text-faint)" }}>Last date: 15 Sept 2026</span>
+        </div>
+      </div>
 
       {/* ═══════════════════ ABOUT ═══════════════════ */}
       <Section id="about" className="relative py-32 px-6">
