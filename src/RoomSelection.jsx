@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, ArrowRight, ArrowLeft, Bed, Loader2, UserPlus, Trash2, Bus } from "lucide-react";
+import { Users, ArrowRight, ArrowLeft, Bed, Loader2, UserPlus, Trash2, Bus, Phone, X, AlertCircle } from "lucide-react";
 import { defaultTheme } from "./themes";
 import { API_BASE } from "./config";
 
@@ -132,6 +132,48 @@ export default function RoomSelection() {
 
   // Restore state if coming back from checkout
   const savedState = location.state;
+
+  // Booking choice modal state
+  const [showChoiceModal, setShowChoiceModal] = useState(!savedState);
+  const [choiceStep, setChoiceStep] = useState("choose"); // "choose" | "phone"
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneLookupLoading, setPhoneLookupLoading] = useState(false);
+  const [phoneLookupError, setPhoneLookupError] = useState("");
+
+  const handlePayRemaining = async () => {
+    if (!phoneInput.trim() || phoneInput.trim().length < 10) {
+      setPhoneLookupError("Please enter a valid 10-digit phone number");
+      return;
+    }
+    setPhoneLookupLoading(true);
+    setPhoneLookupError("");
+    try {
+      const res = await fetch(`${API_BASE}/get-booking?contact_number=${encodeURIComponent(phoneInput.trim())}`);
+      if (!res.ok) {
+        setPhoneLookupError("No booking found for this phone number.");
+        setPhoneLookupLoading(false);
+        return;
+      }
+      const data = await res.json();
+      const bookings = data.bookings || (Array.isArray(data) ? data : []);
+      if (!bookings.length) {
+        setPhoneLookupError("No booking found for this phone number.");
+        setPhoneLookupLoading(false);
+        return;
+      }
+      const booking = bookings[0];
+      if (booking.status === "fully_paid") {
+        setPhoneLookupError("This booking is already fully paid.");
+        setPhoneLookupLoading(false);
+        return;
+      }
+      navigate("/checkout", { state: { existingBooking: booking, payRemaining: true } });
+    } catch {
+      setPhoneLookupError("Something went wrong. Please try again.");
+    } finally {
+      setPhoneLookupLoading(false);
+    }
+  };
 
   // rooms
   const [rooms, setRooms] = useState([]);
@@ -275,6 +317,106 @@ export default function RoomSelection() {
       className="min-h-screen relative"
       style={{ ...theme.cssVars, backgroundColor: "var(--t-bg)", color: "var(--t-text)" }}
     >
+      {/* Booking Choice Modal */}
+      <AnimatePresence>
+        {showChoiceModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="w-full max-w-md rounded-2xl p-6 shadow-2xl"
+              style={{ backgroundColor: "var(--t-bg)", border: "1px solid var(--t-border-strong)" }}
+            >
+              {choiceStep === "choose" && (
+                <>
+                  <h2 className="text-xl font-bold text-center mb-2">Welcome!</h2>
+                  <p className="text-sm text-center mb-6" style={{ color: "var(--t-text-muted)" }}>
+                    What would you like to do?
+                  </p>
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => setShowChoiceModal(false)}
+                      className="w-full p-4 rounded-xl text-left transition-all duration-200 hover:scale-[1.02]"
+                      style={{ border: "1px solid var(--t-border-strong)", backgroundColor: "var(--t-card-tint)" }}
+                    >
+                      <p className="font-bold">Create a New Booking</p>
+                      <p className="text-xs mt-1" style={{ color: "var(--t-text-muted)" }}>
+                        Register for Vraj Yatra with a fresh booking
+                      </p>
+                    </button>
+                    <button
+                      onClick={() => setChoiceStep("phone")}
+                      className="w-full p-4 rounded-xl text-left transition-all duration-200 hover:scale-[1.02]"
+                      style={{ border: "1px solid var(--t-border-strong)", backgroundColor: "var(--t-card-tint)" }}
+                    >
+                      <p className="font-bold">Pay Remaining Amount</p>
+                      <p className="text-xs mt-1" style={{ color: "var(--t-text-muted)" }}>
+                        Complete payment for an existing booking
+                      </p>
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {choiceStep === "phone" && (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-bold">Pay Remaining Amount</h2>
+                    <button
+                      onClick={() => { setChoiceStep("choose"); setPhoneLookupError(""); setPhoneInput(""); }}
+                      className="p-1.5 rounded-lg transition-colors hover:bg-white/10"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-sm mb-4" style={{ color: "var(--t-text-muted)" }}>
+                    Enter the primary contact number used during booking.
+                  </p>
+                  <div className="relative mb-4">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--t-text-muted)" }} />
+                    <input
+                      type="tel"
+                      value={phoneInput}
+                      onChange={(e) => { setPhoneInput(e.target.value); setPhoneLookupError(""); }}
+                      placeholder="Enter 10-digit phone number"
+                      className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-all duration-200 focus:ring-2 focus:ring-amber-500/30"
+                      style={{ backgroundColor: "var(--t-card-tint)", border: "1px solid var(--t-border-strong)", color: "var(--t-text)" }}
+                      maxLength={10}
+                    />
+                  </div>
+                  {phoneLookupError && (
+                    <div className="flex items-center gap-2 mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                      <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                      <p className="text-sm text-red-500">{phoneLookupError}</p>
+                    </div>
+                  )}
+                  <button
+                    onClick={handlePayRemaining}
+                    disabled={phoneLookupLoading}
+                    className="w-full py-3 rounded-xl text-white font-semibold text-sm transition-all duration-200 bg-gradient-to-r from-amber-500 to-orange-600 hover:shadow-lg hover:shadow-amber-500/20 disabled:opacity-60"
+                  >
+                    {phoneLookupLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Looking up booking...
+                      </span>
+                    ) : (
+                      "Find My Booking"
+                    )}
+                  </button>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* back button */}
       <div className="max-w-4xl mx-auto px-6 pt-8">
         <button
