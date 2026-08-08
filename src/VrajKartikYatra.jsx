@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { trackEvent } from "./analytics";
 import {
   motion,
   useScroll,
@@ -354,7 +355,7 @@ export default function VrajKartikYatra() {
               </button>
             ))}
             <button
-              onClick={() => nav("/register")}
+              onClick={() => { trackEvent('Registration', 'click_register', 'navbar'); nav("/register"); }}
               className="ml-2 px-5 py-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-amber-500/25 transition-all duration-300 hover:scale-105"
             >
               Register Now
@@ -452,7 +453,7 @@ export default function VrajKartikYatra() {
           {/* CTA buttons */}
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
-              onClick={() => nav("/register")}
+              onClick={() => { trackEvent('Registration', 'click_register', 'hero'); nav("/register"); }}
               className="group px-8 py-4 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-lg hover:shadow-2xl hover:shadow-amber-500/30 transition-all duration-300 hover:scale-105 flex items-center gap-2"
             >
               Join the Yatra
@@ -847,7 +848,7 @@ export default function VrajKartikYatra() {
               Limited seats available. Register now to secure your spot on this transformative pilgrimage to the sacred land of Vraj.
             </p>
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button onClick={() => nav("/register")} className="group px-10 py-5 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white font-bold text-lg hover:shadow-2xl hover:shadow-amber-500/30 transition-all duration-300 hover:scale-105 flex items-center gap-3">
+              <button onClick={() => { trackEvent('Registration', 'click_register', 'cta_section'); nav("/register"); }} className="group px-10 py-5 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white font-bold text-lg hover:shadow-2xl hover:shadow-amber-500/30 transition-all duration-300 hover:scale-105 flex items-center gap-3">
                 Register for Yatra
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
