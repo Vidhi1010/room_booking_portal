@@ -71,10 +71,12 @@ export default function Checkout() {
   const totalAmount = payRemaining ? (existingBooking?.total_amount || 0) : (roomTotal + transportTotal);
   const alreadyPaid = payRemaining ? (existingBooking?.amount_paid || 0) : 0;
   const remainingAmount = totalAmount - alreadyPaid;
-  const minPayment = payRemaining ? remainingAmount : 2000 * totalOccupants;
+  const minPayment = payRemaining
+    ? Math.min(2000 * totalOccupants, remainingAmount)
+    : 2000 * totalOccupants;
 
   // UI state
-  const [payAmount, setPayAmount] = useState(payRemaining ? remainingAmount : minPayment);
+  const [payAmount, setPayAmount] = useState(payRemaining ? minPayment : minPayment);
   const [submitting, setSubmitting] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [toast, setToast] = useState(null);
@@ -571,7 +573,7 @@ export default function Checkout() {
               </h2>
               <p className="text-xs mb-4" style={{ color: "var(--t-text-muted)" }}>
                 {payRemaining
-                  ? `Remaining amount: ₹${remainingAmount} (Already paid: ₹${alreadyPaid})`
+                  ? `Remaining amount: ₹${remainingAmount}${alreadyPaid > 0 ? ` (Already paid: ₹${alreadyPaid})` : ""}. Minimum ₹${minPayment}.`
                   : `Minimum ₹2,000/person (₹${minPayment} total). You can pay the remaining amount later.`}
               </p>
               <div className="flex items-center gap-3">
