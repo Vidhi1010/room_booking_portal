@@ -6,6 +6,7 @@ import {
   Table,
   Tag,
   Select,
+  Input,
   InputNumber,
   Button,
   Typography,
@@ -16,6 +17,14 @@ import {
   Dropdown,
   Modal,
   Descriptions,
+  Form,
+  Card,
+  Statistic,
+  Space,
+  Badge,
+  Progress,
+  Empty,
+  Spin,
 } from "antd";
 import {
   DashboardOutlined,
@@ -29,6 +38,14 @@ import {
   TeamOutlined,
   PhoneOutlined,
   HomeOutlined,
+  NotificationOutlined,
+  SendOutlined,
+  PlusOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  ExclamationCircleOutlined,
+  MinusCircleOutlined,
+  DeleteOutlined,
 } from "@ant-design/icons";
 import { API_BASE } from "./config";
 
@@ -46,6 +63,16 @@ const STATUS_COLORS = {
 
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "-";
+
+const TEMPLATE_LABELS = {
+  pending_yatra_payment: "Pending Yatra Payment",
+  yatra_invitation: "Yatra Invitation",
+};
+
+const TEMPLATE_TYPE_MAP = {
+  pending_yatra_payment: "utility",
+  yatra_invitation: "marketing",
+};
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -67,6 +94,107 @@ export default function AdminDashboard() {
     status: undefined,
     transport_opted: undefined,
   });
+
+  // Campaign state
+  const [yatras, setYatras] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
+  const [selectedYatraId, setSelectedYatraId] = useState(undefined);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createForm] = Form.useForm();
+  const [creating, setCreating] = useState(false);
+  const [activating, setActivating] = useState(null);
+  const [activateResult, setActivateResult] = useState(null);
+  const [activateConfirm, setActivateConfirm] = useState(null);
+
+  const fetchYatras = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/get-yatras`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setYatras(Array.isArray(data) ? data : data.yatras || data.body || []);
+    } catch {
+      // silent
+    }
+  }, [token]);
+
+  const fetchCampaigns = useCallback(async (yatraId) => {
+    setCampaignsLoading(true);
+    try {
+      const params = yatraId ? `?yatra_id=${yatraId}` : "";
+      const res = await fetch(`${API_BASE}/get-campaigns${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401 || res.status === 403) {
+        message.error("Session expired. Please login again.");
+        localStorage.removeItem("admin_token");
+        navigate("/admin/login", { replace: true });
+        return;
+      }
+      const data = await res.json();
+      setCampaigns(Array.isArray(data) ? data : data.campaigns || data.body || []);
+    } catch {
+      message.error("Failed to fetch campaigns");
+    } finally {
+      setCampaignsLoading(false);
+    }
+  }, [token, navigate]);
+
+  const handleCreateCampaign = async (values) => {
+    setCreating(true);
+    try {
+      const payload = { ...values, type: TEMPLATE_TYPE_MAP[values.template_name] };
+      const res = await fetch(`${API_BASE}/create-campaign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to create campaign");
+      }
+      message.success("Campaign created");
+      setCreateModalOpen(false);
+      createForm.resetFields();
+      fetchCampaigns(selectedYatraId);
+    } catch (e) {
+      message.error(e.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleActivateCampaign = async (campaignId) => {
+    setActivating(campaignId);
+    try {
+      const res = await fetch(`${API_BASE}/activate-campaign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ campaign_id: campaignId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to activate campaign");
+      }
+      const result = await res.json();
+      setActivateResult(result);
+      message.success("Campaign activated successfully");
+      fetchCampaigns(selectedYatraId);
+    } catch (e) {
+      message.error(e.message);
+    } finally {
+      setActivating(null);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "campaigns") {
+      fetchYatras();
+      fetchCampaigns(selectedYatraId);
+    }
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchBookings = useCallback(async () => {
     setLoading(true);
@@ -283,6 +411,7 @@ export default function AdminDashboard() {
             items={[
               { key: "bookings", icon: <BookOutlined />, label: "Bookings" },
               { key: "rooms", icon: <HomeOutlined />, label: "Rooms" },
+              { key: "campaigns", icon: <NotificationOutlined />, label: "Campaigns" },
               { key: "dashboard", icon: <DashboardOutlined />, label: "Dashboard", disabled: true },
             ]}
           />
@@ -419,6 +548,340 @@ export default function AdminDashboard() {
                   scroll={{ x: 800 }}
                   size="middle"
                 />
+              </>
+            )}
+
+            {activeTab === "campaigns" && (
+              <>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+                  <div>
+                    <Title level={4} style={{ color: "#fff", margin: 0 }}>Campaigns</Title>
+                    <Text style={{ color: "rgba(255,255,255,0.4)" }}>
+                      WhatsApp messaging campaigns
+                    </Text>
+                  </div>
+                  <Space wrap>
+                    <Select
+                      placeholder="Filter by Yatra"
+                      allowClear
+                      style={{ width: 200 }}
+                      value={selectedYatraId}
+                      onChange={(v) => { setSelectedYatraId(v); fetchCampaigns(v); }}
+                      options={yatras.map((y) => ({ label: y.name, value: y.id }))}
+                    />
+                    <Button icon={<ReloadOutlined />} onClick={() => fetchCampaigns(selectedYatraId)} loading={campaignsLoading}>
+                      Refresh
+                    </Button>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
+                      Create Campaign
+                    </Button>
+                  </Space>
+                </div>
+
+                {campaignsLoading ? (
+                  <div style={{ textAlign: "center", padding: 80 }}><Spin size="large" /></div>
+                ) : campaigns.length === 0 ? (
+                  <Empty description="No campaigns found" style={{ padding: 80 }} />
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: 16 }}>
+                    {campaigns.map((c) => {
+                      const isActive = c.status === "activated" || c.status === "sent";
+                      const isPending = c.status === "pending" || c.status === "draft";
+                      const totalMessages = (c.sent || 0) + (c.delivered || 0) + (c.failed || 0);
+                      const deliveryRate = totalMessages > 0 ? Math.round(((c.delivered || 0) / totalMessages) * 100) : 0;
+
+                      return (
+                        <Card
+                          key={c.id}
+                          style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}
+                          styles={{ body: { padding: 20 } }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                            <div>
+                              <Tag color={c.type === "utility" ? "blue" : "purple"} style={{ marginBottom: 6 }}>
+                                {c.type?.toUpperCase()}
+                              </Tag>
+                              <div style={{ fontWeight: 600, fontSize: 15, color: "#fff" }}>{TEMPLATE_LABELS[c.template_name] || c.template_name?.replace(/_/g, " ")}</div>
+                              {c.description && (
+                                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>{c.description}</div>
+                              )}
+                            </div>
+                            <Badge
+                              status={isActive ? "success" : isPending ? "warning" : "default"}
+                              text={
+                                <span style={{ color: isActive ? "#4ade80" : isPending ? "#fbbf24" : "rgba(255,255,255,0.5)", fontSize: 12 }}>
+                                  {c.status?.toUpperCase()}
+                                </span>
+                              }
+                            />
+                          </div>
+
+                          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 12 }}>
+                            Yatra: <span style={{ color: "rgba(255,255,255,0.7)" }}>{c.yatra_name || c.yatra_id}</span>
+                          </div>
+
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Recipients</span>}
+                              value={c.estimated_cost?.recipientCount ?? c.recipient_count ?? 0}
+                              prefix={<TeamOutlined />}
+                              valueStyle={{ fontSize: 18, color: "#fff" }}
+                            />
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Per Message</span>}
+                              value={c.estimated_cost?.perMessage ?? 0}
+                              prefix="₹"
+                              precision={2}
+                              valueStyle={{ fontSize: 18, color: "rgba(255,255,255,0.6)" }}
+                            />
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Total Cost (approx.)</span>}
+                              value={c.estimated_cost?.total ?? 0}
+                              prefix="₹"
+                              precision={2}
+                              valueStyle={{ fontSize: 18, color: "#fbbf24" }}
+                            />
+                          </div>
+
+                          {isActive && totalMessages > 0 && (
+                            <div style={{ marginBottom: 16 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 4 }}>
+                                <span>Delivery</span>
+                                <span>{deliveryRate}%</span>
+                              </div>
+                              <Progress
+                                percent={deliveryRate}
+                                showInfo={false}
+                                strokeColor="#4ade80"
+                                trailColor="rgba(255,255,255,0.06)"
+                                size="small"
+                              />
+                              <div style={{ display: "flex", gap: 12, marginTop: 8, fontSize: 11 }}>
+                                <span style={{ color: "#4ade80" }}>
+                                  <CheckCircleOutlined /> {c.delivered || 0} delivered
+                                </span>
+                                <span style={{ color: "#60a5fa" }}>
+                                  <SendOutlined /> {c.sent || 0} sent
+                                </span>
+                                {(c.failed || 0) > 0 && (
+                                  <span style={{ color: "#f87171" }}>
+                                    <ExclamationCircleOutlined /> {c.failed} failed
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
+                              {c.activated_at ? `Activated ${fmtDate(c.activated_at)}` : `Created ${fmtDate(c.created_at)}`}
+                            </div>
+                            {isPending && (
+                              <Button
+                                type="primary"
+                                size="small"
+                                icon={<SendOutlined />}
+                                loading={activating === c.id}
+                                onClick={() => setActivateConfirm(c)}
+                              >
+                                Activate
+                              </Button>
+                            )}
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Create Campaign Modal */}
+                <Modal
+                  open={createModalOpen}
+                  onCancel={() => { setCreateModalOpen(false); createForm.resetFields(); }}
+                  footer={null}
+                  title={
+                    <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <NotificationOutlined />
+                      Create Campaign
+                    </span>
+                  }
+                >
+                  <Form
+                    form={createForm}
+                    layout="vertical"
+                    onFinish={handleCreateCampaign}
+                    style={{ marginTop: 16 }}
+                  >
+                    <Form.Item
+                      name="yatra_id"
+                      label="Yatra"
+                      rules={[{ required: true, message: "Select a yatra" }]}
+                    >
+                      <Select
+                        placeholder="Select yatra"
+                        options={yatras.map((y) => ({ label: y.name, value: y.id }))}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name="template_name"
+                      label="Template"
+                      rules={[{ required: true, message: "Select a template" }]}
+                    >
+                      <Select
+                        placeholder="Select template"
+                        options={[
+                          { label: "Pending Yatra Payment", value: "pending_yatra_payment" },
+                          { label: "Yatra Invitation", value: "yatra_invitation" },
+                        ]}
+                      />
+                    </Form.Item>
+
+                    <Form.Item noStyle shouldUpdate={(prev, cur) => prev.template_name !== cur.template_name}>
+                      {({ getFieldValue }) =>
+                        TEMPLATE_TYPE_MAP[getFieldValue("template_name")] === "marketing" && (
+                          <>
+                            <Form.Item name="description" label="Description">
+                              <Input.TextArea rows={2} placeholder="e.g. Invite devotees for upcoming yatra" />
+                            </Form.Item>
+                            <div style={{ marginBottom: 8, fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>Recipients</div>
+                            <Form.List
+                              name="recipients"
+                              rules={[{ validator: async (_, list) => {
+                                if (!list || list.length === 0) throw new Error("Add at least one recipient");
+                              }}]}
+                            >
+                              {(fields, { add, remove }, { errors }) => (
+                                <>
+                                  {fields.map(({ key, name, ...rest }) => (
+                                    <div key={key} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "flex-start" }}>
+                                      <Form.Item
+                                        {...rest}
+                                        name={[name, "name"]}
+                                        rules={[{ required: true, message: "Name required" }]}
+                                        style={{ flex: 1, marginBottom: 0 }}
+                                      >
+                                        <Input placeholder="Name" />
+                                      </Form.Item>
+                                      <Form.Item
+                                        {...rest}
+                                        name={[name, "phone"]}
+                                        rules={[
+                                          { required: true, message: "Phone required" },
+                                          { pattern: /^\d{10,15}$/, message: "Enter valid number (10-15 digits)" },
+                                        ]}
+                                        style={{ flex: 1, marginBottom: 0 }}
+                                      >
+                                        <Input placeholder="WhatsApp number e.g. 919876543210" />
+                                      </Form.Item>
+                                      <Button
+                                        type="text"
+                                        danger
+                                        icon={<MinusCircleOutlined />}
+                                        onClick={() => remove(name)}
+                                        style={{ marginTop: 4 }}
+                                      />
+                                    </div>
+                                  ))}
+                                  <Form.Item style={{ marginBottom: 16 }}>
+                                    <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                                      Add Recipient
+                                    </Button>
+                                    <Form.ErrorList errors={errors} />
+                                  </Form.Item>
+                                </>
+                              )}
+                            </Form.List>
+                          </>
+                        )
+                      }
+                    </Form.Item>
+
+                    <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
+                      <Space>
+                        <Button onClick={() => { setCreateModalOpen(false); createForm.resetFields(); }}>
+                          Cancel
+                        </Button>
+                        <Button type="primary" htmlType="submit" loading={creating} icon={<PlusOutlined />}>
+                          Create
+                        </Button>
+                      </Space>
+                    </Form.Item>
+                  </Form>
+                </Modal>
+
+                {/* Activate Confirmation Modal */}
+                <Modal
+                  open={!!activateConfirm}
+                  onCancel={() => setActivateConfirm(null)}
+                  title="Activate Campaign"
+                  okText="Yes, Activate"
+                  okButtonProps={{ danger: true, loading: activating === activateConfirm?.id }}
+                  onOk={async () => {
+                    await handleActivateCampaign(activateConfirm.id);
+                    setActivateConfirm(null);
+                  }}
+                  width={400}
+                >
+                  {activateConfirm && (
+                    <div>
+                      <p style={{ marginBottom: 12 }}>Are you sure you want to activate this campaign?</p>
+                      <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 12, border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>Cost Summary</div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                          <span>Recipients</span>
+                          <span style={{ fontWeight: 600 }}>{activateConfirm.estimated_cost?.recipientCount ?? activateConfirm.recipient_count ?? 0}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                          <span>Per message</span>
+                          <span>₹{activateConfirm.estimated_cost?.perMessage ?? 0}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, color: "#fbbf24" }}>
+                          <span>Total cost</span>
+                          <span>₹{activateConfirm.estimated_cost?.total ?? 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </Modal>
+
+                {/* Activate Result Modal */}
+                <Modal
+                  open={!!activateResult}
+                  onCancel={() => setActivateResult(null)}
+                  footer={<Button type="primary" onClick={() => setActivateResult(null)}>Close</Button>}
+                  title={
+                    <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#4ade80" }}>
+                      <CheckCircleOutlined />
+                      Campaign Activated
+                    </span>
+                  }
+                >
+                  {activateResult && (
+                    <div>
+                      <p style={{ marginBottom: 12 }}>{activateResult.message}</p>
+                      <div style={{ display: "flex", gap: 16 }}>
+                        <Statistic
+                          title="Sent"
+                          value={activateResult.summary?.sent ?? 0}
+                          valueStyle={{ color: "#4ade80" }}
+                          prefix={<CheckCircleOutlined />}
+                        />
+                        <Statistic
+                          title="Failed"
+                          value={activateResult.summary?.failed ?? 0}
+                          valueStyle={{ color: activateResult.summary?.failed > 0 ? "#f87171" : "rgba(255,255,255,0.5)" }}
+                          prefix={<ExclamationCircleOutlined />}
+                        />
+                        <Statistic
+                          title="Total"
+                          value={activateResult.summary?.total ?? 0}
+                          valueStyle={{ color: "rgba(255,255,255,0.7)" }}
+                          prefix={<TeamOutlined />}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </Modal>
               </>
             )}
           </Content>
