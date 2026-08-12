@@ -65,8 +65,8 @@ const fmtDate = (d) =>
   d ? new Date(d).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "-";
 
 const TEMPLATE_LABELS = {
-  pending_yatra_payment: "Pending Yatra Payment",
   yatra_invitation: "Yatra Invitation",
+  yatra_regist_payment_pending: "Yatra Registration Payment Pending",
 };
 
 const TEMPLATE_TYPE_MAP = {

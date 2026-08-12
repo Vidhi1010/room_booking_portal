@@ -48,18 +48,6 @@ export default function Checkout() {
       .finally(() => setFetchingBooking(false));
   }, [bookingIdParam, navigate]);
 
-  // Show loader while fetching booking by ID
-  if (fetchingBooking) {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ ...theme.cssVars, backgroundColor: "var(--t-bg)", color: "var(--t-text)" }}
-      >
-        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
-      </div>
-    );
-  }
-
   const resolvedExistingBooking = fetchedBooking || location.state?.existingBooking || null;
   const payRemaining = !!fetchedBooking || (location.state?.payRemaining || false);
 
@@ -75,9 +63,54 @@ export default function Checkout() {
     ? { name: resolvedExistingBooking.transport_name, id: resolvedExistingBooking.transport_id, price: 0 }
     : (payRemaining ? null : (location.state?.selectedTransport || null));
 
+  const totalOccupants = payRemaining ? (resolvedExistingBooking?.total_occupants || 1) : (1 + members.length);
+  const roomTotal = room?.price ? room.price * totalOccupants : 0;
+  const transportTotal = transportOpted && selectedTransport ? selectedTransport.price * totalOccupants : 0;
+  const totalAmount = payRemaining ? (resolvedExistingBooking?.total_amount || 0) : (roomTotal + transportTotal);
+  const alreadyPaid = payRemaining ? (resolvedExistingBooking?.amount_paid || 0) : 0;
+  const remainingAmount = totalAmount - alreadyPaid;
+  const minPayment = payRemaining
+    ? Math.min(2000 * totalOccupants, remainingAmount)
+    : 2000 * totalOccupants;
+
+  // UI state
+  const [payAmount, setPayAmount] = useState(minPayment);
+  const [submitting, setSubmitting] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [bookingId, setBookingId] = useState(null);
+  const [paymentStatus, setPaymentStatus] = useState(null);
+  const [amountPaid, setAmountPaid] = useState(0);
+  const [polling, setPolling] = useState(false);
+  const pollingRef = useRef(null);
+
+  // Sync derived values into state once resolved
+  useEffect(() => {
+    if (resolvedExistingBooking?.id) setBookingId(resolvedExistingBooking.id);
+    setAmountPaid(alreadyPaid);
+  }, [resolvedExistingBooking, alreadyPaid]);
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  const INPUT_STYLE = {
+    backgroundColor: "var(--t-card-tint)",
+    border: "1px solid var(--t-border-strong)",
+    color: "var(--t-text)",
+  };
+
+  // Show loader while fetching booking by ID
+  if (fetchingBooking) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ ...theme.cssVars, backgroundColor: "var(--t-bg)", color: "var(--t-text)" }}
+      >
+        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+      </div>
+    );
+  }
 
   // redirect if no data
   if ((!room || !primary) && !payRemaining) {
@@ -100,33 +133,6 @@ export default function Checkout() {
       </div>
     );
   }
-
-  const totalOccupants = payRemaining ? (resolvedExistingBooking?.total_occupants || 1) : (1 + members.length);
-  const roomTotal = room?.price ? room.price * totalOccupants : 0;
-  const transportTotal = transportOpted && selectedTransport ? selectedTransport.price * totalOccupants : 0;
-  const totalAmount = payRemaining ? (resolvedExistingBooking?.total_amount || 0) : (roomTotal + transportTotal);
-  const alreadyPaid = payRemaining ? (resolvedExistingBooking?.amount_paid || 0) : 0;
-  const remainingAmount = totalAmount - alreadyPaid;
-  const minPayment = payRemaining
-    ? Math.min(2000 * totalOccupants, remainingAmount)
-    : 2000 * totalOccupants;
-
-  // UI state
-  const [payAmount, setPayAmount] = useState(payRemaining ? minPayment : minPayment);
-  const [submitting, setSubmitting] = useState(false);
-  const [agreed, setAgreed] = useState(false);
-  const [toast, setToast] = useState(null);
-  const [bookingId, setBookingId] = useState(payRemaining ? resolvedExistingBooking?.id : null);
-  const [paymentStatus, setPaymentStatus] = useState(null);
-  const [amountPaid, setAmountPaid] = useState(alreadyPaid);
-  const [polling, setPolling] = useState(false);
-  const pollingRef = useRef(null);
-
-  const INPUT_STYLE = {
-    backgroundColor: "var(--t-card-tint)",
-    border: "1px solid var(--t-border-strong)",
-    color: "var(--t-text)",
-  };
 
   const startPolling = (orderId) => {
     setPolling(true);
@@ -425,6 +431,12 @@ export default function Checkout() {
                       <div>
                         <span style={{ color: "var(--t-text-faint)" }}>Transport</span>
                         <p className="font-semibold">{resolvedExistingBooking.transport_name}</p>
+                      </div>
+                    )}
+                    {resolvedExistingBooking?.transport_price != null && (
+                      <div>
+                        <span style={{ color: "var(--t-text-faint)" }}>Transport Price</span>
+                        <p className="font-semibold">₹{resolvedExistingBooking.transport_price}</p>
                       </div>
                     )}
                     <div>
