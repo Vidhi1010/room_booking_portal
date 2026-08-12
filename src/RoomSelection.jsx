@@ -133,8 +133,11 @@ export default function RoomSelection() {
   // Restore state if coming back from checkout
   const savedState = location.state;
 
+  // Show warning if redirected from checkout with no booking found
+  const [warning, setWarning] = useState(savedState?.warning || null);
+
   // Booking choice modal state
-  const [showChoiceModal, setShowChoiceModal] = useState(!savedState);
+  const [showChoiceModal, setShowChoiceModal] = useState(!savedState || !!savedState?.warning);
   const [choiceStep, setChoiceStep] = useState("choose"); // "choose" | "phone"
   const [phoneInput, setPhoneInput] = useState("");
   const [phoneLookupLoading, setPhoneLookupLoading] = useState(false);
@@ -432,6 +435,17 @@ export default function RoomSelection() {
       </div>
 
       <div className="max-w-4xl mx-auto px-6 py-12">
+        {/* warning banner */}
+        {warning && (
+          <div className="flex items-center gap-3 p-4 mb-6 rounded-xl bg-red-500/10 border border-red-500/20">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <p className="text-sm text-red-400">{warning}</p>
+            <button onClick={() => setWarning(null)} className="ml-auto p-1 rounded hover:bg-white/10">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* heading */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

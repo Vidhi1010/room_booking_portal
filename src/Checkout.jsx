@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -22,21 +22,57 @@ import { API_BASE } from "./config";
 export default function Checkout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const theme = defaultTheme;
 
-  const payRemaining = location.state?.payRemaining || false;
-  const existingBooking = location.state?.existingBooking || null;
+  const bookingIdParam = searchParams.get("booking_id");
+  const [fetchedBooking, setFetchedBooking] = useState(null);
+  const [fetchingBooking, setFetchingBooking] = useState(!!bookingIdParam);
+
+  useEffect(() => {
+    if (!bookingIdParam) return;
+    setFetchingBooking(true);
+    fetch(`${API_BASE}/get-booking?booking_id=${encodeURIComponent(bookingIdParam)}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Not found");
+        return res.json();
+      })
+      .then((data) => {
+        const booking = data.booking || (Array.isArray(data.bookings) ? data.bookings[0] : null) || (Array.isArray(data) ? data[0] : data);
+        if (!booking || !booking.id) throw new Error("Not found");
+        setFetchedBooking(booking);
+      })
+      .catch(() => {
+        navigate("/register", { replace: true, state: { warning: "No booking found for that ID" } });
+      })
+      .finally(() => setFetchingBooking(false));
+  }, [bookingIdParam, navigate]);
+
+  // Show loader while fetching booking by ID
+  if (fetchingBooking) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ ...theme.cssVars, backgroundColor: "var(--t-bg)", color: "var(--t-text)" }}
+      >
+        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+      </div>
+    );
+  }
+
+  const resolvedExistingBooking = fetchedBooking || location.state?.existingBooking || null;
+  const payRemaining = !!fetchedBooking || (location.state?.payRemaining || false);
 
   const room = payRemaining
-    ? { name: existingBooking?.room_name, room_type: existingBooking?.room_type, id: existingBooking?.room_id, price: existingBooking?.total_occupants ? Math.round((existingBooking?.total_amount || 0) / existingBooking.total_occupants) : 0, capacity: existingBooking?.total_occupants }
+    ? { name: resolvedExistingBooking?.room_name, room_type: resolvedExistingBooking?.room_type, id: resolvedExistingBooking?.room_id, price: resolvedExistingBooking?.total_occupants ? Math.round((resolvedExistingBooking?.total_amount || 0) / resolvedExistingBooking.total_occupants) : 0, capacity: resolvedExistingBooking?.total_occupants }
     : location.state?.room;
   const primary = payRemaining
-    ? { name: "—", contact_number: existingBooking?.primary_contact }
+    ? { name: "—", contact_number: resolvedExistingBooking?.primary_contact }
     : location.state?.primary;
   const members = payRemaining ? [] : (location.state?.members || []);
-  const transportOpted = payRemaining ? (existingBooking?.transport_opted || false) : (location.state?.transportOpted || false);
-  const selectedTransport = payRemaining && existingBooking?.transport_name
-    ? { name: existingBooking.transport_name, id: existingBooking.transport_id, price: 0 }
+  const transportOpted = payRemaining ? (resolvedExistingBooking?.transport_opted || false) : (location.state?.transportOpted || false);
+  const selectedTransport = payRemaining && resolvedExistingBooking?.transport_name
+    ? { name: resolvedExistingBooking.transport_name, id: resolvedExistingBooking.transport_id, price: 0 }
     : (payRemaining ? null : (location.state?.selectedTransport || null));
 
   useEffect(() => {
@@ -65,11 +101,11 @@ export default function Checkout() {
     );
   }
 
-  const totalOccupants = payRemaining ? (existingBooking?.total_occupants || 1) : (1 + members.length);
+  const totalOccupants = payRemaining ? (resolvedExistingBooking?.total_occupants || 1) : (1 + members.length);
   const roomTotal = room?.price ? room.price * totalOccupants : 0;
   const transportTotal = transportOpted && selectedTransport ? selectedTransport.price * totalOccupants : 0;
-  const totalAmount = payRemaining ? (existingBooking?.total_amount || 0) : (roomTotal + transportTotal);
-  const alreadyPaid = payRemaining ? (existingBooking?.amount_paid || 0) : 0;
+  const totalAmount = payRemaining ? (resolvedExistingBooking?.total_amount || 0) : (roomTotal + transportTotal);
+  const alreadyPaid = payRemaining ? (resolvedExistingBooking?.amount_paid || 0) : 0;
   const remainingAmount = totalAmount - alreadyPaid;
   const minPayment = payRemaining
     ? Math.min(2000 * totalOccupants, remainingAmount)
@@ -80,7 +116,7 @@ export default function Checkout() {
   const [submitting, setSubmitting] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [toast, setToast] = useState(null);
-  const [bookingId, setBookingId] = useState(payRemaining ? existingBooking?.id : null);
+  const [bookingId, setBookingId] = useState(payRemaining ? resolvedExistingBooking?.id : null);
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [amountPaid, setAmountPaid] = useState(alreadyPaid);
   const [polling, setPolling] = useState(false);
@@ -375,25 +411,25 @@ export default function Checkout() {
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
                       <span style={{ color: "var(--t-text-faint)" }}>Primary Contact</span>
-                      <p className="font-semibold">{existingBooking?.primary_contact}</p>
+                      <p className="font-semibold">{resolvedExistingBooking?.primary_contact}</p>
                     </div>
                     <div>
                       <span style={{ color: "var(--t-text-faint)" }}>Total Occupants</span>
-                      <p className="font-semibold">{existingBooking?.total_occupants}</p>
+                      <p className="font-semibold">{resolvedExistingBooking?.total_occupants}</p>
                     </div>
                     <div>
                       <span style={{ color: "var(--t-text-faint)" }}>Room</span>
-                      <p className="font-semibold">{existingBooking?.room_name}</p>
+                      <p className="font-semibold">{resolvedExistingBooking?.room_name}</p>
                     </div>
-                    {existingBooking?.transport_name && (
+                    {resolvedExistingBooking?.transport_name && (
                       <div>
                         <span style={{ color: "var(--t-text-faint)" }}>Transport</span>
-                        <p className="font-semibold">{existingBooking.transport_name}</p>
+                        <p className="font-semibold">{resolvedExistingBooking.transport_name}</p>
                       </div>
                     )}
                     <div>
                       <span style={{ color: "var(--t-text-faint)" }}>Status</span>
-                      <p className="font-semibold capitalize">{existingBooking?.status?.replace(/_/g, " ")}</p>
+                      <p className="font-semibold capitalize">{resolvedExistingBooking?.status?.replace(/_/g, " ")}</p>
                     </div>
                   </div>
                 </div>
