@@ -28,6 +28,7 @@ export default function Checkout() {
   const bookingIdParam = searchParams.get("booking_id");
   const [fetchedBooking, setFetchedBooking] = useState(null);
   const [fetchingBooking, setFetchingBooking] = useState(!!bookingIdParam);
+  const [transportPrice, setTransportPrice] = useState(null);
 
   useEffect(() => {
     if (!bookingIdParam) return;
@@ -89,6 +90,20 @@ export default function Checkout() {
     if (resolvedExistingBooking?.id) setBookingId(resolvedExistingBooking.id);
     setAmountPaid(alreadyPaid);
   }, [resolvedExistingBooking, alreadyPaid]);
+
+  // Fetch transport price from API if booking has transport_id
+  useEffect(() => {
+    const tId = resolvedExistingBooking?.transport_id;
+    if (!tId) return;
+    fetch(`${API_BASE}/get-transport`)
+      .then((res) => res.ok ? res.json() : [])
+      .then((data) => {
+        const list = Array.isArray(data) ? data : data.transport || data.body || [];
+        const match = list.find((t) => t.id === tId);
+        if (match) setTransportPrice(match.price);
+      })
+      .catch(() => {});
+  }, [resolvedExistingBooking?.transport_id]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -433,10 +448,10 @@ export default function Checkout() {
                         <p className="font-semibold">{resolvedExistingBooking.transport_name}</p>
                       </div>
                     )}
-                    {resolvedExistingBooking?.transport_price != null && (
+                    {transportPrice != null && (
                       <div>
                         <span style={{ color: "var(--t-text-faint)" }}>Transport Price</span>
-                        <p className="font-semibold">₹{resolvedExistingBooking.transport_price}</p>
+                        <p className="font-semibold">₹{transportPrice}/person</p>
                       </div>
                     )}
                     <div>
