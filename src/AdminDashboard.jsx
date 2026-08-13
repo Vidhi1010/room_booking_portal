@@ -46,6 +46,8 @@ import {
   ExclamationCircleOutlined,
   MinusCircleOutlined,
   DeleteOutlined,
+  DollarOutlined,
+  CarOutlined,
 } from "@ant-design/icons";
 import { API_BASE } from "./config";
 
@@ -95,6 +97,10 @@ export default function AdminDashboard() {
     transport_opted: undefined,
   });
 
+  // Dashboard state
+  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+
   // Campaign state
   const [yatras, setYatras] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
@@ -106,6 +112,31 @@ export default function AdminDashboard() {
   const [activating, setActivating] = useState(null);
   const [activateResult, setActivateResult] = useState(null);
   const [activateConfirm, setActivateConfirm] = useState(null);
+
+  const fetchDashboard = useCallback(async () => {
+    setDashboardLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/get-dashboard`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401 || res.status === 403) {
+        message.error("Session expired. Please login again.");
+        localStorage.removeItem("admin_token");
+        navigate("/admin/login", { replace: true });
+        return;
+      }
+      const data = await res.json();
+      setDashboardData(data);
+    } catch {
+      message.error("Failed to fetch dashboard data");
+    } finally {
+      setDashboardLoading(false);
+    }
+  }, [token, navigate]);
+
+  useEffect(() => {
+    if (activeTab === "dashboard") fetchDashboard();
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchYatras = useCallback(async () => {
     try {
@@ -409,10 +440,10 @@ export default function AdminDashboard() {
             onClick={({ key }) => setActiveTab(key)}
             style={{ background: "transparent", borderRight: 0 }}
             items={[
+              { key: "dashboard", icon: <DashboardOutlined />, label: "Dashboard" },
               { key: "bookings", icon: <BookOutlined />, label: "Bookings" },
               { key: "rooms", icon: <HomeOutlined />, label: "Rooms" },
               { key: "campaigns", icon: <NotificationOutlined />, label: "Campaigns" },
-              { key: "dashboard", icon: <DashboardOutlined />, label: "Dashboard", disabled: true },
             ]}
           />
         </Sider>
@@ -548,6 +579,157 @@ export default function AdminDashboard() {
                   scroll={{ x: 800 }}
                   size="middle"
                 />
+              </>
+            )}
+
+            {activeTab === "dashboard" && (
+              <>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                  <div>
+                    <Title level={4} style={{ color: "#fff", margin: 0 }}>Dashboard</Title>
+                    <Text style={{ color: "rgba(255,255,255,0.4)" }}>Key metrics overview</Text>
+                  </div>
+                  <Button icon={<ReloadOutlined />} onClick={fetchDashboard} loading={dashboardLoading}>
+                    Refresh
+                  </Button>
+                </div>
+
+                {dashboardLoading && !dashboardData ? (
+                  <div style={{ textAlign: "center", padding: 80 }}><Spin size="large" /></div>
+                ) : dashboardData ? (
+                  <>
+                    {/* Top-level stats */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}>
+                      <Card style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <Statistic
+                          title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Total Bookings</span>}
+                          value={dashboardData.total_bookings}
+                          prefix={<BookOutlined />}
+                          valueStyle={{ color: "#fff", fontSize: 28 }}
+                        />
+                      </Card>
+                      <Card style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <Statistic
+                          title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Revenue Collected</span>}
+                          value={dashboardData.revenue_collected}
+                          prefix="₹"
+                          valueStyle={{ color: "#4ade80", fontSize: 28 }}
+                        />
+                      </Card>
+                      <Card style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <Statistic
+                          title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Pending Payments</span>}
+                          value={dashboardData.pending_payments}
+                          prefix="₹"
+                          valueStyle={{ color: "#fbbf24", fontSize: 28 }}
+                        />
+                      </Card>
+                      <Card style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <Statistic
+                          title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Total Expected</span>}
+                          value={dashboardData.total_expected}
+                          prefix="₹"
+                          valueStyle={{ color: "rgba(255,255,255,0.8)", fontSize: 28 }}
+                        />
+                      </Card>
+                    </div>
+
+                    {/* Occupancy & Transport */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16, marginBottom: 24 }}>
+                      <Card
+                        title={<span style={{ color: "#fff" }}><HomeOutlined style={{ marginRight: 8 }} />Occupancy</span>}
+                        style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}
+                        styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
+                      >
+                        <div style={{ marginBottom: 16 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                            <Text style={{ color: "rgba(255,255,255,0.6)" }}>Bed Utilization</Text>
+                            <Text style={{ color: "#fff", fontWeight: 600 }}>{dashboardData.occupancy?.rate_percent}%</Text>
+                          </div>
+                          <Progress
+                            percent={dashboardData.occupancy?.rate_percent || 0}
+                            showInfo={false}
+                            strokeColor="#d97706"
+                            trailColor="rgba(255,255,255,0.06)"
+                          />
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-around" }}>
+                          <Statistic
+                            title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Booked</span>}
+                            value={dashboardData.occupancy?.booked_beds}
+                            valueStyle={{ color: "#fbbf24", fontSize: 20 }}
+                          />
+                          <Statistic
+                            title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Total Beds</span>}
+                            value={dashboardData.occupancy?.total_beds}
+                            valueStyle={{ color: "rgba(255,255,255,0.7)", fontSize: 20 }}
+                          />
+                        </div>
+                      </Card>
+
+                      <Card
+                        title={<span style={{ color: "#fff" }}><CarOutlined style={{ marginRight: 8 }} />Transport</span>}
+                        style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}
+                        styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
+                      >
+                        <div style={{ marginBottom: 16 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                            <Text style={{ color: "rgba(255,255,255,0.6)" }}>Seat Utilization</Text>
+                            <Text style={{ color: "#fff", fontWeight: 600 }}>{dashboardData.transport?.utilization_percent}%</Text>
+                          </div>
+                          <Progress
+                            percent={dashboardData.transport?.utilization_percent || 0}
+                            showInfo={false}
+                            strokeColor="#60a5fa"
+                            trailColor="rgba(255,255,255,0.06)"
+                          />
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-around" }}>
+                          <Statistic
+                            title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Opted</span>}
+                            value={dashboardData.transport?.bookings_opted}
+                            valueStyle={{ color: "#60a5fa", fontSize: 20 }}
+                          />
+                          <Statistic
+                            title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Total Seats</span>}
+                            value={dashboardData.transport?.total_seats}
+                            valueStyle={{ color: "rgba(255,255,255,0.7)", fontSize: 20 }}
+                          />
+                        </div>
+                      </Card>
+                    </div>
+
+                    {/* Status Breakdown */}
+                    <Card
+                      title={<span style={{ color: "#fff" }}><DashboardOutlined style={{ marginRight: 8 }} />Status Breakdown</span>}
+                      style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)", maxWidth: 500 }}
+                      styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-around" }}>
+                        <Statistic
+                          title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Fully Paid</span>}
+                          value={dashboardData.status_breakdown?.fully_paid}
+                          prefix={<CheckCircleOutlined />}
+                          valueStyle={{ color: "#4ade80", fontSize: 22 }}
+                        />
+                        <Statistic
+                          title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Partially Paid</span>}
+                          value={dashboardData.status_breakdown?.partially_paid}
+                          prefix={<ClockCircleOutlined />}
+                          valueStyle={{ color: "#fbbf24", fontSize: 22 }}
+                        />
+                        <Statistic
+                          title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Pending</span>}
+                          value={dashboardData.status_breakdown?.pending_payment}
+                          prefix={<ExclamationCircleOutlined />}
+                          valueStyle={{ color: "#f87171", fontSize: 22 }}
+                        />
+                      </div>
+                    </Card>
+                  </>
+                ) : (
+                  <Empty description="No dashboard data available" style={{ padding: 80 }} />
+                )}
               </>
             )}
 
