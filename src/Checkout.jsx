@@ -542,7 +542,7 @@ export default function Checkout() {
             </motion.div>
 
             {/* ── Transport Preview ── */}
-            {transportOpted && selectedTransport && (
+            {!bookingIdParam && transportOpted && selectedTransport && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
