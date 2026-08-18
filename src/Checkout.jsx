@@ -127,6 +127,94 @@ export default function Checkout() {
     );
   }
 
+  // If booking is already fully paid, show payment receipt
+  if (fetchedBooking && fetchedBooking.status === "fully_paid") {
+    return (
+      <div
+        className="min-h-screen relative"
+        style={{ ...theme.cssVars, backgroundColor: "var(--t-bg)", color: "var(--t-text)" }}
+      >
+        <div className="max-w-2xl mx-auto px-6 py-8">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-6">
+            <div className="p-8 rounded-2xl text-center w-full" style={{ backgroundColor: "var(--t-bg-alt)", border: "1px solid var(--t-border)" }}>
+              <CheckCircle className="w-14 h-14 mx-auto mb-4 text-green-500" />
+              <h1 className="text-2xl sm:text-3xl font-black text-green-600 mb-2">Payment Complete!</h1>
+              <p className="text-lg font-semibold mb-1" style={{ color: "var(--t-text-secondary)" }}>
+                🙏 Hare Krishna! Get ready for your Yatra!
+              </p>
+              <p className="text-sm" style={{ color: "var(--t-text-muted)" }}>
+                Your booking is fully confirmed. See you in Vraj!
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl w-full" style={{ backgroundColor: "var(--t-bg-alt)", border: "1px solid var(--t-border)" }}>
+              <h2 className="text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2" style={{ color: "var(--t-accent-from)" }}>
+                Booking Receipt
+              </h2>
+              <div className="space-y-4">
+                {fetchedBooking.primary_name && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2" style={{ color: "var(--t-text-muted)" }}>
+                      <User className="w-4 h-4" /> Name
+                    </span>
+                    <span className="font-semibold">{fetchedBooking.primary_name}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2" style={{ color: "var(--t-text-muted)" }}>
+                    <Phone className="w-4 h-4" /> Contact
+                  </span>
+                  <span className="font-semibold">{fetchedBooking.primary_contact}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2" style={{ color: "var(--t-text-muted)" }}>
+                    <Users className="w-4 h-4" /> Occupants
+                  </span>
+                  <span className="font-semibold">{fetchedBooking.total_occupants}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2" style={{ color: "var(--t-text-muted)" }}>
+                    <Bed className="w-4 h-4" /> Room Booked
+                  </span>
+                  <span className="font-semibold">{fetchedBooking.room_name}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2" style={{ color: "var(--t-text-muted)" }}>
+                    <Bus className="w-4 h-4" /> Transport
+                  </span>
+                  <span className="font-semibold">
+                    {fetchedBooking.transport_opted ? (fetchedBooking.transport_name || "Yes") : "Not booked"}
+                  </span>
+                </div>
+                <div className="h-px" style={{ backgroundColor: "var(--t-border)" }} />
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-base">Total Paid</span>
+                  <span
+                    className="text-2xl font-black"
+                    style={{
+                      background: `linear-gradient(to right, var(--t-accent-from), var(--t-accent-to))`,
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                    }}
+                  >
+                    ₹{fetchedBooking.amount_paid || fetchedBooking.total_amount}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => navigate("/")}
+              className="px-8 py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold transition-all hover:scale-105"
+            >
+              Back to Home
+            </button>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
   // redirect if no data
   if ((!room || !primary) && !payRemaining) {
     return (
