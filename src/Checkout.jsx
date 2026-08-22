@@ -244,15 +244,16 @@ export default function Checkout() {
         const res = await fetch(`${API_BASE}/get-booking?order_id=${encodeURIComponent(orderId)}`);
         if (!res.ok) return;
         const data = await res.json();
-        const booking = Array.isArray(data) ? data[0] : data.booking || data;
-        if (booking) {
-          const status = booking.status || booking.payment_status;
-          if (status === "partially_paid" || status === "fully_paid") {
-            setPaymentStatus(status);
-            setAmountPaid(booking.amount_paid || booking.amountPaid || 0);
-            setPolling(false);
-            clearInterval(pollingRef.current);
-          }
+        if (data.order_status === "paid") {
+          const newTotalPaid = alreadyPaid + payAmount;
+          setPaymentStatus(newTotalPaid >= totalAmount ? "fully_paid" : "partially_paid");
+          setAmountPaid(payAmount);
+          setPolling(false);
+          clearInterval(pollingRef.current);
+        } else if (data.order_status === "failed") {
+          setPaymentStatus("failed");
+          setPolling(false);
+          clearInterval(pollingRef.current);
         }
       } catch {
         // keep polling
@@ -907,6 +908,25 @@ export default function Checkout() {
               className="px-8 py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold transition-all hover:scale-105"
             >
               Back to Home
+            </button>
+          </motion.div>
+        )}
+
+        {/* payment failed */}
+        {paymentStatus === "failed" && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-4">
+            <div className="p-6 rounded-2xl text-center w-full" style={{ backgroundColor: "var(--t-bg-alt)", border: "1px solid var(--t-border)" }}>
+              <AlertCircle className="w-10 h-10 mx-auto mb-3 text-red-500" />
+              <p className="text-xl font-bold text-red-600 mb-1">Payment Failed</p>
+              <p className="text-sm mb-2" style={{ color: "var(--t-text-secondary)" }}>
+                Your payment could not be processed. Please try again.
+              </p>
+            </div>
+            <button
+              onClick={() => { setPaymentStatus(null); setPolling(false); }}
+              className="px-8 py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold transition-all hover:scale-105"
+            >
+              Try Again
             </button>
           </motion.div>
         )}
