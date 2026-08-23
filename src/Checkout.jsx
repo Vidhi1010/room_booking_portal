@@ -89,7 +89,8 @@ export default function Checkout() {
   useEffect(() => {
     if (resolvedExistingBooking?.id) setBookingId(resolvedExistingBooking.id);
     setAmountPaid(alreadyPaid);
-  }, [resolvedExistingBooking, alreadyPaid]);
+    if (payRemaining) setPayAmount(remainingAmount);
+  }, [resolvedExistingBooking, alreadyPaid, payRemaining, remainingAmount]);
 
   // Fetch transport price from API if booking has transport_id
   useEffect(() => {
