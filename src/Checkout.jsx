@@ -253,7 +253,7 @@ export default function Checkout() {
           setPolling(false);
           clearInterval(pollingRef.current);
           if (status === "fully_paid" && data.booking_id) {
-            navigate(`/checkout?booking_id=${encodeURIComponent(data.booking_id)}`, { replace: true });
+            window.location.href = `/checkout?booking_id=${encodeURIComponent(data.booking_id)}`;
           }
         } else if (data.order_status === "failed") {
           setPaymentStatus("failed");
@@ -915,7 +915,7 @@ export default function Checkout() {
             <div className="flex flex-col sm:flex-row items-center gap-3">
               {bookingId && (
                 <button
-                  onClick={() => navigate(`/checkout?booking_id=${encodeURIComponent(bookingId)}`, { replace: true })}
+                  onClick={() => { window.location.href = `/checkout?booking_id=${encodeURIComponent(bookingId)}`; }}
                   className="px-8 py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold transition-all hover:scale-105"
                 >
                   Pay Remaining Amount
