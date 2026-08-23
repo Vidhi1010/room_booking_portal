@@ -75,7 +75,7 @@ export default function Checkout() {
     : 2000 * totalOccupants;
 
   // UI state
-  const [payAmount, setPayAmount] = useState(minPayment);
+  const [payAmount, setPayAmount] = useState(payRemaining ? remainingAmount : minPayment);
   const [submitting, setSubmitting] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [toast, setToast] = useState(null);
@@ -246,10 +246,15 @@ export default function Checkout() {
         const data = await res.json();
         if (data.order_status === "paid") {
           const newTotalPaid = alreadyPaid + payAmount;
-          setPaymentStatus(newTotalPaid >= totalAmount ? "fully_paid" : "partially_paid");
+          const status = newTotalPaid >= totalAmount ? "fully_paid" : "partially_paid";
+          setPaymentStatus(status);
           setAmountPaid(payAmount);
+          if (data.booking_id) setBookingId(data.booking_id);
           setPolling(false);
           clearInterval(pollingRef.current);
+          if (status === "fully_paid" && data.booking_id) {
+            navigate(`/checkout?booking_id=${encodeURIComponent(data.booking_id)}`, { replace: true });
+          }
         } else if (data.order_status === "failed") {
           setPaymentStatus("failed");
           setPolling(false);
@@ -448,7 +453,7 @@ export default function Checkout() {
           )}
         </AnimatePresence>
 
-        {!paymentStatus?.includes("paid") && (
+        {!paymentStatus?.includes("paid") && paymentStatus !== "failed" && (
           <>
             {/* ── Room Preview ── */}
             <motion.div
@@ -723,10 +728,18 @@ export default function Checkout() {
                 <IndianRupee className="w-4 h-4" />
                 {payRemaining ? "Pay Remaining Amount" : "How much would you like to pay now?"}
               </h2>
+              {payRemaining ? (
+                <div className="flex items-center justify-between p-4 rounded-xl" style={{ backgroundColor: "var(--t-card-tint)", border: "1px solid var(--t-border)" }}>
+                  <div>
+                    <p className="text-sm" style={{ color: "var(--t-text-muted)" }}>Remaining Balance</p>
+                    {alreadyPaid > 0 && <p className="text-xs mt-0.5" style={{ color: "var(--t-text-faint)" }}>Already paid: ₹{alreadyPaid}</p>}
+                  </div>
+                  <span className="text-2xl font-black" style={{ color: "var(--t-accent-from)" }}>₹{remainingAmount}</span>
+                </div>
+              ) : (
+              <>
               <p className="text-xs mb-4" style={{ color: "var(--t-text-muted)" }}>
-                {payRemaining
-                  ? `Remaining amount: ₹${remainingAmount}${alreadyPaid > 0 ? ` (Already paid: ₹${alreadyPaid})` : ""}. Minimum ₹${minPayment}.`
-                  : `Minimum ₹2,000/person (₹${minPayment} total). You can pay the remaining amount later.`}
+                {`Minimum ₹2,000/person (₹${minPayment} total). You can pay the remaining amount later.`}
               </p>
               <div className="flex items-center gap-3">
                 <div className="relative flex-1">
@@ -736,26 +749,24 @@ export default function Checkout() {
                     value={payAmount}
                     onChange={(e) => setPayAmount(Number(e.target.value))}
                     min={minPayment}
-                    max={payRemaining ? remainingAmount : totalAmount}
+                    max={totalAmount}
                     className="w-full pl-8 pr-4 py-3 rounded-xl text-sm font-semibold outline-none transition-all duration-200 focus:ring-2 focus:ring-amber-500/30"
                     style={INPUT_STYLE}
                   />
                 </div>
                 <div className="flex gap-2">
-                  {!payRemaining && (
-                    <button
-                      type="button"
-                      onClick={() => setPayAmount(minPayment)}
-                      className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${payAmount === minPayment ? "bg-amber-500/20 border-amber-500/40" : ""}`}
-                      style={{ border: "1px solid var(--t-border-strong)", color: "var(--t-text-secondary)" }}
-                    >
-                      Min
-                    </button>
-                  )}
                   <button
                     type="button"
-                    onClick={() => setPayAmount(payRemaining ? remainingAmount : totalAmount)}
-                    className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${payAmount === (payRemaining ? remainingAmount : totalAmount) ? "bg-amber-500/20 border-amber-500/40" : ""}`}
+                    onClick={() => setPayAmount(minPayment)}
+                    className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${payAmount === minPayment ? "bg-amber-500/20 border-amber-500/40" : ""}`}
+                    style={{ border: "1px solid var(--t-border-strong)", color: "var(--t-text-secondary)" }}
+                  >
+                    Min
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPayAmount(totalAmount)}
+                    className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${payAmount === totalAmount ? "bg-amber-500/20 border-amber-500/40" : ""}`}
                     style={{ border: "1px solid var(--t-border-strong)", color: "var(--t-text-secondary)" }}
                   >
                     Full
@@ -765,8 +776,10 @@ export default function Checkout() {
               {payAmount < minPayment && (
                 <p className="text-red-500 text-xs mt-2">Minimum payment is ₹{minPayment}</p>
               )}
-              {payAmount > (payRemaining ? remainingAmount : totalAmount) && (
-                <p className="text-red-500 text-xs mt-2">Cannot exceed {payRemaining ? "remaining" : "total"} amount of ₹{payRemaining ? remainingAmount : totalAmount}</p>
+              {payAmount > totalAmount && (
+                <p className="text-red-500 text-xs mt-2">Cannot exceed total amount of ₹{totalAmount}</p>
+              )}
+              </>
               )}
             </motion.div>
 
@@ -885,30 +898,37 @@ export default function Checkout() {
           </>
         )}
 
-        {/* payment success */}
+        {/* payment success - partial payment */}
         {paymentStatus?.includes("paid") && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-4">
             <div className="p-6 rounded-2xl text-center w-full" style={{ backgroundColor: "var(--t-bg-alt)", border: "1px solid var(--t-border)" }}>
               <CheckCircle className="w-10 h-10 mx-auto mb-3 text-green-500" />
-              <p className="text-xl font-bold text-green-600 mb-1">
-                {paymentStatus === "fully_paid" ? "Payment Complete!" : "Payment Received!"}
-              </p>
+              <p className="text-xl font-bold text-green-600 mb-1">Payment Received!</p>
               <p className="text-sm mb-2" style={{ color: "var(--t-text-secondary)" }}>
-                {paymentStatus === "fully_paid"
-                  ? "Your full payment has been confirmed. Hare Krishna! 🙏"
-                  : "We've received your payment. Our team will contact you for the remaining amount."}
+                We've received your registration payment. You can pay the remaining amount anytime.
               </p>
               <div className="mt-3 inline-block px-5 py-2 rounded-full" style={{ backgroundColor: "var(--t-card-tint)", border: "1px solid var(--t-border)" }}>
                 <span className="text-sm" style={{ color: "var(--t-text-muted)" }}>Amount Paid: </span>
                 <span className="text-lg font-black" style={{ color: "var(--t-accent-from)" }}>₹{amountPaid}</span>
               </div>
             </div>
-            <button
-              onClick={() => navigate("/")}
-              className="px-8 py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold transition-all hover:scale-105"
-            >
-              Back to Home
-            </button>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              {bookingId && (
+                <button
+                  onClick={() => navigate(`/checkout?booking_id=${encodeURIComponent(bookingId)}`, { replace: true })}
+                  className="px-8 py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold transition-all hover:scale-105"
+                >
+                  Pay Remaining Amount
+                </button>
+              )}
+              <button
+                onClick={() => navigate("/")}
+                className="px-8 py-3 rounded-full font-semibold transition-all hover:scale-105"
+                style={{ border: "1px solid var(--t-border-strong)", color: "var(--t-text-secondary)" }}
+              >
+                Back to Home
+              </button>
+            </div>
           </motion.div>
         )}
 
