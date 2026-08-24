@@ -96,7 +96,7 @@ export default function Checkout() {
   useEffect(() => {
     if (resolvedExistingBooking?.id) setBookingId(resolvedExistingBooking.id);
     setAmountPaid(alreadyPaid);
-    if (payRemaining) setPayAmount(remainingAmount);
+    if (payRemaining && alreadyPaid > 0) setPayAmount(remainingAmount);
   }, [resolvedExistingBooking, alreadyPaid, payRemaining, remainingAmount]);
 
   // Fetch transport price from API if booking has transport_id
@@ -736,11 +736,11 @@ export default function Checkout() {
                 <IndianRupee className="w-4 h-4" />
                 {payRemaining ? "Pay Remaining Amount" : "How much would you like to pay now?"}
               </h2>
-              {payRemaining ? (
+              {payRemaining && alreadyPaid > 0 ? (
                 <div className="flex items-center justify-between p-4 rounded-xl" style={{ backgroundColor: "var(--t-card-tint)", border: "1px solid var(--t-border)" }}>
                   <div>
                     <p className="text-sm" style={{ color: "var(--t-text-muted)" }}>Remaining Balance</p>
-                    {alreadyPaid > 0 && <p className="text-xs mt-0.5" style={{ color: "var(--t-text-faint)" }}>Already paid: ₹{alreadyPaid}</p>}
+                    <p className="text-xs mt-0.5" style={{ color: "var(--t-text-faint)" }}>Already paid: ₹{alreadyPaid}</p>
                   </div>
                   <span className="text-2xl font-black" style={{ color: "var(--t-accent-from)" }}>₹{remainingAmount}</span>
                 </div>
