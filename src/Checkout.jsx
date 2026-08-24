@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { defaultTheme } from "./themes";
 import { API_BASE } from "./config";
+import { trackEvent } from "./analytics";
 
 export default function Checkout() {
   const location = useLocation();
@@ -29,6 +30,12 @@ export default function Checkout() {
   const [fetchedBooking, setFetchedBooking] = useState(null);
   const [fetchingBooking, setFetchingBooking] = useState(!!bookingIdParam);
   const [transportPrice, setTransportPrice] = useState(null);
+
+  useEffect(() => {
+    if (bookingIdParam && searchParams.get("app") === "whatsapp") {
+      trackEvent("WhatsApp", "checkout_link_clicked", bookingIdParam);
+    }
+  }, [bookingIdParam, searchParams]);
 
   useEffect(() => {
     if (!bookingIdParam) return;
