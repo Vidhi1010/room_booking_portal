@@ -1,6 +1,6 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
+import { WhatsAppFloat } from './Whatsapp';
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
-import { useEffect } from 'react';
 import { trackPageView } from './analytics';
 import VrajKartikYatra from "./VrajKartikYatra";
 const RoomBookingPortal = lazy(() => import('./RoomBookingPortal'));
@@ -31,6 +31,7 @@ function App() {
           <Route path="/admin" element={<AdminDashboard />} />
         </Routes>
       </Suspense>
+      <WhatsAppFloat />
     </Router>
   );
 }
