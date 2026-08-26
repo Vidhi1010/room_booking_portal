@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, X, MessageCircle, Loader2 } from "lucide-react";
+import { Send, X, MessageCircle } from "lucide-react";
 import { API_BASE } from "./config";
 
 export default function ChatBot() {
@@ -80,8 +80,18 @@ export default function ChatBot() {
             ))}
             {loading && (
               <div className="flex justify-start">
-                <div className="px-3.5 py-2.5 rounded-2xl" style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
-                  <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                <div className="px-3.5 py-3 rounded-2xl flex items-center gap-1" style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className="w-2 h-2 rounded-full bg-amber-400"
+                      style={{
+                        animation: "typingDot 1.4s infinite",
+                        animationDelay: `${i * 0.2}s`,
+                        opacity: 0.3,
+                      }}
+                    />
+                  ))}
                 </div>
               </div>
             )}
@@ -110,6 +120,13 @@ export default function ChatBot() {
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes typingDot {
+          0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+          30% { opacity: 1; transform: translateY(-4px); }
+        }
+      `}</style>
 
       {/* floating toggle button */}
       {!open && (
