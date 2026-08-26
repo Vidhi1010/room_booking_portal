@@ -24,7 +24,7 @@ export default function ChatBot() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/yatra-chatbot`, {
+      const res = await fetch(`${API_BASE}/chatbot`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question }),
