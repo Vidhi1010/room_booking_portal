@@ -16,7 +16,6 @@ function formatBooking(booking) {
   const remaining = total - paid;
   const lines = [
     `🆔 Booking ID: ${booking.id}`,
-    `👤 Name: ${booking.primary_name || booking.name || "—"}`,
     `🏠 Room: ${booking.room_name || booking.room_type || "—"}`,
     `👥 Occupants: ${booking.total_occupants || 1}`,
     `💰 Total: ₹${total}`,
