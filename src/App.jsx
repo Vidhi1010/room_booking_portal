@@ -1,8 +1,8 @@
 import { lazy, Suspense, useState, useEffect } from 'react';
-import { WhatsAppFloat } from './Whatsapp';
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { trackPageView } from './analytics';
 import VrajKartikYatra from "./VrajKartikYatra";
+import ChatBot from "./ChatBot";
 const RoomBookingPortal = lazy(() => import('./RoomBookingPortal'));
 const RoomSelection = lazy(() => import('./RoomSelection'));
 const Checkout = lazy(() => import('./Checkout'));
@@ -31,7 +31,7 @@ function App() {
           <Route path="/admin" element={<AdminDashboard />} />
         </Routes>
       </Suspense>
-      <WhatsAppFloat />
+      <ChatBot />
     </Router>
   );
 }
