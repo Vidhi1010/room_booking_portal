@@ -4,11 +4,34 @@ import { API_BASE } from "./config";
 
 const QUICK_QUESTIONS = [
   { label: "📋 Booking Status", action: "booking_status" },
-  { label: "🏠 Room Options", question: "What room options are available?" },
-  { label: "📅 Yatra Dates", question: "When is the yatra and what are the dates?" },
-  { label: "💰 Pricing", question: "What is the pricing for the yatra?" },
-  { label: "🚌 Transport", question: "Is transport available and what does it cost?" },
+  { 
+    label: "🏠 Room Options",
+    answer: "🏠 Available Room Types:\n\n🛏️ Twin Bed Room (2 bed)\n🛏️ 2+1 Bed Room (3 bed)\n👨‍👩‍👧‍👦 Family Room (4 bed)\n🏢 Dormitory (6 bed)\n\n💡 Price: ₹3,500 – ₹5,500 per person\n✅ All include Accommodation, Prasadam & Internal Travel"
+  },
+  {
+    label: "📅 Yatra Dates",
+    answer: "📅 ISKCON Vrindavan Dham Yatra 2026\n\n📍 Dates: 2nd Oct (9 AM) → 4th Oct (5 PM)\n⏳ Duration: 3 Days\n🔒 Registration Deadline: 15th Sept 2026\n\n⚡ Seats are limited — register early!"
+  },
+  {
+    label: "💰 Pricing",
+    answer: "💰 Yatra Pricing (per person):\n\n🏢 Dormitory — ₹3,500\n👨‍👩‍👧‍👦 Family / 2+1 Bed — ₹4,500\n🛏️ Twin Bed — ₹5,500\n\n✅ Includes: Accommodation + Prasadam + Internal Travel\n🚌 Delhi ↔ Vraj Transport: ₹800 extra\n\n💡 Book with just ₹2,000 advance!"
+  },
+  {
+    label: "🚌 Transport",
+    answer: "🚌 Transport Details:\n\n✅ Delhi ↔ Vraj round-trip AC bus\n💰 Cost: ₹800 per person\n📍 Internal travel within Vraj is included in all packages\n\n🗺️ Covers: Vrindavan, Mathura, Govardhan & Barsana"
+  },
 ];
+
+const BOOKING_KEYWORDS = [
+  "booking", "status", "payment", "booked", "paid",
+  "remaining", "balance", "mera booking", "meri booking",
+  "registration", "confirm", "kitna bacha", "kitna dena",
+];
+
+function isBookingQuery(message) {
+  const lower = message.toLowerCase();
+  return BOOKING_KEYWORDS.some((k) => lower.includes(k));
+}
 
 function formatBooking(booking) {
   const paid = booking.amount_paid || 0;
@@ -97,6 +120,10 @@ export default function ChatBot() {
       return;
     }
     addUser(q.label);
+    if (q.answer) {
+      addBot(q.answer);
+      return;
+    }
     sendToApi(q.question);
   };
 
@@ -114,6 +141,12 @@ export default function ChatBot() {
       }
       setAwaitingPhone(false);
       await fetchBookingStatus(phone);
+      return;
+    }
+
+    if (isBookingQuery(text)) {
+      addBot("Please enter your 10-digit phone number used during registration:");
+      setAwaitingPhone(true);
       return;
     }
 
@@ -160,9 +193,9 @@ export default function ChatBot() {
                       href={msg.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block mt-1 text-amber-400 underline underline-offset-2 break-all"
+                      className="inline-flex items-center gap-1.5 mt-2 px-4 py-2 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-500 to-orange-600 text-white no-underline hover:scale-105 transition-transform"
                     >
-                      {msg.link}
+                      Complete Payment →
                     </a>
                   )}
                 </div>
