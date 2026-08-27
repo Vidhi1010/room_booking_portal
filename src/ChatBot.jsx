@@ -15,7 +15,6 @@ function formatBooking(booking) {
   const total = booking.total_amount || 0;
   const remaining = total - paid;
   const lines = [
-    `🆔 Booking ID: ${booking.id}`,
     `🏠 Room: ${booking.room_name || booking.room_type || "—"}`,
     `👥 Occupants: ${booking.total_occupants || 1}`,
     `💰 Total: ₹${total}`,
@@ -23,7 +22,13 @@ function formatBooking(booking) {
     remaining > 0 ? `⏳ Remaining: ₹${remaining}` : null,
     `📌 Status: ${(booking.status || "pending").replace(/_/g, " ")}`,
   ];
-  return lines.filter(Boolean).join("\n");
+  const text = lines.filter(Boolean).join("\n");
+
+  if (booking.status !== "fully_paid" && booking.id) {
+    const payUrl = `${window.location.origin}/checkout?booking_id=${booking.id}`;
+    return { text: text + "\n\n💳 Complete your payment here:", link: payUrl };
+  }
+  return { text };
 }
 
 export default function ChatBot() {
@@ -40,7 +45,7 @@ export default function ChatBot() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  const addBot = (text) => setMessages((m) => [...m, { role: "bot", text }]);
+  const addBot = (text, link) => setMessages((m) => [...m, { role: "bot", text, link }]);
   const addUser = (text) => setMessages((m) => [...m, { role: "user", text }]);
 
   const fetchBookingStatus = async (phone) => {
@@ -51,8 +56,13 @@ export default function ChatBot() {
       const data = await res.json();
       const bookings = data.bookings || (Array.isArray(data) ? data : []);
       if (!bookings.length) { addBot("No booking found for this number. Please check and try again."); return; }
-      const summary = bookings.map((b, i) => (bookings.length > 1 ? `— Booking ${i + 1} —\n` : "") + formatBooking(b)).join("\n\n");
-      addBot(summary);
+      const parts = bookings.map((b, i) => {
+        const formatted = formatBooking(b);
+        return { text: (bookings.length > 1 ? `— Booking ${i + 1} —\n` : "") + formatted.text, link: formatted.link };
+      });
+      const combinedText = parts.map((p) => p.text).join("\n\n");
+      const firstLink = parts.find((p) => p.link)?.link;
+      addBot(combinedText, firstLink);
     } catch {
       addBot("Something went wrong while fetching your booking. Please try again.");
     } finally {
@@ -145,6 +155,16 @@ export default function ChatBot() {
                   }
                 >
                   {msg.text}
+                  {msg.link && (
+                    <a
+                      href={msg.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block mt-1 text-amber-400 underline underline-offset-2 break-all"
+                    >
+                      {msg.link}
+                    </a>
+                  )}
                 </div>
               </div>
             ))}
