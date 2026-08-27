@@ -62,7 +62,13 @@ export default function ChatBot() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [awaitingPhone, setAwaitingPhone] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(true);
   const endRef = useRef(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowTooltip(false), 5000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -269,16 +275,35 @@ export default function ChatBot() {
         }
         .chatbot-no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
         .chatbot-no-scrollbar::-webkit-scrollbar { display: none; }
+        .chatbot-tooltip {
+          animation: tooltipFade 4s ease-in-out forwards;
+        }
+        @keyframes tooltipFade {
+          0% { opacity: 0; transform: translateX(8px); }
+          10% { opacity: 1; transform: translateX(0); }
+          75% { opacity: 1; }
+          100% { opacity: 0; }
+        }
       `}</style>
 
       {/* floating toggle button */}
       {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          className="w-14 h-14 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
-        >
-          <MessageCircle className="w-6 h-6" />
-        </button>
+        <div className="flex items-center gap-2">
+          {showTooltip && (
+            <span
+              className="chatbot-tooltip px-3 py-2 rounded-xl text-xs font-medium shadow-lg whitespace-nowrap"
+              style={{ backgroundColor: "#fff", color: "#333", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}
+            >
+              Need help with the yatra? 🙏
+            </span>
+          )}
+          <button
+            onClick={() => { setOpen(true); setShowTooltip(false); }}
+            className="w-14 h-14 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+          >
+            <MessageCircle className="w-6 h-6" />
+          </button>
+        </div>
       )}
     </div>
   );
