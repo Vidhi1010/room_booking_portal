@@ -11,6 +11,9 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.2",
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
     "@tailwindcss/vite": "^4.1.13",
     "antd": "^6.5.2",
     "framer-motion": "^12.42.2",
