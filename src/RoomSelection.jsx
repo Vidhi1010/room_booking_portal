@@ -201,8 +201,11 @@ export default function RoomSelection() {
 
   // transport
   const [transportOptions, setTransportOptions] = useState([]);
-  const [transportOpted, setTransportOpted] = useState(savedState?.transportOpted || false);
+  const [transportChoice, setTransportChoice] = useState(
+    savedState?.transportChoice ?? (savedState?.transportOpted ? "yes" : null)
+  );
   const [selectedTransport, setSelectedTransport] = useState(savedState?.selectedTransport || null);
+  const transportOpted = transportChoice === "yes";
 
   // user names for room partner autocomplete
   const [userNames, setUserNames] = useState([]);
@@ -287,6 +290,11 @@ export default function RoomSelection() {
       errs.facilitator_name = "Required";
     if (!selectedRoomType) errs.room = "Please select a room";
 
+    if (transportOptions.length > 0) {
+      if (transportChoice === null) errs.transport = "Please choose whether you want transportation";
+      else if (transportChoice === "yes" && !selectedTransport) errs.transport = "Please select a transport option";
+    }
+
     members.forEach((m, i) => {
       if (!m.name.trim()) errs[`member_${i}_name`] = "Required";
       if (!m.age || m.age < 1 || m.age > 120) errs[`member_${i}_age`] = "Valid age required";
@@ -311,6 +319,7 @@ export default function RoomSelection() {
         members,
         transportOpted,
         selectedTransport,
+        transportChoice,
       },
     });
   };
@@ -715,25 +724,62 @@ export default function RoomSelection() {
               </span>
               Transport
             </h2>
-            {transportOptions.map((t, i) => (
+
+            <p className="text-sm mb-3" style={{ color: "var(--t-text-secondary)" }}>
+              Do you want to opt for transportation (Delhi/Jaipur to Vraj - round trip)?
+            </p>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setTransportChoice("yes");
+                  if (transportOptions.length === 1) setSelectedTransport(transportOptions[0]);
+                  if (errors.transport) setErrors((e) => ({ ...e, transport: null }));
+                }}
+                className="flex items-center justify-center gap-2 p-4 rounded-2xl font-semibold transition-all duration-300"
+                style={{
+                  border: transportChoice === "yes" ? "2px solid var(--t-accent-from)" : "1px solid var(--t-border-strong)",
+                  backgroundColor: transportChoice === "yes" ? "var(--t-card-tint)" : "transparent",
+                  color: transportChoice === "yes" ? "var(--t-accent-from)" : "var(--t-text)",
+                }}
+              >
+                Yes, I need transport
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTransportChoice("no");
+                  setSelectedTransport(null);
+                  if (errors.transport) setErrors((e) => ({ ...e, transport: null }));
+                }}
+                className="flex items-center justify-center gap-2 p-4 rounded-2xl font-semibold transition-all duration-300"
+                style={{
+                  border: transportChoice === "no" ? "2px solid var(--t-accent-from)" : "1px solid var(--t-border-strong)",
+                  backgroundColor: transportChoice === "no" ? "var(--t-card-tint)" : "transparent",
+                  color: transportChoice === "no" ? "var(--t-accent-from)" : "var(--t-text)",
+                }}
+              >
+                No, I'll arrange my own
+              </button>
+            </div>
+            {errors.transport && (
+              <p className="text-xs mb-3 text-red-500">{errors.transport}</p>
+            )}
+
+            {transportChoice === "yes" && transportOptions.map((t, i) => (
               <button
                 key={i}
                 type="button"
                 onClick={() => {
-                  if (transportOpted && selectedTransport === t) {
-                    setTransportOpted(false);
-                    setSelectedTransport(null);
-                  } else {
-                    setTransportOpted(true);
-                    setSelectedTransport(t);
-                  }
+                  setSelectedTransport(selectedTransport === t ? null : t);
+                  if (errors.transport) setErrors((e) => ({ ...e, transport: null }));
                 }}
-                className="w-full flex items-center justify-between p-5 rounded-2xl transition-all duration-300"
+                className="w-full flex items-center justify-between p-5 rounded-2xl transition-all duration-300 mb-3"
                 style={{
-                  border: transportOpted && selectedTransport === t
+                  border: selectedTransport === t
                     ? "2px solid var(--t-accent-from)"
                     : "1px solid var(--t-border-strong)",
-                  backgroundColor: transportOpted && selectedTransport === t
+                  backgroundColor: selectedTransport === t
                     ? "var(--t-card-tint)"
                     : "transparent",
                 }}
@@ -750,10 +796,10 @@ export default function RoomSelection() {
                   <div
                     className="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
                     style={{
-                      borderColor: transportOpted && selectedTransport === t ? "var(--t-accent-from)" : "var(--t-border-strong)",
+                      borderColor: selectedTransport === t ? "var(--t-accent-from)" : "var(--t-border-strong)",
                     }}
                   >
-                    {transportOpted && selectedTransport === t && (
+                    {selectedTransport === t && (
                       <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "var(--t-accent-from)" }} />
                     )}
                   </div>
