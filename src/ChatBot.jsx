@@ -18,7 +18,7 @@ const QUICK_QUESTIONS = [
   },
   {
     label: "🚌 Transport",
-    answer: "🚌 Transport Details:\n\n✅ Delhi ↔ Vraj round-trip AC bus\n💰 Cost: ₹800 per person\n📍 Internal travel within Vraj is included in all packages\n\n🗺️ Covers: Vrindavan, Mathura, Govardhan & Barsana"
+    answer: "🚌 Transport Details:\n\n✅ Delhi ↔ Vraj round-trip AC bus\n💰 Cost: ₹700 per person\n📍 Internal travel within Vraj is included in all packages\n\n🗺️ Covers: Vrindavan, Mathura, Govardhan & Barsana"
   },
 ];
 

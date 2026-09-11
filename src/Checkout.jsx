@@ -82,7 +82,7 @@ export default function Checkout() {
     : 2000 * totalOccupants;
 
   // UI state
-  const [payAmount, setPayAmount] = useState(payRemaining ? remainingAmount : minPayment);
+  const [payAmount, setPayAmount] = useState(payRemaining ? remainingAmount : totalAmount);
   const [submitting, setSubmitting] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [toast, setToast] = useState(null);
