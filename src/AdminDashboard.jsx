@@ -95,6 +95,9 @@ export default function AdminDashboard() {
     limit: 50,
     status: undefined,
     transport_opted: undefined,
+    preaching_area: undefined,
+    facilitator_name: undefined,
+    gender: undefined,
   });
 
   // Dashboard state
@@ -236,6 +239,9 @@ export default function AdminDashboard() {
       if (filters.transport_opted !== undefined && filters.transport_opted !== null) {
         params.set("transport_opted", filters.transport_opted);
       }
+      if (filters.preaching_area) params.set("preaching_area", filters.preaching_area);
+      if (filters.facilitator_name) params.set("facilitator_name", filters.facilitator_name);
+      if (filters.gender) params.set("gender", filters.gender);
       const res = await fetch(`${API_BASE}/get-bookings?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -526,6 +532,37 @@ export default function AdminDashboard() {
                       { label: "Opted", value: true },
                       { label: "Not Opted", value: false },
                     ]}
+                  />
+                  <Select
+                    placeholder="Preaching Area"
+                    allowClear
+                    style={{ width: 180 }}
+                    value={filters.preaching_area}
+                    onChange={(v) => setFilters((f) => ({ ...f, preaching_area: v }))}
+                    options={[
+                      { label: "Gita Essence", value: "Gita Essence" },
+                      { label: "ISKCON Jia Sarai", value: "ISKCON Jia Sarai" },
+                      { label: "ISKCON Srinagar", value: "ISKCON Srinagar" },
+                      { label: "Siksharthakam", value: "Siksharthakam" },
+                    ]}
+                  />
+                  <Select
+                    placeholder="Gender"
+                    allowClear
+                    style={{ width: 120 }}
+                    value={filters.gender}
+                    onChange={(v) => setFilters((f) => ({ ...f, gender: v }))}
+                    options={[
+                      { label: "Male", value: "Male" },
+                      { label: "Female", value: "Female" },
+                    ]}
+                  />
+                  <Input
+                    placeholder="Facilitator name"
+                    allowClear
+                    style={{ width: 180 }}
+                    value={filters.facilitator_name}
+                    onChange={(e) => setFilters((f) => ({ ...f, facilitator_name: e.target.value || undefined }))}
                   />
                   <InputNumber
                     placeholder="Limit"
