@@ -726,7 +726,7 @@ export default function RoomSelection() {
             </h2>
 
             <p className="text-sm mb-3" style={{ color: "var(--t-text-secondary)" }}>
-              Do you want to opt for transportation (Delhi/Jaipur to Vraj - round trip)?
+              Do you want to opt for transportation (Delhi to Vraj - round trip)?
             </p>
             <div className="grid grid-cols-2 gap-3 mb-4">
               <button
