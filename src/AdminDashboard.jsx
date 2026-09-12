@@ -95,6 +95,9 @@ export default function AdminDashboard() {
     limit: 50,
     status: undefined,
     transport_opted: undefined,
+    preaching_area: undefined,
+    facilitator_name: undefined,
+    gender: undefined,
   });
 
   // Dashboard state
@@ -236,6 +239,9 @@ export default function AdminDashboard() {
       if (filters.transport_opted !== undefined && filters.transport_opted !== null) {
         params.set("transport_opted", filters.transport_opted);
       }
+      if (filters.preaching_area) params.set("preaching_area", filters.preaching_area);
+      if (filters.facilitator_name) params.set("facilitator_name", filters.facilitator_name);
+      if (filters.gender) params.set("gender", filters.gender);
       const res = await fetch(`${API_BASE}/get-bookings?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -527,6 +533,37 @@ export default function AdminDashboard() {
                       { label: "Not Opted", value: false },
                     ]}
                   />
+                  <Select
+                    placeholder="Preaching Area"
+                    allowClear
+                    style={{ width: 180 }}
+                    value={filters.preaching_area}
+                    onChange={(v) => setFilters((f) => ({ ...f, preaching_area: v }))}
+                    options={[
+                      { label: "Gita Essence", value: "Gita Essence" },
+                      { label: "ISKCON Jia Sarai", value: "ISKCON Jia Sarai" },
+                      { label: "ISKCON Srinagar", value: "ISKCON Srinagar" },
+                      { label: "Siksharthakam", value: "Siksharthakam" },
+                    ]}
+                  />
+                  <Select
+                    placeholder="Gender"
+                    allowClear
+                    style={{ width: 120 }}
+                    value={filters.gender}
+                    onChange={(v) => setFilters((f) => ({ ...f, gender: v }))}
+                    options={[
+                      { label: "Male", value: "Male" },
+                      { label: "Female", value: "Female" },
+                    ]}
+                  />
+                  <Input
+                    placeholder="Facilitator name"
+                    allowClear
+                    style={{ width: 180 }}
+                    value={filters.facilitator_name}
+                    onChange={(e) => setFilters((f) => ({ ...f, facilitator_name: e.target.value || undefined }))}
+                  />
                   <InputNumber
                     placeholder="Limit"
                     min={1}
@@ -726,6 +763,85 @@ export default function AdminDashboard() {
                         />
                       </div>
                     </Card>
+
+                    {/* Users Breakdown */}
+                    {dashboardData.users && (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16, marginTop: 24 }}>
+                        <Card
+                          title={
+                            <span style={{ color: "#fff" }}>
+                              <TeamOutlined style={{ marginRight: 8 }} />
+                              Gender Breakdown
+                              <span style={{ marginLeft: 8, fontSize: 12, color: "rgba(255,255,255,0.4)", fontWeight: 400 }}>
+                                {dashboardData.users.total} total
+                              </span>
+                            </span>
+                          }
+                          style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}
+                          styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-around" }}>
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Male</span>}
+                              value={dashboardData.users.gender_breakdown?.male ?? 0}
+                              valueStyle={{ color: "#60a5fa", fontSize: 22 }}
+                            />
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Female</span>}
+                              value={dashboardData.users.gender_breakdown?.female ?? 0}
+                              valueStyle={{ color: "#f472b6", fontSize: 22 }}
+                            />
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Other</span>}
+                              value={dashboardData.users.gender_breakdown?.other ?? 0}
+                              valueStyle={{ color: "rgba(255,255,255,0.7)", fontSize: 22 }}
+                            />
+                          </div>
+                        </Card>
+
+                        <Card
+                          title={
+                            <span style={{ color: "#fff" }}>
+                              <HomeOutlined style={{ marginRight: 8 }} />
+                              Preaching Area Breakdown
+                            </span>
+                          }
+                          style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}
+                          styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
+                        >
+                          {(() => {
+                            const areas = dashboardData.users.preaching_area_breakdown || {};
+                            const entries = Object.entries(areas);
+                            const total = entries.reduce((sum, [, v]) => sum + (v || 0), 0);
+                            if (entries.length === 0) {
+                              return <Text style={{ color: "rgba(255,255,255,0.4)" }}>No data</Text>;
+                            }
+                            return (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                {entries.map(([name, count]) => {
+                                  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                                  return (
+                                    <div key={name}>
+                                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+                                        <span style={{ color: "rgba(255,255,255,0.7)" }}>{name}</span>
+                                        <span style={{ color: "#fff", fontWeight: 600 }}>{count} <span style={{ color: "rgba(255,255,255,0.4)", fontWeight: 400 }}>({pct}%)</span></span>
+                                      </div>
+                                      <Progress
+                                        percent={pct}
+                                        showInfo={false}
+                                        strokeColor="#d97706"
+                                        trailColor="rgba(255,255,255,0.06)"
+                                        size="small"
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
+                        </Card>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <Empty description="No dashboard data available" style={{ padding: 80 }} />
