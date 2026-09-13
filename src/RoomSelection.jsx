@@ -143,6 +143,10 @@ export default function RoomSelection() {
   const [phoneLookupLoading, setPhoneLookupLoading] = useState(false);
   const [phoneLookupError, setPhoneLookupError] = useState("");
 
+  // Existing-booking guard for new registrations
+  const [checkingExisting, setCheckingExisting] = useState(false);
+  const [existingBookingModal, setExistingBookingModal] = useState(null);
+
   const handlePayRemaining = async () => {
     if (!phoneInput.trim() || phoneInput.trim().length < 10) {
       setPhoneLookupError("Please enter a valid 10-digit phone number");
@@ -310,8 +314,27 @@ export default function RoomSelection() {
     return Object.keys(errs).length === 0;
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!validate()) return;
+
+    setCheckingExisting(true);
+    try {
+      const phone = primary.contact_number.trim();
+      const res = await fetch(`${API_BASE}/get-booking?contact_number=${encodeURIComponent(phone)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const bookings = data.bookings || (Array.isArray(data) ? data : (data.booking ? [data.booking] : []));
+        if (bookings.length > 0) {
+          setExistingBookingModal(bookings[0]);
+          return;
+        }
+      }
+    } catch {
+      // network / lookup failure — allow user to proceed with new booking
+    } finally {
+      setCheckingExisting(false);
+    }
+
     navigate("/checkout", {
       state: {
         room: selectedRoom,
@@ -424,6 +447,97 @@ export default function RoomSelection() {
                   </button>
                 </>
               )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Existing Booking Modal (found while trying to create a new booking) */}
+      <AnimatePresence>
+        {existingBookingModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="w-full max-w-md rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+              style={{ backgroundColor: "var(--t-bg)", border: "1px solid var(--t-border-strong)" }}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                  <h2 className="text-lg font-bold">Existing Booking Found</h2>
+                </div>
+                <button
+                  onClick={() => setExistingBookingModal(null)}
+                  className="p-1.5 rounded-lg transition-colors hover:bg-white/10"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <p className="text-sm mb-4" style={{ color: "var(--t-text-muted)" }}>
+                A booking already exists for the phone number <strong>{existingBookingModal.primary_contact}</strong>. Please complete payment for your existing booking.
+              </p>
+
+              <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: "var(--t-card-tint)", border: "1px solid var(--t-border)" }}>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  {existingBookingModal.primary_name && (
+                    <div>
+                      <span className="text-xs" style={{ color: "var(--t-text-faint)" }}>Name</span>
+                      <p className="font-semibold">{existingBookingModal.primary_name}</p>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-xs" style={{ color: "var(--t-text-faint)" }}>Contact</span>
+                    <p className="font-semibold">{existingBookingModal.primary_contact}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs" style={{ color: "var(--t-text-faint)" }}>Room</span>
+                    <p className="font-semibold">{existingBookingModal.room_name || "-"}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs" style={{ color: "var(--t-text-faint)" }}>Occupants</span>
+                    <p className="font-semibold">{existingBookingModal.total_occupants}</p>
+                  </div>
+                  {existingBookingModal.transport_name && (
+                    <div>
+                      <span className="text-xs" style={{ color: "var(--t-text-faint)" }}>Transport</span>
+                      <p className="font-semibold">{existingBookingModal.transport_name}</p>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-xs" style={{ color: "var(--t-text-faint)" }}>Status</span>
+                    <p className="font-semibold capitalize">{existingBookingModal.status?.replace(/_/g, " ")}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs" style={{ color: "var(--t-text-faint)" }}>Total Amount</span>
+                    <p className="font-semibold">₹{existingBookingModal.total_amount}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs" style={{ color: "var(--t-text-faint)" }}>Amount Paid</span>
+                    <p className="font-semibold text-green-500">₹{existingBookingModal.amount_paid}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl mb-4" style={{ backgroundColor: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)" }}>
+                <p className="text-xs" style={{ color: "var(--t-text-secondary)" }}>
+                  Booking details cannot be edited from here. If you need to modify your booking, please contact <strong>Apurv Prem Prabhu (97114 60737)</strong>.
+                </p>
+              </div>
+
+              <button
+                onClick={() => navigate(`/checkout?booking_id=${encodeURIComponent(existingBookingModal.id)}`)}
+                className="w-full py-3 rounded-xl text-white font-semibold text-sm transition-all duration-200 bg-gradient-to-r from-amber-500 to-orange-600 hover:shadow-lg hover:shadow-amber-500/20"
+              >
+                {existingBookingModal.status === "fully_paid" ? "View Booking" : "Complete Payment"}
+              </button>
             </motion.div>
           </motion.div>
         )}
@@ -832,10 +946,20 @@ export default function RoomSelection() {
         >
           <button
             onClick={handleContinue}
-            className="group flex items-center gap-2 px-8 py-4 rounded-full text-white font-bold text-lg transition-all duration-300 bg-gradient-to-r from-amber-500 to-orange-600 hover:shadow-2xl hover:shadow-amber-500/30 hover:scale-105"
+            disabled={checkingExisting}
+            className="group flex items-center gap-2 px-8 py-4 rounded-full text-white font-bold text-lg transition-all duration-300 bg-gradient-to-r from-amber-500 to-orange-600 hover:shadow-2xl hover:shadow-amber-500/30 hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Continue to Checkout
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            {checkingExisting ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Checking...
+              </>
+            ) : (
+              <>
+                Continue to Checkout
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </>
+            )}
           </button>
         </motion.div>
       </div>
