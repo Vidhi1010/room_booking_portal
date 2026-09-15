@@ -94,7 +94,7 @@ export default function AdminDashboard() {
   const [rooms, setRooms] = useState([]);
   const [roomsLoading, setRoomsLoading] = useState(false);
   const [filters, setFilters] = useState({
-    limit: 50,
+    limit: 100,
     status: undefined,
     transport_opted: undefined,
     preaching_area: undefined,
