@@ -182,7 +182,7 @@ export default function VrajKartikYatra() {
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
-    const target = new Date("2026-09-15T23:59:59").getTime();
+    const target = new Date("2026-09-20T23:59:59").getTime();
     const tick = () => {
       const now = Date.now();
       const diff = Math.max(0, target - now);
@@ -529,7 +529,7 @@ export default function VrajKartikYatra() {
               </div>
             ))}
           </div>
-          <span className="text-xs" style={{ color: "var(--t-text-faint)" }}>Last date: 15 Sept 2026</span>
+          <span className="text-xs" style={{ color: "var(--t-text-faint)" }}>Last date: 20 Sept 2026</span>
         </div>
       </div>
 

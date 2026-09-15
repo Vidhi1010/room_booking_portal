@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import * as XLSX from "xlsx";
 import {
   Layout,
   Menu,
@@ -319,55 +320,76 @@ export default function AdminDashboard() {
       "Facilitator",
       "Preferred Room Partner",
     ];
-    const esc = (v) => {
-      if (v === null || v === undefined) return "";
-      const s = String(v);
-      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-    const rows = [headers.join(",")];
-    bookings.forEach((b) => {
+
+    const buildRow = (b, u, i) => {
       const balance = (b.total_amount ?? 0) - (b.amount_paid ?? 0);
       const bookedAt = b.created_at ? new Date(b.created_at).toISOString() : "";
+      return [
+        b.id,
+        b.status,
+        b.room_name,
+        b.room_type,
+        b.total_occupants,
+        b.total_amount,
+        b.amount_paid,
+        balance,
+        b.transport_opted ? "Yes" : "No",
+        b.transport_name || "",
+        b.primary_contact,
+        bookedAt,
+        i + 1,
+        u?.name || "",
+        u?.is_primary ? "Yes" : "No",
+        u?.gender || "",
+        u?.age ?? "",
+        u?.contact_number || "",
+        u?.chanting_rounds ?? "",
+        u?.preaching_area_connected || "",
+        u?.facilitator_name || "",
+        u?.preferred_room_partner || "",
+      ];
+    };
+
+    // Group by primary user's preaching area; unknown → "Other"
+    const groups = new Map();
+    const allRows = [];
+    bookings.forEach((b) => {
+      const primary = b.users?.find((u) => u.is_primary);
+      const area = (primary?.preaching_area_connected || "").trim() || "Other";
       const users = b.users && b.users.length ? b.users : [null];
-      users.forEach((u, i) => {
-        const row = [
-          b.id,
-          b.status,
-          b.room_name,
-          b.room_type,
-          b.total_occupants,
-          b.total_amount,
-          b.amount_paid,
-          balance,
-          b.transport_opted ? "Yes" : "No",
-          b.transport_name || "",
-          b.primary_contact,
-          bookedAt,
-          i + 1,
-          u?.name || "",
-          u?.is_primary ? "Yes" : "No",
-          u?.gender || "",
-          u?.age ?? "",
-          u?.contact_number || "",
-          u?.chanting_rounds ?? "",
-          u?.preaching_area_connected || "",
-          u?.facilitator_name || "",
-          u?.preferred_room_partner || "",
-        ].map(esc);
-        rows.push(row.join(","));
-      });
+      const bookingRows = users.map((u, i) => buildRow(b, u, i));
+      if (!groups.has(area)) groups.set(area, []);
+      groups.get(area).push(...bookingRows);
+      allRows.push(...bookingRows);
     });
-    const csv = "\uFEFF" + rows.join("\r\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+
+    // Sanitize sheet name (Excel: max 31 chars, disallowed: : \ / ? * [ ])
+    const sanitizeSheetName = (name) => {
+      const cleaned = name.replace(/[:\\/?*[\]]/g, " ").trim() || "Sheet";
+      return cleaned.length > 31 ? cleaned.slice(0, 31) : cleaned;
+    };
+
+    const wb = XLSX.utils.book_new();
+    const allSheet = XLSX.utils.aoa_to_sheet([headers, ...allRows]);
+    XLSX.utils.book_append_sheet(wb, allSheet, "All Bookings");
+
+    const usedNames = new Set(["All Bookings"]);
+    Array.from(groups.keys()).sort().forEach((area) => {
+      let name = sanitizeSheetName(area);
+      let suffix = 2;
+      while (usedNames.has(name)) {
+        const base = sanitizeSheetName(area);
+        const trimmed = base.slice(0, 31 - String(suffix).length - 1);
+        name = `${trimmed} ${suffix}`;
+        suffix += 1;
+      }
+      usedNames.add(name);
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...groups.get(area)]);
+      XLSX.utils.book_append_sheet(wb, ws, name);
+    });
+
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-    a.href = url;
-    a.download = `bookings-${stamp}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    XLSX.writeFile(wb, `bookings-${stamp}.xlsx`);
   };
 
   const columns = [
@@ -661,7 +683,7 @@ export default function AdminDashboard() {
                     onClick={handleDownloadBookingsCSV}
                     disabled={!bookings.length}
                   >
-                    Download CSV
+                    Download Sheet
                   </Button>
                 </div>
 
