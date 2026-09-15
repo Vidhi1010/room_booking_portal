@@ -48,6 +48,7 @@ import {
   DeleteOutlined,
   DollarOutlined,
   CarOutlined,
+  DownloadOutlined,
 } from "@ant-design/icons";
 import { API_BASE } from "./config";
 
@@ -287,6 +288,86 @@ export default function AdminDashboard() {
     localStorage.removeItem("admin_token");
     message.success("Logged out");
     navigate("/");
+  };
+
+  const handleDownloadBookingsCSV = () => {
+    if (!bookings.length) {
+      message.info("No bookings to download");
+      return;
+    }
+    const headers = [
+      "Booking ID",
+      "Booking Status",
+      "Room",
+      "Room Type",
+      "Total Occupants",
+      "Total Amount",
+      "Amount Paid",
+      "Balance",
+      "Transport Opted",
+      "Transport Name",
+      "Primary Contact",
+      "Booked At",
+      "Guest #",
+      "Guest Name",
+      "Is Primary",
+      "Gender",
+      "Age",
+      "Guest Contact",
+      "Chanting Rounds",
+      "Preaching Area",
+      "Facilitator",
+      "Preferred Room Partner",
+    ];
+    const esc = (v) => {
+      if (v === null || v === undefined) return "";
+      const s = String(v);
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = [headers.join(",")];
+    bookings.forEach((b) => {
+      const balance = (b.total_amount ?? 0) - (b.amount_paid ?? 0);
+      const bookedAt = b.created_at ? new Date(b.created_at).toISOString() : "";
+      const users = b.users && b.users.length ? b.users : [null];
+      users.forEach((u, i) => {
+        const row = [
+          b.id,
+          b.status,
+          b.room_name,
+          b.room_type,
+          b.total_occupants,
+          b.total_amount,
+          b.amount_paid,
+          balance,
+          b.transport_opted ? "Yes" : "No",
+          b.transport_name || "",
+          b.primary_contact,
+          bookedAt,
+          i + 1,
+          u?.name || "",
+          u?.is_primary ? "Yes" : "No",
+          u?.gender || "",
+          u?.age ?? "",
+          u?.contact_number || "",
+          u?.chanting_rounds ?? "",
+          u?.preaching_area_connected || "",
+          u?.facilitator_name || "",
+          u?.preferred_room_partner || "",
+        ].map(esc);
+        rows.push(row.join(","));
+      });
+    });
+    const csv = "\uFEFF" + rows.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    a.href = url;
+    a.download = `bookings-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const columns = [
@@ -574,6 +655,13 @@ export default function AdminDashboard() {
                   />
                   <Button icon={<ReloadOutlined />} onClick={fetchBookings} loading={loading}>
                     Refresh
+                  </Button>
+                  <Button
+                    icon={<DownloadOutlined />}
+                    onClick={handleDownloadBookingsCSV}
+                    disabled={!bookings.length}
+                  >
+                    Download CSV
                   </Button>
                 </div>
 
