@@ -619,7 +619,7 @@ export default function RoomSelection() {
             <InputField label="Contact Number (WhatsApp preferred)" type="tel" value={primary.contact_number} onChange={(v) => updatePrimary("contact_number", v)} placeholder="10-digit phone" error={errors.contact_number} required />
             <SelectField label="Gender" value={primary.gender} onChange={(v) => updatePrimary("gender", v)} options={GENDER_OPTIONS} error={errors.gender} required />
             <InputField label="Chanting Rounds" type="number" value={primary.chanting_rounds} onChange={(v) => updatePrimary("chanting_rounds", v)} placeholder="Daily rounds" error={errors.chanting_rounds} required />
-            <SelectField label="Preaching Area" value={primary.preaching_area_connected} onChange={(v) => updatePrimary("preaching_area_connected", v)} options={["Gita Essence", "ISKCON Jia Sarai", "ISKCON Srinagar", "Siksharthakam"]} error={errors.preaching_area_connected} required />
+            <SelectField label="Preaching Area" value={primary.preaching_area_connected} onChange={(v) => updatePrimary("preaching_area_connected", v)} options={["Gita Essence", "ISKCON Jia Sarai", "ISKCON Srinagar", "Siksharthakam", "Sreshtha"]} error={errors.preaching_area_connected} required />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
             <InputField label="Facilitator Name" value={primary.facilitator_name} onChange={(v) => updatePrimary("facilitator_name", v)} placeholder="Enter facilitator name" error={errors.facilitator_name} required />
