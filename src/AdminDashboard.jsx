@@ -647,6 +647,7 @@ export default function AdminDashboard() {
                       { label: "ISKCON Jia Sarai", value: "ISKCON Jia Sarai" },
                       { label: "ISKCON Srinagar", value: "ISKCON Srinagar" },
                       { label: "Siksharthakam", value: "Siksharthakam" },
+                      { label: "Sreshtha", value: "Sreshtha" },
                     ]}
                   />
                   <Select
