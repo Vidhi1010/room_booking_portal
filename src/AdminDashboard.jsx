@@ -1387,6 +1387,7 @@ export default function AdminDashboard() {
                   <div>Age: {user.age}</div>
                   <div>Chanting Rounds: {user.chanting_rounds}</div>
                   {user.preaching_area_connected && <div>Area: {user.preaching_area_connected}</div>}
+                  {user.facilitator_name && <div>Facilitator: {user.facilitator_name}</div>}
                   {user.preferred_room_partner && <div>Room Partner: {user.preferred_room_partner}</div>}
                 </div>
               </div>
