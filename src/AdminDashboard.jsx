@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import * as XLSX from "xlsx";
 import {
   Layout,
   Menu,
@@ -50,6 +49,7 @@ import {
   DollarOutlined,
   CarOutlined,
   DownloadOutlined,
+  SyncOutlined,
 } from "@ant-design/icons";
 import { API_BASE } from "./config";
 
@@ -117,6 +117,11 @@ export default function AdminDashboard() {
   const [activating, setActivating] = useState(null);
   const [activateResult, setActivateResult] = useState(null);
   const [activateConfirm, setActivateConfirm] = useState(null);
+
+  // Sheet sync state
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState(() => localStorage.getItem("bookings_last_synced_at") || null);
 
   const fetchDashboard = useCallback(async () => {
     setDashboardLoading(true);
@@ -291,105 +296,34 @@ export default function AdminDashboard() {
     navigate("/");
   };
 
-  const handleDownloadBookingsCSV = () => {
-    if (!bookings.length) {
-      message.info("No bookings to download");
-      return;
-    }
-    const headers = [
-      "Booking ID",
-      "Booking Status",
-      "Room",
-      "Room Type",
-      "Total Occupants",
-      "Total Amount",
-      "Amount Paid",
-      "Balance",
-      "Transport Opted",
-      "Transport Name",
-      "Primary Contact",
-      "Booked At",
-      "Guest #",
-      "Guest Name",
-      "Is Primary",
-      "Gender",
-      "Age",
-      "Guest Contact",
-      "Chanting Rounds",
-      "Preaching Area",
-      "Facilitator",
-      "Preferred Room Partner",
-    ];
-
-    const buildRow = (b, u, i) => {
-      const balance = (b.total_amount ?? 0) - (b.amount_paid ?? 0);
-      const bookedAt = b.created_at ? new Date(b.created_at).toISOString() : "";
-      return [
-        b.id,
-        b.status,
-        b.room_name,
-        b.room_type,
-        b.total_occupants,
-        b.total_amount,
-        b.amount_paid,
-        balance,
-        b.transport_opted ? "Yes" : "No",
-        b.transport_name || "",
-        b.primary_contact,
-        bookedAt,
-        i + 1,
-        u?.name || "",
-        u?.is_primary ? "Yes" : "No",
-        u?.gender || "",
-        u?.age ?? "",
-        u?.contact_number || "",
-        u?.chanting_rounds ?? "",
-        u?.preaching_area_connected || "",
-        u?.facilitator_name || "",
-        u?.preferred_room_partner || "",
-      ];
-    };
-
-    // Group by primary user's preaching area; unknown → "Other"
-    const groups = new Map();
-    const allRows = [];
-    bookings.forEach((b) => {
-      const primary = b.users?.find((u) => u.is_primary);
-      const area = (primary?.preaching_area_connected || "").trim() || "Other";
-      const users = b.users && b.users.length ? b.users : [null];
-      const bookingRows = users.map((u, i) => buildRow(b, u, i));
-      if (!groups.has(area)) groups.set(area, []);
-      groups.get(area).push(...bookingRows);
-      allRows.push(...bookingRows);
-    });
-
-    // Sanitize sheet name (Excel: max 31 chars, disallowed: : \ / ? * [ ])
-    const sanitizeSheetName = (name) => {
-      const cleaned = name.replace(/[:\\/?*[\]]/g, " ").trim() || "Sheet";
-      return cleaned.length > 31 ? cleaned.slice(0, 31) : cleaned;
-    };
-
-    const wb = XLSX.utils.book_new();
-    const allSheet = XLSX.utils.aoa_to_sheet([headers, ...allRows]);
-    XLSX.utils.book_append_sheet(wb, allSheet, "All Bookings");
-
-    const usedNames = new Set(["All Bookings"]);
-    Array.from(groups.keys()).sort().forEach((area) => {
-      let name = sanitizeSheetName(area);
-      let suffix = 2;
-      while (usedNames.has(name)) {
-        const base = sanitizeSheetName(area);
-        const trimmed = base.slice(0, 31 - String(suffix).length - 1);
-        name = `${trimmed} ${suffix}`;
-        suffix += 1;
+  const handleSyncSheet = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch(`${API_BASE}/sync-sheet`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401 || res.status === 403) {
+        message.error("Session expired. Please login again.");
+        localStorage.removeItem("admin_token");
+        navigate("/admin/login", { replace: true });
+        return;
       }
-      usedNames.add(name);
-      const ws = XLSX.utils.aoa_to_sheet([headers, ...groups.get(area)]);
-      XLSX.utils.book_append_sheet(wb, ws, name);
-    });
-
-    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-    XLSX.writeFile(wb, `bookings-${stamp}.xlsx`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to sync sheet");
+      }
+      setSyncResult(data);
+      if (data.synced_at) {
+        setLastSyncedAt(data.synced_at);
+        localStorage.setItem("bookings_last_synced_at", data.synced_at);
+      }
+      message.success("Sheet synced successfully");
+    } catch (e) {
+      message.error(e.message || "Failed to sync sheet");
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const columns = [
@@ -680,12 +614,18 @@ export default function AdminDashboard() {
                     Refresh
                   </Button>
                   <Button
-                    icon={<DownloadOutlined />}
-                    onClick={handleDownloadBookingsCSV}
-                    disabled={!bookings.length}
+                    icon={<SyncOutlined />}
+                    type="primary"
+                    onClick={handleSyncSheet}
+                    loading={syncing}
                   >
-                    Download Sheet
+                    Sync Sheet
                   </Button>
+                  {lastSyncedAt && (
+                    <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>
+                      Last synced: {fmtDate(lastSyncedAt)}
+                    </Text>
+                  )}
                 </div>
 
                 <Table
@@ -1296,6 +1236,57 @@ export default function AdminDashboard() {
           </Content>
         </Layout>
       </Layout>
+
+      {/* sync result modal */}
+      <Modal
+        open={!!syncResult}
+        onCancel={() => setSyncResult(null)}
+        footer={
+          <Space>
+            {syncResult?.sheet_url && (
+              <Button
+                type="primary"
+                icon={<DownloadOutlined />}
+                onClick={() => window.open(syncResult.sheet_url, "_blank", "noopener,noreferrer")}
+              >
+                Open Sheet
+              </Button>
+            )}
+            <Button onClick={() => setSyncResult(null)}>Close</Button>
+          </Space>
+        }
+        title={
+          <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#4ade80" }}>
+            <CheckCircleOutlined />
+            Sheet Synced
+          </span>
+        }
+        width={480}
+      >
+        {syncResult && (
+          <div>
+            <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
+              <Statistic
+                title="Bookings Included"
+                value={syncResult.bookings_included ?? 0}
+                prefix={<BookOutlined />}
+                valueStyle={{ color: "#60a5fa" }}
+              />
+              <Statistic
+                title="Rows Written"
+                value={syncResult.rows_written ?? 0}
+                prefix={<TeamOutlined />}
+                valueStyle={{ color: "#4ade80" }}
+              />
+            </div>
+            {syncResult.synced_at && (
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+                Synced at: <span style={{ color: "rgba(255,255,255,0.8)" }}>{fmtDate(syncResult.synced_at)}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
 
       {/* booking detail modal */}
       <Modal
