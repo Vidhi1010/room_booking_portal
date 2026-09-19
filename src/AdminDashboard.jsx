@@ -90,11 +90,14 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("bookings");
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextKey, setNextKey] = useState(null);
+  const [totalCount, setTotalCount] = useState(0);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [roomsLoading, setRoomsLoading] = useState(false);
   const [filters, setFilters] = useState({
-    limit: 100,
+    limit: 20,
     status: undefined,
     transport_opted: undefined,
     preaching_area: undefined,
@@ -237,8 +240,9 @@ export default function AdminDashboard() {
     }
   }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fetchBookings = useCallback(async () => {
-    setLoading(true);
+  const fetchBookings = useCallback(async ({ cursor = null } = {}) => {
+    const append = !!cursor;
+    if (append) setLoadingMore(true); else setLoading(true);
     try {
       const params = new URLSearchParams();
       if (filters.limit) params.set("limit", filters.limit);
@@ -249,6 +253,7 @@ export default function AdminDashboard() {
       if (filters.preaching_area) params.set("preaching_area", filters.preaching_area);
       if (filters.facilitator_name) params.set("facilitator_name", filters.facilitator_name);
       if (filters.gender) params.set("gender", filters.gender);
+      if (cursor) params.set("next_key", cursor);
       const res = await fetch(`${API_BASE}/get-bookings?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -260,16 +265,26 @@ export default function AdminDashboard() {
       }
       const data = await res.json();
       const list = Array.isArray(data) ? data : data.bookings || data.body || [];
-      setBookings(list);
+      const nk = data && typeof data === "object" && !Array.isArray(data) ? (data.next_key ?? null) : null;
+      const total = data && typeof data === "object" && !Array.isArray(data) ? data.total : undefined;
+      setBookings((prev) => append ? [...prev, ...list] : list);
+      setNextKey(nk);
+      if (typeof total === "number") setTotalCount(total);
+      else if (!append) setTotalCount(list.length);
     } catch {
       message.error("Failed to fetch bookings");
     } finally {
-      setLoading(false);
+      if (append) setLoadingMore(false); else setLoading(false);
     }
   }, [token, filters, navigate]);
 
   useEffect(() => {
-    if (token) fetchBookings();
+    if (token) {
+      setBookings([]);
+      setNextKey(null);
+      setTotalCount(0);
+      fetchBookings();
+    }
   }, [token, fetchBookings]);
 
   const fetchRooms = useCallback(async () => {
@@ -526,7 +541,8 @@ export default function AdminDashboard() {
                 <div style={{ marginBottom: 20 }}>
                   <Title level={4} style={{ color: "#fff", margin: 0 }}>Bookings</Title>
                   <Text style={{ color: "rgba(255,255,255,0.4)" }}>
-                    {bookings.length} total booking{bookings.length !== 1 ? "s" : ""}
+                    {totalCount || bookings.length} total booking{(totalCount || bookings.length) !== 1 ? "s" : ""}
+                    {nextKey && ` (showing ${bookings.length})`}
                   </Text>
                 </div>
 
@@ -610,7 +626,7 @@ export default function AdminDashboard() {
                     onChange={(v) => setFilters((f) => ({ ...f, limit: v || 50 }))}
                     style={{ width: 90 }}
                   />
-                  <Button icon={<ReloadOutlined />} onClick={fetchBookings} loading={loading}>
+                  <Button icon={<ReloadOutlined />} onClick={() => fetchBookings()} loading={loading}>
                     Refresh
                   </Button>
                   <Button
@@ -633,7 +649,11 @@ export default function AdminDashboard() {
                   dataSource={bookings}
                   rowKey="id"
                   loading={loading}
-                  pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (t) => `${t} bookings` }}
+                  pagination={{
+                    pageSize: filters.limit || 20,
+                    showSizeChanger: false,
+                    showTotal: () => `Showing ${bookings.length}${totalCount ? ` of ${totalCount}` : ""}`,
+                  }}
                   scroll={{ x: 900 }}
                   size="middle"
                   onRow={(record) => ({
@@ -641,6 +661,18 @@ export default function AdminDashboard() {
                     style: { cursor: "pointer" },
                   })}
                 />
+
+                {nextKey && (
+                  <div style={{ display: "flex", justifyContent: "center", marginTop: 16 }}>
+                    <Button
+                      onClick={() => fetchBookings({ cursor: nextKey })}
+                      loading={loadingMore}
+                      icon={<ReloadOutlined />}
+                    >
+                      Load More
+                    </Button>
+                  </div>
+                )}
               </>
             )}
 
