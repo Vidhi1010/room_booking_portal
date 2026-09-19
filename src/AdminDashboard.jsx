@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Layout,
@@ -90,9 +90,10 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("bookings");
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [nextKey, setNextKey] = useState(null);
   const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  // Map: page number → cursor to fetch that page (page 1 always uses null cursor)
+  const pageCursorsRef = useRef({ 1: null });
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [roomsLoading, setRoomsLoading] = useState(false);
@@ -240,52 +241,75 @@ export default function AdminDashboard() {
     }
   }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fetchBookings = useCallback(async ({ cursor = null } = {}) => {
-    const append = !!cursor;
-    if (append) setLoadingMore(true); else setLoading(true);
+  const buildBookingsParams = useCallback((cursor) => {
+    const params = new URLSearchParams();
+    if (filters.limit) params.set("limit", filters.limit);
+    if (filters.status) params.set("status", filters.status);
+    if (filters.transport_opted !== undefined && filters.transport_opted !== null) {
+      params.set("transport_opted", filters.transport_opted);
+    }
+    if (filters.preaching_area) params.set("preaching_area", filters.preaching_area);
+    if (filters.facilitator_name) params.set("facilitator_name", filters.facilitator_name);
+    if (filters.gender) params.set("gender", filters.gender);
+    if (cursor) params.set("next_key", cursor);
+    return params;
+  }, [filters]);
+
+  const fetchBookingsPage = useCallback(async (targetPage) => {
+    setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (filters.limit) params.set("limit", filters.limit);
-      if (filters.status) params.set("status", filters.status);
-      if (filters.transport_opted !== undefined && filters.transport_opted !== null) {
-        params.set("transport_opted", filters.transport_opted);
+      const cursors = pageCursorsRef.current;
+      // Highest cached page ≤ target — walk forward from there
+      const knownPages = Object.keys(cursors).map(Number).filter((p) => p <= targetPage);
+      let page = knownPages.length ? Math.max(...knownPages) : 1;
+      let pageData = null;
+      let serverTotal;
+
+      while (page <= targetPage) {
+        const cursor = cursors[page];
+        if (page > 1 && cursor === undefined) break;
+        const params = buildBookingsParams(cursor);
+        const res = await fetch(`${API_BASE}/get-bookings?${params.toString()}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.status === 401 || res.status === 403) {
+          message.error("Session expired. Please login again.");
+          localStorage.removeItem("admin_token");
+          navigate("/admin/login", { replace: true });
+          return;
+        }
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.bookings || data.body || [];
+        const nk = data && typeof data === "object" && !Array.isArray(data) ? (data.next_key ?? null) : null;
+        const total = data && typeof data === "object" && !Array.isArray(data) ? data.total : undefined;
+        if (typeof total === "number") serverTotal = total;
+        if (nk !== null && cursors[page + 1] === undefined) cursors[page + 1] = nk;
+        if (page === targetPage) pageData = list;
+        if (nk === null) break;
+        page += 1;
       }
-      if (filters.preaching_area) params.set("preaching_area", filters.preaching_area);
-      if (filters.facilitator_name) params.set("facilitator_name", filters.facilitator_name);
-      if (filters.gender) params.set("gender", filters.gender);
-      if (cursor) params.set("next_key", cursor);
-      const res = await fetch(`${API_BASE}/get-bookings?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.status === 401 || res.status === 403) {
-        message.error("Session expired. Please login again.");
-        localStorage.removeItem("admin_token");
-        navigate("/admin/login", { replace: true });
-        return;
-      }
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : data.bookings || data.body || [];
-      const nk = data && typeof data === "object" && !Array.isArray(data) ? (data.next_key ?? null) : null;
-      const total = data && typeof data === "object" && !Array.isArray(data) ? data.total : undefined;
-      setBookings((prev) => append ? [...prev, ...list] : list);
-      setNextKey(nk);
-      if (typeof total === "number") setTotalCount(total);
-      else if (!append) setTotalCount(list.length);
+
+      setBookings(pageData || []);
+      setCurrentPage(targetPage);
+      if (typeof serverTotal === "number") setTotalCount(serverTotal);
     } catch {
       message.error("Failed to fetch bookings");
     } finally {
-      if (append) setLoadingMore(false); else setLoading(false);
+      setLoading(false);
     }
-  }, [token, filters, navigate]);
+  }, [buildBookingsParams, token, navigate]);
+
+  const resetAndFetch = useCallback(() => {
+    pageCursorsRef.current = { 1: null };
+    setBookings([]);
+    setTotalCount(0);
+    setCurrentPage(1);
+    fetchBookingsPage(1);
+  }, [fetchBookingsPage]);
 
   useEffect(() => {
-    if (token) {
-      setBookings([]);
-      setNextKey(null);
-      setTotalCount(0);
-      fetchBookings();
-    }
-  }, [token, fetchBookings]);
+    if (token) resetAndFetch();
+  }, [token, resetAndFetch]);
 
   const fetchRooms = useCallback(async () => {
     setRoomsLoading(true);
@@ -541,8 +565,8 @@ export default function AdminDashboard() {
                 <div style={{ marginBottom: 20 }}>
                   <Title level={4} style={{ color: "#fff", margin: 0 }}>Bookings</Title>
                   <Text style={{ color: "rgba(255,255,255,0.4)" }}>
-                    {totalCount || bookings.length} total booking{(totalCount || bookings.length) !== 1 ? "s" : ""}
-                    {nextKey && ` (showing ${bookings.length})`}
+                    {totalCount} total booking{totalCount !== 1 ? "s" : ""}
+                    {totalCount > 0 && filters.limit ? ` · Page ${currentPage} of ${Math.max(1, Math.ceil(totalCount / filters.limit))}` : ""}
                   </Text>
                 </div>
 
@@ -626,7 +650,7 @@ export default function AdminDashboard() {
                     onChange={(v) => setFilters((f) => ({ ...f, limit: v || 50 }))}
                     style={{ width: 90 }}
                   />
-                  <Button icon={<ReloadOutlined />} onClick={() => fetchBookings()} loading={loading}>
+                  <Button icon={<ReloadOutlined />} onClick={() => resetAndFetch()} loading={loading}>
                     Refresh
                   </Button>
                   <Button
@@ -650,9 +674,13 @@ export default function AdminDashboard() {
                   rowKey="id"
                   loading={loading}
                   pagination={{
+                    current: currentPage,
                     pageSize: filters.limit || 20,
+                    total: totalCount,
                     showSizeChanger: false,
-                    showTotal: () => `Showing ${bookings.length}${totalCount ? ` of ${totalCount}` : ""}`,
+                    showQuickJumper: true,
+                    showTotal: (t, [start, end]) => `${start}–${end} of ${t}`,
+                    onChange: (page) => fetchBookingsPage(page),
                   }}
                   scroll={{ x: 900 }}
                   size="middle"
@@ -661,18 +689,6 @@ export default function AdminDashboard() {
                     style: { cursor: "pointer" },
                   })}
                 />
-
-                {nextKey && (
-                  <div style={{ display: "flex", justifyContent: "center", marginTop: 16 }}>
-                    <Button
-                      onClick={() => fetchBookings({ cursor: nextKey })}
-                      loading={loadingMore}
-                      icon={<ReloadOutlined />}
-                    >
-                      Load More
-                    </Button>
-                  </div>
-                )}
               </>
             )}
 
