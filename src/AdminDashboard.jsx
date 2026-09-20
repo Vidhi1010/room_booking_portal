@@ -62,8 +62,11 @@ const STATUS_COLORS = {
   pending_payment: "blue",
   pending: "blue",
   cancelled: "red",
-  unpaid: "default",
+  unpaid: "blue",
 };
+
+// Backend uses `pending_payment` and `unpaid` interchangeably — surface both as "Unpaid".
+const normalizeStatus = (s) => (s === "pending_payment" ? "unpaid" : s);
 
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "-";
@@ -410,11 +413,14 @@ export default function AdminDashboard() {
       dataIndex: "status",
       key: "status",
       width: 150,
-      render: (s) => (
-        <Tag color={STATUS_COLORS[s] || "default"}>
-          {s?.replace(/_/g, " ").toUpperCase()}
-        </Tag>
-      ),
+      render: (s) => {
+        const n = normalizeStatus(s);
+        return (
+          <Tag color={STATUS_COLORS[n] || "default"}>
+            {n?.replace(/_/g, " ").toUpperCase()}
+          </Tag>
+        );
+      },
     },
     {
       title: "Transport",
@@ -594,7 +600,6 @@ export default function AdminDashboard() {
                       { label: "All Statuses", value: undefined },
                       { label: "Fully Paid", value: "fully_paid" },
                       { label: "Partially Paid", value: "partially_paid" },
-                      { label: "Pending Payment", value: "pending_payment" },
                       { label: "Unpaid", value: "unpaid" },
                     ]}
                   />
@@ -1356,8 +1361,8 @@ export default function AdminDashboard() {
                 <Text copyable style={{ fontFamily: "monospace", fontSize: 11 }}>{selectedBooking.id}</Text>
               </Descriptions.Item>
               <Descriptions.Item label="Status">
-                <Tag color={STATUS_COLORS[selectedBooking.status] || "default"}>
-                  {selectedBooking.status?.replace(/_/g, " ").toUpperCase()}
+                <Tag color={STATUS_COLORS[normalizeStatus(selectedBooking.status)] || "default"}>
+                  {normalizeStatus(selectedBooking.status)?.replace(/_/g, " ").toUpperCase()}
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="Primary Contact">{selectedBooking.primary_contact}</Descriptions.Item>
