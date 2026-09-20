@@ -739,8 +739,8 @@ export default function AdminDashboard() {
                   <div style={{ textAlign: "center", padding: 80 }}><Spin size="large" /></div>
                 ) : dashboardData ? (
                   <>
-                    {/* Top-level stats */}
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}>
+                    {/* Total Bookings + Status Breakdown */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, marginBottom: 16 }}>
                       <Card style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}>
                         <Statistic
                           title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Total Bookings</span>}
@@ -749,6 +749,36 @@ export default function AdminDashboard() {
                           valueStyle={{ color: "#fff", fontSize: 28 }}
                         />
                       </Card>
+                      <Card
+                        title={<span style={{ color: "#fff" }}><DashboardOutlined style={{ marginRight: 8 }} />Status Breakdown</span>}
+                        style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}
+                        styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-around" }}>
+                          <Statistic
+                            title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Fully Paid</span>}
+                            value={dashboardData.status_breakdown?.fully_paid}
+                            prefix={<CheckCircleOutlined />}
+                            valueStyle={{ color: "#4ade80", fontSize: 22 }}
+                          />
+                          <Statistic
+                            title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Partially Paid</span>}
+                            value={dashboardData.status_breakdown?.partially_paid}
+                            prefix={<ClockCircleOutlined />}
+                            valueStyle={{ color: "#fbbf24", fontSize: 22 }}
+                          />
+                          <Statistic
+                            title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Unpaid</span>}
+                            value={dashboardData.status_breakdown?.pending_payment}
+                            prefix={<ExclamationCircleOutlined />}
+                            valueStyle={{ color: "#f87171", fontSize: 22 }}
+                          />
+                        </div>
+                      </Card>
+                    </div>
+
+                    {/* Financials */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
                       <Card style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}>
                         <Statistic
                           title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Revenue Collected</span>}
@@ -773,6 +803,12 @@ export default function AdminDashboard() {
                           valueStyle={{ color: "rgba(255,255,255,0.8)", fontSize: 28 }}
                         />
                       </Card>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginTop: 8, marginBottom: 24, color: "rgba(255,255,255,0.45)", fontSize: 12 }}>
+                      <ExclamationCircleOutlined style={{ marginTop: 2 }} />
+                      <span>
+                        Amounts include Razorpay platform fees & taxes (~2.36%). Net receivable will be lower.
+                      </span>
                     </div>
 
                     {/* Occupancy & Transport */}
@@ -839,6 +875,34 @@ export default function AdminDashboard() {
                         </div>
                       </Card>
                     </div>
+
+                    {/* Status Breakdown */}
+                    <Card
+                      title={<span style={{ color: "#fff" }}><DashboardOutlined style={{ marginRight: 8 }} />Status Breakdown</span>}
+                      style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)", maxWidth: 500 }}
+                      styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-around" }}>
+                        <Statistic
+                          title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Fully Paid</span>}
+                          value={dashboardData.status_breakdown?.fully_paid}
+                          prefix={<CheckCircleOutlined />}
+                          valueStyle={{ color: "#4ade80", fontSize: 22 }}
+                        />
+                        <Statistic
+                          title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Partially Paid</span>}
+                          value={dashboardData.status_breakdown?.partially_paid}
+                          prefix={<ClockCircleOutlined />}
+                          valueStyle={{ color: "#fbbf24", fontSize: 22 }}
+                        />
+                        <Statistic
+                          title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Pending</span>}
+                          value={dashboardData.status_breakdown?.pending_payment}
+                          prefix={<ExclamationCircleOutlined />}
+                          valueStyle={{ color: "#f87171", fontSize: 22 }}
+                        />
+                      </div>
+                    </Card>
 
                     {/* Status Breakdown */}
                     <Card
