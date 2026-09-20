@@ -739,8 +739,8 @@ export default function AdminDashboard() {
                   <div style={{ textAlign: "center", padding: 80 }}><Spin size="large" /></div>
                 ) : dashboardData ? (
                   <>
-                    {/* Top-level stats */}
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}>
+                    {/* Total Bookings + Status Breakdown */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, marginBottom: 16 }}>
                       <Card style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}>
                         <Statistic
                           title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Total Bookings</span>}
@@ -749,6 +749,36 @@ export default function AdminDashboard() {
                           valueStyle={{ color: "#fff", fontSize: 28 }}
                         />
                       </Card>
+                      <Card
+                        title={<span style={{ color: "#fff" }}><DashboardOutlined style={{ marginRight: 8 }} />Bookings Status Breakdown</span>}
+                        style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}
+                        styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-around" }}>
+                          <Statistic
+                            title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Fully Paid</span>}
+                            value={dashboardData.status_breakdown?.fully_paid}
+                            prefix={<CheckCircleOutlined />}
+                            valueStyle={{ color: "#4ade80", fontSize: 22 }}
+                          />
+                          <Statistic
+                            title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Partially Paid</span>}
+                            value={dashboardData.status_breakdown?.partially_paid}
+                            prefix={<ClockCircleOutlined />}
+                            valueStyle={{ color: "#fbbf24", fontSize: 22 }}
+                          />
+                          <Statistic
+                            title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Unpaid</span>}
+                            value={dashboardData.status_breakdown?.pending_payment}
+                            prefix={<ExclamationCircleOutlined />}
+                            valueStyle={{ color: "#f87171", fontSize: 22 }}
+                          />
+                        </div>
+                      </Card>
+                    </div>
+
+                    {/* Financials */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
                       <Card style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}>
                         <Statistic
                           title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Revenue Collected</span>}
@@ -773,6 +803,12 @@ export default function AdminDashboard() {
                           valueStyle={{ color: "rgba(255,255,255,0.8)", fontSize: 28 }}
                         />
                       </Card>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginTop: 8, marginBottom: 24, color: "rgba(255,255,255,0.45)", fontSize: 12 }}>
+                      <ExclamationCircleOutlined style={{ marginTop: 2 }} />
+                      <span>
+                        Amounts include Razorpay platform fees & taxes (~2.36%). Net receivable will be lower.
+                      </span>
                     </div>
 
                     {/* Occupancy & Transport */}
@@ -840,34 +876,6 @@ export default function AdminDashboard() {
                       </Card>
                     </div>
 
-                    {/* Status Breakdown */}
-                    <Card
-                      title={<span style={{ color: "#fff" }}><DashboardOutlined style={{ marginRight: 8 }} />Status Breakdown</span>}
-                      style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)", maxWidth: 500 }}
-                      styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-around" }}>
-                        <Statistic
-                          title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Fully Paid</span>}
-                          value={dashboardData.status_breakdown?.fully_paid}
-                          prefix={<CheckCircleOutlined />}
-                          valueStyle={{ color: "#4ade80", fontSize: 22 }}
-                        />
-                        <Statistic
-                          title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Partially Paid</span>}
-                          value={dashboardData.status_breakdown?.partially_paid}
-                          prefix={<ClockCircleOutlined />}
-                          valueStyle={{ color: "#fbbf24", fontSize: 22 }}
-                        />
-                        <Statistic
-                          title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Pending</span>}
-                          value={dashboardData.status_breakdown?.pending_payment}
-                          prefix={<ExclamationCircleOutlined />}
-                          valueStyle={{ color: "#f87171", fontSize: 22 }}
-                        />
-                      </div>
-                    </Card>
-
                     {/* Users Breakdown */}
                     {dashboardData.users && (
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16, marginTop: 24 }}>
@@ -884,23 +892,40 @@ export default function AdminDashboard() {
                           style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}
                           styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
                         >
-                          <div style={{ display: "flex", justifyContent: "space-around" }}>
-                            <Statistic
-                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Male</span>}
-                              value={dashboardData.users.gender_breakdown?.male ?? 0}
-                              valueStyle={{ color: "#60a5fa", fontSize: 22 }}
-                            />
-                            <Statistic
-                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Female</span>}
-                              value={dashboardData.users.gender_breakdown?.female ?? 0}
-                              valueStyle={{ color: "#f472b6", fontSize: 22 }}
-                            />
-                            <Statistic
-                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Other</span>}
-                              value={dashboardData.users.gender_breakdown?.other ?? 0}
-                              valueStyle={{ color: "rgba(255,255,255,0.7)", fontSize: 22 }}
-                            />
-                          </div>
+                          {(() => {
+                            const gb = dashboardData.users.gender_breakdown || {};
+                            const entries = [
+                              { name: "Male", count: gb.male ?? 0, color: "#60a5fa" },
+                              { name: "Female", count: gb.female ?? 0, color: "#f472b6" },
+                              { name: "Other", count: gb.other ?? 0, color: "rgba(255,255,255,0.5)" },
+                            ].filter((e) => e.count > 0);
+                            const total = entries.reduce((sum, e) => sum + e.count, 0);
+                            if (total === 0) {
+                              return <Text style={{ color: "rgba(255,255,255,0.4)" }}>No data</Text>;
+                            }
+                            return (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                {entries.map(({ name, count, color }) => {
+                                  const pct = Math.round((count / total) * 100);
+                                  return (
+                                    <div key={name}>
+                                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+                                        <span style={{ color: "rgba(255,255,255,0.7)" }}>{name}</span>
+                                        <span style={{ color: "#fff", fontWeight: 600 }}>{count} <span style={{ color: "rgba(255,255,255,0.4)", fontWeight: 400 }}>({pct}%)</span></span>
+                                      </div>
+                                      <Progress
+                                        percent={pct}
+                                        showInfo={false}
+                                        strokeColor={color}
+                                        trailColor="rgba(255,255,255,0.06)"
+                                        size="small"
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
                         </Card>
 
                         <Card
