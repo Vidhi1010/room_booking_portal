@@ -130,9 +130,6 @@ export default function AdminDashboard() {
   const [syncResult, setSyncResult] = useState(null);
   const [lastSyncedAt, setLastSyncedAt] = useState(() => localStorage.getItem("bookings_last_synced_at") || null);
 
-  // Settlements backfill state
-  const [backfilling, setBackfilling] = useState(false);
-
   const fetchDashboard = useCallback(async () => {
     setDashboardLoading(true);
     try {
@@ -368,37 +365,6 @@ export default function AdminDashboard() {
       message.error(e.message || "Failed to sync sheet");
     } finally {
       setSyncing(false);
-    }
-  };
-
-  // Fixed date window per current backend contract
-  const SETTLEMENT_BACKFILL_FROM = "2026-08-10";
-  const SETTLEMENT_BACKFILL_TO = "2026-09-20";
-
-  const handleBackfillSettlements = async () => {
-    setBackfilling(true);
-    try {
-      const res = await fetch(`${API_BASE}/backfill-settlements`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ from: SETTLEMENT_BACKFILL_FROM, to: SETTLEMENT_BACKFILL_TO }),
-      });
-      if (res.status === 401 || res.status === 403) {
-        message.error("Session expired. Please login again.");
-        localStorage.removeItem("admin_token");
-        navigate("/admin/login", { replace: true });
-        return;
-      }
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to sync settlements");
-      }
-      message.success("Settlements synced");
-      fetchDashboard();
-    } catch (e) {
-      message.error(e.message || "Failed to sync settlements");
-    } finally {
-      setBackfilling(false);
     }
   };
 
@@ -815,7 +781,7 @@ export default function AdminDashboard() {
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
                       <Card style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}>
                         <Statistic
-                          title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Revenue Collected</span>}
+                          title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Revenue Collected(incl. tax)</span>}
                           value={dashboardData.revenue_collected}
                           prefix="₹"
                           valueStyle={{ color: "#4ade80", fontSize: 28 }}
@@ -823,7 +789,7 @@ export default function AdminDashboard() {
                       </Card>
                       <Card style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}>
                         <Statistic
-                          title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Pending Payments</span>}
+                          title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Pending Payments(incl. tax)</span>}
                           value={dashboardData.pending_payments}
                           prefix="₹"
                           valueStyle={{ color: "#fbbf24", fontSize: 28 }}
@@ -831,18 +797,12 @@ export default function AdminDashboard() {
                       </Card>
                       <Card style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}>
                         <Statistic
-                          title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Total Expected</span>}
+                          title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Total Expected(incl. tax)</span>}
                           value={dashboardData.total_expected}
                           prefix="₹"
                           valueStyle={{ color: "rgba(255,255,255,0.8)", fontSize: 28 }}
                         />
                       </Card>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginTop: 8, marginBottom: 24, color: "rgba(255,255,255,0.45)", fontSize: 12 }}>
-                      <ExclamationCircleOutlined style={{ marginTop: 2 }} />
-                      <span>
-                        Amounts include Razorpay platform fees & taxes (~2.36%). Net receivable will be lower.
-                      </span>
                     </div>
 
                     {/* Settlements */}
@@ -851,22 +811,9 @@ export default function AdminDashboard() {
                         <span style={{ color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
                           <DollarOutlined />
                           Settled to Bank
-                          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontWeight: 400 }}>
-                            {SETTLEMENT_BACKFILL_FROM} → {SETTLEMENT_BACKFILL_TO}
-                          </span>
                         </span>
                       }
-                      extra={
-                        <Button
-                          icon={<SyncOutlined spin={backfilling} />}
-                          size="small"
-                          onClick={handleBackfillSettlements}
-                          loading={backfilling}
-                        >
-                          Sync
-                        </Button>
-                      }
-                      style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)", marginBottom: 24 }}
+                      style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)", marginTop: 24, marginBottom: 24 }}
                       styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
                     >
                       {dashboardData.settlements ? (
@@ -903,7 +850,7 @@ export default function AdminDashboard() {
                           )}
                         </>
                       ) : (
-                        <Text style={{ color: "rgba(255,255,255,0.4)" }}>No settlement data yet. Click Sync to backfill.</Text>
+                        <Text style={{ color: "rgba(255,255,255,0.4)" }}>No settlement data yet.</Text>
                       )}
                     </Card>
 
