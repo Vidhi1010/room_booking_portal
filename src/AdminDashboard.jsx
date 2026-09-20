@@ -130,6 +130,9 @@ export default function AdminDashboard() {
   const [syncResult, setSyncResult] = useState(null);
   const [lastSyncedAt, setLastSyncedAt] = useState(() => localStorage.getItem("bookings_last_synced_at") || null);
 
+  // Settlements backfill state
+  const [backfilling, setBackfilling] = useState(false);
+
   const fetchDashboard = useCallback(async () => {
     setDashboardLoading(true);
     try {
@@ -365,6 +368,37 @@ export default function AdminDashboard() {
       message.error(e.message || "Failed to sync sheet");
     } finally {
       setSyncing(false);
+    }
+  };
+
+  // Fixed date window per current backend contract
+  const SETTLEMENT_BACKFILL_FROM = "2026-08-10";
+  const SETTLEMENT_BACKFILL_TO = "2026-09-20";
+
+  const handleBackfillSettlements = async () => {
+    setBackfilling(true);
+    try {
+      const res = await fetch(`${API_BASE}/backfill-settlements`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ from: SETTLEMENT_BACKFILL_FROM, to: SETTLEMENT_BACKFILL_TO }),
+      });
+      if (res.status === 401 || res.status === 403) {
+        message.error("Session expired. Please login again.");
+        localStorage.removeItem("admin_token");
+        navigate("/admin/login", { replace: true });
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to sync settlements");
+      }
+      message.success("Settlements synced");
+      fetchDashboard();
+    } catch (e) {
+      message.error(e.message || "Failed to sync settlements");
+    } finally {
+      setBackfilling(false);
     }
   };
 
@@ -810,6 +844,68 @@ export default function AdminDashboard() {
                         Amounts include Razorpay platform fees & taxes (~2.36%). Net receivable will be lower.
                       </span>
                     </div>
+
+                    {/* Settlements */}
+                    <Card
+                      title={
+                        <span style={{ color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+                          <DollarOutlined />
+                          Settled to Bank
+                          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontWeight: 400 }}>
+                            {SETTLEMENT_BACKFILL_FROM} → {SETTLEMENT_BACKFILL_TO}
+                          </span>
+                        </span>
+                      }
+                      extra={
+                        <Button
+                          icon={<SyncOutlined spin={backfilling} />}
+                          size="small"
+                          onClick={handleBackfillSettlements}
+                          loading={backfilling}
+                        >
+                          Sync
+                        </Button>
+                      }
+                      style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)", marginBottom: 24 }}
+                      styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
+                    >
+                      {dashboardData.settlements ? (
+                        <>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16 }}>
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Settled Amount</span>}
+                              value={dashboardData.settlements.total_amount ?? 0}
+                              prefix="₹"
+                              valueStyle={{ color: "#4ade80", fontSize: 24 }}
+                            />
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Razorpay Fees</span>}
+                              value={dashboardData.settlements.total_fee ?? 0}
+                              prefix="₹"
+                              valueStyle={{ color: "#fbbf24", fontSize: 20 }}
+                            />
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Tax</span>}
+                              value={dashboardData.settlements.total_tax ?? 0}
+                              prefix="₹"
+                              valueStyle={{ color: "#f87171", fontSize: 20 }}
+                            />
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Settlement Count</span>}
+                              value={dashboardData.settlements.count ?? 0}
+                              valueStyle={{ color: "rgba(255,255,255,0.8)", fontSize: 20 }}
+                            />
+                          </div>
+                          {dashboardData.settlements.updated_at && (
+                            <div style={{ marginTop: 12, fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+                              Last updated: {fmtDate(dashboardData.settlements.updated_at)}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <Text style={{ color: "rgba(255,255,255,0.4)" }}>No settlement data yet. Click Sync to backfill.</Text>
+                      )}
+                    </Card>
 
                     {/* Occupancy & Transport */}
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16, marginBottom: 24 }}>
