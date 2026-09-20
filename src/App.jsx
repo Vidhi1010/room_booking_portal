@@ -17,6 +17,12 @@ function PageTracker() {
   return null;
 }
 
+function ChatBotGate() {
+  const location = useLocation();
+  if (location.pathname.startsWith("/admin")) return null;
+  return <ChatBot />;
+}
+
 function App() {
   return (
     <Router>
@@ -31,7 +37,7 @@ function App() {
           <Route path="/admin" element={<AdminDashboard />} />
         </Routes>
       </Suspense>
-      <ChatBot />
+      <ChatBotGate />
     </Router>
   );
 }
