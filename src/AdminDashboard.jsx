@@ -813,7 +813,7 @@ export default function AdminDashboard() {
                           Settled to Bank
                         </span>
                       }
-                      style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)", marginBottom: 24 }}
+                      style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)", marginTop: 24, marginBottom: 24 }}
                       styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
                     >
                       {dashboardData.settlements ? (
