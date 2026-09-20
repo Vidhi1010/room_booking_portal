@@ -600,7 +600,7 @@ export default function AdminDashboard() {
                       { label: "All Statuses", value: undefined },
                       { label: "Fully Paid", value: "fully_paid" },
                       { label: "Partially Paid", value: "partially_paid" },
-                      { label: "Unpaid", value: "unpaid" },
+                      { label: "Unpaid", value: "pending_payment" },
                     ]}
                   />
                   <Select
