@@ -59,20 +59,31 @@ export default function Checkout() {
   const resolvedExistingBooking = fetchedBooking || location.state?.existingBooking || null;
   const payRemaining = !!fetchedBooking || (location.state?.payRemaining || false);
 
+  const noAccommodation = payRemaining
+    ? !!resolvedExistingBooking?.no_accommodation
+    : !!location.state?.noAccommodation;
+  const yatraFeeOnlyAmount = location.state?.yatraFeeOnlyAmount || 0;
+
   const room = payRemaining
-    ? { name: resolvedExistingBooking?.room_name, room_type: resolvedExistingBooking?.room_type, id: resolvedExistingBooking?.room_id, price: resolvedExistingBooking?.total_occupants ? Math.round((resolvedExistingBooking?.total_amount || 0) / resolvedExistingBooking.total_occupants) : 0, capacity: resolvedExistingBooking?.total_occupants }
+    ? (resolvedExistingBooking?.no_accommodation
+        ? null
+        : { name: resolvedExistingBooking?.room_name, room_type: resolvedExistingBooking?.room_type, id: resolvedExistingBooking?.room_id, price: resolvedExistingBooking?.total_occupants ? Math.round((resolvedExistingBooking?.total_amount || 0) / resolvedExistingBooking.total_occupants) : 0, capacity: resolvedExistingBooking?.total_occupants })
     : location.state?.room;
   const primary = payRemaining
     ? { name: "—", contact_number: resolvedExistingBooking?.primary_contact }
     : location.state?.primary;
   const members = payRemaining ? [] : (location.state?.members || []);
-  const transportOpted = payRemaining ? (resolvedExistingBooking?.transport_opted || false) : (location.state?.transportOpted || false);
+  const transportOpted = noAccommodation
+    ? false
+    : (payRemaining ? (resolvedExistingBooking?.transport_opted || false) : (location.state?.transportOpted || false));
   const selectedTransport = payRemaining && resolvedExistingBooking?.transport_name
     ? { name: resolvedExistingBooking.transport_name, id: resolvedExistingBooking.transport_id, price: 0 }
     : (payRemaining ? null : (location.state?.selectedTransport || null));
 
   const totalOccupants = payRemaining ? (resolvedExistingBooking?.total_occupants || 1) : (1 + members.length);
-  const roomTotal = room?.price ? room.price * totalOccupants : 0;
+  const roomTotal = noAccommodation
+    ? yatraFeeOnlyAmount * totalOccupants
+    : (room?.price ? room.price * totalOccupants : 0);
   const transportTotal = transportOpted && selectedTransport ? selectedTransport.price * totalOccupants : 0;
   const totalAmount = payRemaining ? (resolvedExistingBooking?.total_amount || 0) : (roomTotal + transportTotal);
   const alreadyPaid = payRemaining ? (resolvedExistingBooking?.amount_paid || 0) : 0;
