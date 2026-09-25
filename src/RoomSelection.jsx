@@ -255,7 +255,8 @@ export default function RoomSelection() {
       .then((res) => res.ok ? res.json() : null)
       .then((data) => {
         if (!data) return;
-        const y = data.yatra || data.body || data;
+        const list = Array.isArray(data?.yatras) ? data.yatras : (Array.isArray(data?.body) ? data.body : (Array.isArray(data) ? data : []));
+        const y = list[0] || data.yatra || data;
         const amt = Number(y?.yatra_fee_only_amount);
         if (!Number.isNaN(amt) && amt > 0) setYatraFeeOnlyAmount(amt);
       })

@@ -139,7 +139,8 @@ export default function Checkout() {
       .then((res) => res.ok ? res.json() : null)
       .then((data) => {
         if (!data) return;
-        const y = data.yatra || data.body || data;
+        const list = Array.isArray(data?.yatras) ? data.yatras : (Array.isArray(data?.body) ? data.body : (Array.isArray(data) ? data : []));
+        const y = list[0] || data.yatra || data;
         const amt = Number(y?.yatra_fee_only_amount);
         if (!Number.isNaN(amt) && amt > 0) setFetchedYatraFee(amt);
       })
@@ -531,9 +532,17 @@ export default function Checkout() {
                         <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-green-500" />
                         <span>Yatra Fees <span style={{ color: "var(--t-text-faint)" }}>(seminar hall + lecture hall facilities)</span></span>
                       </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-green-500" />
+                        <span>3 days Prasadam</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-green-500" />
+                        <span>Internal Travel <span style={{ color: "var(--t-text-faint)" }}>(bus facilities within Vraj)</span></span>
+                      </li>
                     </ul>
                     <p className="text-xs mt-3" style={{ color: "var(--t-text-faint)" }}>
-                      Accommodation, prasadam and internal travel are not included.
+                      Accommodation is not included.
                     </p>
                   </div>
                 </div>
