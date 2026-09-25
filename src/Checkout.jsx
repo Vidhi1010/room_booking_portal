@@ -30,6 +30,7 @@ export default function Checkout() {
   const [fetchedBooking, setFetchedBooking] = useState(null);
   const [fetchingBooking, setFetchingBooking] = useState(!!bookingIdParam);
   const [transportPrice, setTransportPrice] = useState(null);
+  const [fetchedYatraFee, setFetchedYatraFee] = useState(0);
 
   useEffect(() => {
     if (bookingIdParam && searchParams.get("app") === "whatsapp") {
@@ -62,7 +63,7 @@ export default function Checkout() {
   const noAccommodation = payRemaining
     ? !!resolvedExistingBooking?.no_accommodation
     : !!location.state?.noAccommodation;
-  const yatraFeeOnlyAmount = location.state?.yatraFeeOnlyAmount || 0;
+  const yatraFeeOnlyAmount = location.state?.yatraFeeOnlyAmount || fetchedYatraFee || 0;
 
   const room = payRemaining
     ? (resolvedExistingBooking?.no_accommodation
@@ -110,6 +111,12 @@ export default function Checkout() {
     if (payRemaining && alreadyPaid > 0) setPayAmount(remainingAmount);
   }, [resolvedExistingBooking, alreadyPaid, payRemaining, remainingAmount]);
 
+  // Keep payAmount in sync with totalAmount for new bookings once the fee resolves
+  useEffect(() => {
+    if (payRemaining) return;
+    setPayAmount(totalAmount);
+  }, [totalAmount, payRemaining]);
+
   // Fetch transport price from API if booking has transport_id
   useEffect(() => {
     const tId = resolvedExistingBooking?.transport_id;
@@ -123,6 +130,21 @@ export default function Checkout() {
       })
       .catch(() => {});
   }, [resolvedExistingBooking?.transport_id]);
+
+  // Fallback fetch for yatra-fee-only amount if navigation state didn't carry it
+  useEffect(() => {
+    if (!noAccommodation) return;
+    if (location.state?.yatraFeeOnlyAmount) return;
+    fetch(`${API_BASE}/get-yatra`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (!data) return;
+        const y = data.yatra || data.body || data;
+        const amt = Number(y?.yatra_fee_only_amount);
+        if (!Number.isNaN(amt) && amt > 0) setFetchedYatraFee(amt);
+      })
+      .catch(() => {});
+  }, [noAccommodation, location.state?.yatraFeeOnlyAmount]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
