@@ -50,6 +50,9 @@ import {
   CarOutlined,
   DownloadOutlined,
   SyncOutlined,
+  UserAddOutlined,
+  EditOutlined,
+  WarningOutlined,
 } from "@ant-design/icons";
 import { API_BASE } from "./config";
 
@@ -129,6 +132,21 @@ export default function AdminDashboard() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
   const [lastSyncedAt, setLastSyncedAt] = useState(() => localStorage.getItem("bookings_last_synced_at") || null);
+
+  // Create-booking (manual/cash) state
+  const [createBookingOpen, setCreateBookingOpen] = useState(false);
+  const [createBookingForm] = Form.useForm();
+  const [creatingBooking, setCreatingBooking] = useState(false);
+  const [createBookingMeta, setCreateBookingMeta] = useState({ rooms: [], transport: [], yatraFeeOnly: 0, loaded: false });
+  const [createBookingLoadingMeta, setCreateBookingLoadingMeta] = useState(false);
+  const [createBookingResult, setCreateBookingResult] = useState(null);
+
+  // Edit-booking state
+  const [editBookingOpen, setEditBookingOpen] = useState(false);
+  const [editBookingForm] = Form.useForm();
+  const [editingBooking, setEditingBooking] = useState(false);
+  const [editBookingTarget, setEditBookingTarget] = useState(null);
+  const [editBookingResult, setEditBookingResult] = useState(null);
 
   const fetchDashboard = useCallback(async () => {
     setDashboardLoading(true);
@@ -365,6 +383,216 @@ export default function AdminDashboard() {
       message.error(e.message || "Failed to sync sheet");
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const loadCreateBookingMeta = useCallback(async () => {
+    setCreateBookingLoadingMeta(true);
+    try {
+      const [roomsRes, transportRes, yatrasRes] = await Promise.all([
+        fetch(`${API_BASE}/get-rooms`),
+        fetch(`${API_BASE}/get-transport`),
+        fetch(`${API_BASE}/get-yatras`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      const roomsData = await roomsRes.json().catch(() => ([]));
+      const transportData = await transportRes.json().catch(() => ([]));
+      const yatrasData = await yatrasRes.json().catch(() => ([]));
+      const roomsList = Array.isArray(roomsData) ? roomsData : roomsData.rooms || roomsData.body || [];
+      const transportList = Array.isArray(transportData) ? transportData : transportData.transport || transportData.body || [];
+      const yatraList = Array.isArray(yatrasData) ? yatrasData : yatrasData.yatras || yatrasData.body || [];
+      const y = yatraList[0] || {};
+      const feeAmt = Number(y?.yatra_fee_only_amount) || 0;
+      setCreateBookingMeta({ rooms: roomsList, transport: transportList, yatraFeeOnly: feeAmt, loaded: true });
+    } catch {
+      message.error("Failed to load rooms/transport data");
+    } finally {
+      setCreateBookingLoadingMeta(false);
+    }
+  }, [token]);
+
+  const openCreateBooking = () => {
+    createBookingForm.resetFields();
+    createBookingForm.setFieldsValue({
+      gender: "male",
+      chanting_rounds: 0,
+      no_accommodation: false,
+      transport_opted: false,
+      amount_paid: 0,
+      members: [],
+    });
+    setCreateBookingOpen(true);
+    if (!createBookingMeta.loaded) loadCreateBookingMeta();
+  };
+
+  const submitCreateBooking = async (values, { allowDuplicate = false } = {}) => {
+    setCreatingBooking(true);
+    try {
+      const payload = {
+        name: values.name?.trim(),
+        age: Number(values.age),
+        contact_number: String(values.contact_number || "").trim(),
+        gender: values.gender,
+        chanting_rounds: Number(values.chanting_rounds || 0),
+        preaching_area_connected: values.preaching_area_connected || undefined,
+        facilitator_name: values.facilitator_name || undefined,
+        preferred_room_partner: values.preferred_room_partner || undefined,
+        members: (values.members || []).map((m) => ({
+          name: m.name?.trim(),
+          contact_number: String(m.contact_number || "").trim(),
+          age: Number(m.age),
+          gender: m.gender,
+          chanting_rounds: Number(m.chanting_rounds || 0),
+          facilitator_name: m.facilitator_name || undefined,
+        })),
+        no_accommodation: !!values.no_accommodation,
+        amount_paid: Number(values.amount_paid || 0),
+        payment_reference: values.payment_reference || undefined,
+        payment_note: values.payment_note || undefined,
+      };
+      if (!values.no_accommodation) {
+        payload.room_id = values.room_id;
+        payload.transport_opted = !!values.transport_opted;
+        if (values.transport_opted) payload.transport_id = values.transport_id;
+      }
+      if (allowDuplicate) payload.allow_duplicate_contact = true;
+
+      const res = await fetch(`${API_BASE}/admin-create-booking`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.status === 401 || res.status === 403) {
+        message.error("Session expired. Please login again.");
+        localStorage.removeItem("admin_token");
+        navigate("/admin/login", { replace: true });
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 409 && !allowDuplicate) {
+        Modal.confirm({
+          title: "Booking already exists for this contact",
+          content: data.message || "A booking with this contact number already exists. Create anyway?",
+          okText: "Create anyway",
+          okButtonProps: { danger: true },
+          onOk: () => submitCreateBooking(values, { allowDuplicate: true }),
+        });
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || data.message || "Failed to create booking");
+      }
+
+      message.success("Booking created");
+      setCreateBookingOpen(false);
+      createBookingForm.resetFields();
+      setCreateBookingResult(data.booking || data);
+      resetAndFetch();
+    } catch (e) {
+      message.error(e.message || "Failed to create booking");
+    } finally {
+      setCreatingBooking(false);
+    }
+  };
+
+  const openEditBooking = (booking) => {
+    if (!booking) return;
+    setEditBookingTarget(booking);
+    editBookingForm.resetFields();
+    editBookingForm.setFieldsValue({
+      no_accommodation: !!booking.no_accommodation,
+      room_id: booking.room_id || undefined,
+      transport_opted: !!booking.transport_opted,
+      transport_id: booking.transport_id || undefined,
+      additional_cash_paid: 0,
+      payment_reference: undefined,
+      payment_note: undefined,
+      reason: undefined,
+    });
+    setEditBookingOpen(true);
+    if (!createBookingMeta.loaded) loadCreateBookingMeta();
+  };
+
+  const submitEditBooking = async (values) => {
+    if (!editBookingTarget) return;
+    const target = editBookingTarget;
+    setEditingBooking(true);
+    try {
+      const payload = { booking_id: target.id };
+      const noAccChanged = !!values.no_accommodation !== !!target.no_accommodation;
+      const roomChanged = !values.no_accommodation && values.room_id && values.room_id !== target.room_id;
+      const transportOptedChanged = !!values.transport_opted !== !!target.transport_opted;
+      const transportIdChanged = !!values.transport_opted && values.transport_id && values.transport_id !== target.transport_id;
+      const cash = Number(values.additional_cash_paid || 0);
+
+      if (noAccChanged) payload.no_accommodation = !!values.no_accommodation;
+      if (!values.no_accommodation && roomChanged) payload.room_id = values.room_id;
+      if (!values.no_accommodation) {
+        if (transportOptedChanged) payload.transport_opted = !!values.transport_opted;
+        if (values.transport_opted && (transportOptedChanged || transportIdChanged)) {
+          payload.transport_id = values.transport_id;
+        }
+      }
+      if (cash > 0) {
+        payload.additional_cash_paid = cash;
+        if (values.payment_reference) payload.payment_reference = values.payment_reference;
+        if (values.payment_note) payload.payment_note = values.payment_note;
+      }
+      if (values.reason) payload.reason = values.reason;
+
+      const changeKeys = ["room_id", "transport_opted", "transport_id", "no_accommodation", "additional_cash_paid"];
+      if (!changeKeys.some((k) => k in payload)) {
+        message.warning("No changes to save");
+        setEditingBooking(false);
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/update-booking`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.status === 401 || res.status === 403) {
+        message.error("Session expired. Please login again.");
+        localStorage.removeItem("admin_token");
+        navigate("/admin/login", { replace: true });
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 409) {
+        const staleWrite = /changed since read/i.test(data.error || "");
+        if (staleWrite) {
+          message.warning("Another admin just edited this booking — reload and retry");
+        } else {
+          message.error(data.error || "Inventory conflict");
+        }
+        setEditBookingOpen(false);
+        setEditBookingTarget(null);
+        setSelectedBooking(null);
+        resetAndFetch();
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || data.message || "Failed to update booking");
+      }
+
+      message.success("Booking updated");
+      setEditBookingOpen(false);
+      setEditBookingTarget(null);
+      setSelectedBooking(null);
+      setEditBookingResult(data);
+      resetAndFetch();
+    } catch (e) {
+      message.error(e.message || "Failed to update booking");
+    } finally {
+      setEditingBooking(false);
     }
   };
 
@@ -659,8 +887,14 @@ export default function AdminDashboard() {
                     Refresh
                   </Button>
                   <Button
-                    icon={<SyncOutlined />}
+                    icon={<UserAddOutlined />}
                     type="primary"
+                    onClick={openCreateBooking}
+                  >
+                    Create Booking
+                  </Button>
+                  <Button
+                    icon={<SyncOutlined />}
                     onClick={handleSyncSheet}
                     loading={syncing}
                   >
@@ -1358,6 +1592,318 @@ export default function AdminDashboard() {
         </Layout>
       </Layout>
 
+      {/* create booking (cash) modal */}
+      <Modal
+        open={createBookingOpen}
+        onCancel={() => { if (!creatingBooking) { setCreateBookingOpen(false); createBookingForm.resetFields(); } }}
+        footer={null}
+        width={720}
+        destroyOnClose
+        title={
+          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <UserAddOutlined />
+            Create Booking (Cash)
+          </span>
+        }
+      >
+        {createBookingLoadingMeta && !createBookingMeta.loaded ? (
+          <div style={{ textAlign: "center", padding: 40 }}><Spin /></div>
+        ) : (
+          <Form
+            form={createBookingForm}
+            layout="vertical"
+            onFinish={(values) => submitCreateBooking(values)}
+            style={{ marginTop: 8 }}
+          >
+            <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Primary Guest</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Form.Item name="name" label="Name" rules={[{ required: true, message: "Name required" }]}>
+                <Input placeholder="Full name" />
+              </Form.Item>
+              <Form.Item
+                name="contact_number"
+                label="Contact Number"
+                rules={[
+                  { required: true, message: "Contact required" },
+                  { pattern: /^\d{10}$/, message: "Exactly 10 digits" },
+                ]}
+              >
+                <Input placeholder="10-digit mobile" maxLength={10} />
+              </Form.Item>
+              <Form.Item name="age" label="Age" rules={[{ required: true, message: "Age required" }]}>
+                <InputNumber min={1} max={120} style={{ width: "100%" }} />
+              </Form.Item>
+              <Form.Item name="gender" label="Gender" rules={[{ required: true }]}>
+                <Select options={[
+                  { label: "Male", value: "male" },
+                  { label: "Female", value: "female" },
+                  { label: "Other", value: "other" },
+                ]} />
+              </Form.Item>
+              <Form.Item name="chanting_rounds" label="Chanting Rounds">
+                <InputNumber min={0} max={200} style={{ width: "100%" }} />
+              </Form.Item>
+              <Form.Item name="preaching_area_connected" label="Preaching Area">
+                <Select
+                  allowClear
+                  placeholder="Select area"
+                  options={[
+                    { label: "Gita Essence", value: "Gita Essence" },
+                    { label: "ISKCON Jia Sarai", value: "ISKCON Jia Sarai" },
+                    { label: "ISKCON Srinagar", value: "ISKCON Srinagar" },
+                    { label: "Siksharthakam", value: "Siksharthakam" },
+                    { label: "Sreshtha", value: "Sreshtha" },
+                  ]}
+                />
+              </Form.Item>
+              <Form.Item name="facilitator_name" label="Facilitator">
+                <Input placeholder="Optional" />
+              </Form.Item>
+              <Form.Item name="preferred_room_partner" label="Preferred Room Partner">
+                <Input placeholder="Optional" />
+              </Form.Item>
+            </div>
+
+            <div style={{ fontWeight: 600, marginTop: 4, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Accommodation</div>
+            <Form.Item name="no_accommodation" label="Yatra fee only (no accommodation)">
+              <Select
+                options={[
+                  { label: "No — includes accommodation", value: false },
+                  { label: "Yes — yatra fee only", value: true },
+                ]}
+                onChange={(v) => {
+                  if (v) {
+                    createBookingForm.setFieldsValue({ room_id: undefined, transport_opted: false, transport_id: undefined });
+                  }
+                }}
+              />
+            </Form.Item>
+
+            <Form.Item noStyle shouldUpdate={(p, c) => p.no_accommodation !== c.no_accommodation}>
+              {({ getFieldValue }) => !getFieldValue("no_accommodation") && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <Form.Item name="room_id" label="Room" rules={[{ required: true, message: "Select a room" }]}>
+                    <Select
+                      placeholder="Select room"
+                      options={createBookingMeta.rooms.map((r) => ({
+                        label: `${r.name} (${r.room_type}) — ₹${r.price} · ${r.available_beds ?? "?"} beds left`,
+                        value: r.id,
+                        disabled: (r.available_beds ?? 1) <= 0,
+                      }))}
+                    />
+                  </Form.Item>
+                  <Form.Item name="transport_opted" label="Transport" initialValue={false}>
+                    <Select
+                      options={[
+                        { label: "Not opted", value: false },
+                        { label: "Opted", value: true },
+                      ]}
+                      onChange={(v) => { if (!v) createBookingForm.setFieldsValue({ transport_id: undefined }); }}
+                    />
+                  </Form.Item>
+                </div>
+              )}
+            </Form.Item>
+
+            <Form.Item noStyle shouldUpdate={(p, c) => p.transport_opted !== c.transport_opted || p.no_accommodation !== c.no_accommodation}>
+              {({ getFieldValue }) =>
+                !getFieldValue("no_accommodation") && getFieldValue("transport_opted") && (
+                  <Form.Item name="transport_id" label="Transport Option" rules={[{ required: true, message: "Select transport" }]}>
+                    <Select
+                      placeholder="Select transport"
+                      options={createBookingMeta.transport.map((t) => ({
+                        label: `${t.name || t.route || "Transport"} — ₹${t.price}${t.available_seats != null ? ` · ${t.available_seats} seats left` : ""}`,
+                        value: t.id,
+                        disabled: t.available_seats != null && t.available_seats <= 0,
+                      }))}
+                    />
+                  </Form.Item>
+                )
+              }
+            </Form.Item>
+
+            <div style={{ fontWeight: 600, marginTop: 4, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Members</div>
+            <Form.List name="members">
+              {(fields, { add, remove }) => (
+                <>
+                  {fields.map(({ key, name, ...rest }) => (
+                    <div
+                      key={key}
+                      style={{
+                        border: "1px solid rgba(255,255,255,0.06)",
+                        borderRadius: 8,
+                        padding: 12,
+                        marginBottom: 8,
+                        background: "rgba(255,255,255,0.02)",
+                      }}
+                    >
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                        <Form.Item {...rest} name={[name, "name"]} label="Name" rules={[{ required: true, message: "Required" }]} style={{ marginBottom: 8 }}>
+                          <Input placeholder="Name" />
+                        </Form.Item>
+                        <Form.Item
+                          {...rest}
+                          name={[name, "contact_number"]}
+                          label="Contact"
+                          rules={[
+                            { required: true, message: "Required" },
+                            { pattern: /^\d{10}$/, message: "10 digits" },
+                          ]}
+                          style={{ marginBottom: 8 }}
+                        >
+                          <Input placeholder="10-digit mobile" maxLength={10} />
+                        </Form.Item>
+                        <Form.Item {...rest} name={[name, "age"]} label="Age" rules={[{ required: true, message: "Required" }]} style={{ marginBottom: 8 }}>
+                          <InputNumber min={1} max={120} style={{ width: "100%" }} />
+                        </Form.Item>
+                        <Form.Item {...rest} name={[name, "gender"]} label="Gender" rules={[{ required: true }]} style={{ marginBottom: 8 }}>
+                          <Select options={[
+                            { label: "Male", value: "male" },
+                            { label: "Female", value: "female" },
+                            { label: "Other", value: "other" },
+                          ]} />
+                        </Form.Item>
+                        <Form.Item {...rest} name={[name, "chanting_rounds"]} label="Chanting Rounds" style={{ marginBottom: 8 }}>
+                          <InputNumber min={0} max={200} style={{ width: "100%" }} />
+                        </Form.Item>
+                        <Form.Item {...rest} name={[name, "facilitator_name"]} label="Facilitator" style={{ marginBottom: 8 }}>
+                          <Input placeholder="Optional" />
+                        </Form.Item>
+                      </div>
+                      <Button danger type="text" icon={<DeleteOutlined />} onClick={() => remove(name)}>
+                        Remove member
+                      </Button>
+                    </div>
+                  ))}
+                  <Button type="dashed" onClick={() => add({ gender: "male", chanting_rounds: 0 })} block icon={<PlusOutlined />} style={{ marginBottom: 16 }}>
+                    Add Member
+                  </Button>
+                </>
+              )}
+            </Form.List>
+
+            {/* Live total preview */}
+            <Form.Item noStyle shouldUpdate>
+              {({ getFieldValue }) => {
+                const noAcc = getFieldValue("no_accommodation");
+                const roomId = getFieldValue("room_id");
+                const transportOpted = getFieldValue("transport_opted");
+                const transportId = getFieldValue("transport_id");
+                const members = getFieldValue("members") || [];
+                const occupants = 1 + members.length;
+                let perPerson = 0;
+                if (noAcc) {
+                  perPerson = createBookingMeta.yatraFeeOnly;
+                } else {
+                  const room = createBookingMeta.rooms.find((r) => r.id === roomId);
+                  const transport = transportOpted ? createBookingMeta.transport.find((t) => t.id === transportId) : null;
+                  perPerson = (Number(room?.price) || 0) + (Number(transport?.price) || 0);
+                }
+                const total = perPerson * occupants;
+                return (
+                  <div
+                    style={{
+                      background: "rgba(217,119,6,0.08)",
+                      border: "1px solid rgba(217,119,6,0.25)",
+                      borderRadius: 10,
+                      padding: 12,
+                      marginBottom: 16,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>
+                      {occupants} occupant{occupants > 1 ? "s" : ""} × ₹{perPerson} {noAcc ? "(yatra fee)" : "(room + transport)"}
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "#fbbf24" }}>Total ₹{total}</div>
+                  </div>
+                );
+              }}
+            </Form.Item>
+
+            <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Cash Payment</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Form.Item
+                name="amount_paid"
+                label="Amount Paid (cash)"
+                rules={[
+                  { required: true, message: "Enter amount" },
+                  {
+                    validator: (_, v) => {
+                      if (v == null) return Promise.resolve();
+                      if (v < 0) return Promise.reject(new Error("Cannot be negative"));
+                      return Promise.resolve();
+                    },
+                  },
+                ]}
+              >
+                <InputNumber min={0} style={{ width: "100%" }} prefix="₹" />
+              </Form.Item>
+              <Form.Item name="payment_reference" label="Payment Reference">
+                <Input placeholder="Receipt / reference #" />
+              </Form.Item>
+            </div>
+            <Form.Item name="payment_note" label="Payment Note">
+              <Input.TextArea rows={2} placeholder="Optional" />
+            </Form.Item>
+
+            <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
+              <Space>
+                <Button onClick={() => { setCreateBookingOpen(false); createBookingForm.resetFields(); }} disabled={creatingBooking}>
+                  Cancel
+                </Button>
+                <Button type="primary" htmlType="submit" loading={creatingBooking} icon={<UserAddOutlined />}>
+                  Create Booking
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        )}
+      </Modal>
+
+      {/* create booking result modal */}
+      <Modal
+        open={!!createBookingResult}
+        onCancel={() => setCreateBookingResult(null)}
+        footer={<Button type="primary" onClick={() => setCreateBookingResult(null)}>Close</Button>}
+        title={
+          <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#4ade80" }}>
+            <CheckCircleOutlined />
+            Booking Created
+          </span>
+        }
+        width={480}
+      >
+        {createBookingResult && (
+          <Descriptions column={1} size="small" bordered>
+            <Descriptions.Item label="Booking ID">
+              <Text copyable style={{ fontFamily: "monospace", fontSize: 11 }}>{createBookingResult.id}</Text>
+            </Descriptions.Item>
+            <Descriptions.Item label="Status">
+              <Tag color={STATUS_COLORS[normalizeStatus(createBookingResult.status)] || "default"}>
+                {normalizeStatus(createBookingResult.status)?.replace(/_/g, " ").toUpperCase()}
+              </Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="Total">₹{createBookingResult.total_amount}</Descriptions.Item>
+            <Descriptions.Item label="Paid">
+              <span style={{ color: "#4ade80", fontWeight: 600 }}>₹{createBookingResult.amount_paid}</span>
+            </Descriptions.Item>
+            <Descriptions.Item label="Balance">
+              <span style={{ color: createBookingResult.balance > 0 ? "#f87171" : "#4ade80", fontWeight: 600 }}>
+                ₹{createBookingResult.balance}
+              </span>
+            </Descriptions.Item>
+            <Descriptions.Item label="Occupants">{createBookingResult.total_occupants}</Descriptions.Item>
+            {createBookingResult.payment_source && (
+              <Descriptions.Item label="Payment Source">
+                <Tag color="gold">{String(createBookingResult.payment_source).toUpperCase()}</Tag>
+              </Descriptions.Item>
+            )}
+          </Descriptions>
+        )}
+      </Modal>
+
       {/* sync result modal */}
       <Modal
         open={!!syncResult}
@@ -1409,11 +1955,328 @@ export default function AdminDashboard() {
         )}
       </Modal>
 
+      {/* edit booking modal */}
+      <Modal
+        open={editBookingOpen}
+        onCancel={() => { if (!editingBooking) { setEditBookingOpen(false); setEditBookingTarget(null); editBookingForm.resetFields(); } }}
+        footer={null}
+        width={720}
+        destroyOnClose
+        title={
+          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <EditOutlined />
+            Edit Booking
+            {editBookingTarget && (
+              <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "monospace" }}>
+                {editBookingTarget.id?.slice(0, 8)}…
+              </Text>
+            )}
+          </span>
+        }
+      >
+        {createBookingLoadingMeta && !createBookingMeta.loaded ? (
+          <div style={{ textAlign: "center", padding: 40 }}><Spin /></div>
+        ) : editBookingTarget && (
+          <Form
+            form={editBookingForm}
+            layout="vertical"
+            onFinish={submitEditBooking}
+            style={{ marginTop: 8 }}
+          >
+            {/* Current summary */}
+            <div style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 10,
+              padding: 12,
+              marginBottom: 16,
+              fontSize: 12,
+              color: "rgba(255,255,255,0.6)",
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 1fr",
+              gap: 12,
+            }}>
+              <div>
+                <div style={{ color: "rgba(255,255,255,0.4)" }}>Occupants</div>
+                <div style={{ color: "#fff", fontWeight: 600 }}>{editBookingTarget.total_occupants}</div>
+              </div>
+              <div>
+                <div style={{ color: "rgba(255,255,255,0.4)" }}>Current Total</div>
+                <div style={{ color: "#fff", fontWeight: 600 }}>₹{editBookingTarget.total_amount}</div>
+              </div>
+              <div>
+                <div style={{ color: "rgba(255,255,255,0.4)" }}>Paid</div>
+                <div style={{ color: "#4ade80", fontWeight: 600 }}>₹{editBookingTarget.amount_paid}</div>
+              </div>
+            </div>
+
+            <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Accommodation</div>
+            <Form.Item name="no_accommodation" label="Mode">
+              <Select
+                options={[
+                  { label: "Includes accommodation", value: false },
+                  { label: "Yatra fee only", value: true },
+                ]}
+                onChange={(v) => {
+                  if (v) {
+                    editBookingForm.setFieldsValue({ transport_opted: false, transport_id: undefined });
+                  }
+                }}
+              />
+            </Form.Item>
+
+            <Form.Item noStyle shouldUpdate={(p, c) => p.no_accommodation !== c.no_accommodation}>
+              {({ getFieldValue }) => !getFieldValue("no_accommodation") && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <Form.Item
+                    name="room_id"
+                    label="Room"
+                    rules={[{ required: true, message: "Select a room" }]}
+                  >
+                    <Select
+                      placeholder="Select room"
+                      options={createBookingMeta.rooms.map((r) => {
+                        // current room stays selectable even if sold out
+                        const isCurrent = r.id === editBookingTarget.room_id;
+                        return {
+                          label: `${r.name} (${r.room_type}) — ₹${r.price} · ${r.available_beds ?? "?"} beds left${isCurrent ? " · current" : ""}`,
+                          value: r.id,
+                          disabled: !isCurrent && (r.available_beds ?? 1) <= 0,
+                        };
+                      })}
+                    />
+                  </Form.Item>
+                  <Form.Item name="transport_opted" label="Transport">
+                    <Select
+                      options={[
+                        { label: "Not opted", value: false },
+                        { label: "Opted", value: true },
+                      ]}
+                      onChange={(v) => { if (!v) editBookingForm.setFieldsValue({ transport_id: undefined }); }}
+                    />
+                  </Form.Item>
+                </div>
+              )}
+            </Form.Item>
+
+            <Form.Item noStyle shouldUpdate={(p, c) => p.transport_opted !== c.transport_opted || p.no_accommodation !== c.no_accommodation}>
+              {({ getFieldValue }) =>
+                !getFieldValue("no_accommodation") && getFieldValue("transport_opted") && (
+                  <Form.Item name="transport_id" label="Transport Option" rules={[{ required: true, message: "Select transport" }]}>
+                    <Select
+                      placeholder="Select transport"
+                      options={createBookingMeta.transport.map((t) => {
+                        const isCurrent = t.id === editBookingTarget.transport_id;
+                        return {
+                          label: `${t.name || t.route || "Transport"} — ₹${t.price}${t.available_seats != null ? ` · ${t.available_seats} seats left` : ""}${isCurrent ? " · current" : ""}`,
+                          value: t.id,
+                          disabled: !isCurrent && t.available_seats != null && t.available_seats <= 0,
+                        };
+                      })}
+                    />
+                  </Form.Item>
+                )
+              }
+            </Form.Item>
+
+            {/* Live delta preview */}
+            <Form.Item noStyle shouldUpdate>
+              {({ getFieldValue }) => {
+                const noAcc = getFieldValue("no_accommodation");
+                const roomId = getFieldValue("room_id");
+                const transportOpted = getFieldValue("transport_opted");
+                const transportId = getFieldValue("transport_id");
+                const cash = Number(getFieldValue("additional_cash_paid") || 0);
+                const occupants = editBookingTarget.total_occupants || 1;
+                let perPerson = 0;
+                if (noAcc) {
+                  perPerson = createBookingMeta.yatraFeeOnly;
+                } else {
+                  const room = createBookingMeta.rooms.find((r) => r.id === roomId);
+                  const transport = transportOpted ? createBookingMeta.transport.find((t) => t.id === transportId) : null;
+                  perPerson = (Number(room?.price) || 0) + (Number(transport?.price) || 0);
+                }
+                const newTotal = perPerson * occupants;
+                const oldTotal = Number(editBookingTarget.total_amount) || 0;
+                const oldPaid = Number(editBookingTarget.amount_paid) || 0;
+                const refundPaid = Number(editBookingTarget.refund_paid) || 0;
+                const netPaid = oldPaid + cash - refundPaid;
+                const refundDue = Math.max(0, netPaid - newTotal);
+                const balance = Math.max(0, newTotal - netPaid);
+                const delta = newTotal - oldTotal;
+
+                return (
+                  <div
+                    style={{
+                      background: refundDue > 0 ? "rgba(248,113,113,0.08)" : "rgba(217,119,6,0.08)",
+                      border: `1px solid ${refundDue > 0 ? "rgba(248,113,113,0.3)" : "rgba(217,119,6,0.25)"}`,
+                      borderRadius: 10,
+                      padding: 12,
+                      marginBottom: 16,
+                    }}
+                  >
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, fontSize: 12 }}>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.4)" }}>New Total</div>
+                        <div style={{ color: "#fbbf24", fontWeight: 700, fontSize: 16 }}>₹{newTotal}</div>
+                        <div style={{ color: delta === 0 ? "rgba(255,255,255,0.4)" : delta > 0 ? "#fbbf24" : "#4ade80", fontSize: 11 }}>
+                          {delta === 0 ? "no change" : `${delta > 0 ? "+" : ""}₹${delta}`}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.4)" }}>Net Paid</div>
+                        <div style={{ color: "#4ade80", fontWeight: 600 }}>₹{netPaid}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.4)" }}>Balance</div>
+                        <div style={{ color: balance > 0 ? "#f87171" : "#4ade80", fontWeight: 600 }}>₹{balance}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.4)" }}>Refund Due</div>
+                        <div style={{ color: refundDue > 0 ? "#f87171" : "rgba(255,255,255,0.5)", fontWeight: 600 }}>₹{refundDue}</div>
+                      </div>
+                    </div>
+                    {refundDue > 0 && (
+                      <div style={{ marginTop: 8, fontSize: 11, color: "#f87171", display: "flex", alignItems: "center", gap: 6 }}>
+                        <WarningOutlined />
+                        Refund will be pending — settle via <code>POST /settle-refund</code> after handing cash back.
+                      </div>
+                    )}
+                  </div>
+                );
+              }}
+            </Form.Item>
+
+            <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Cash Top-up (optional)</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Form.Item
+                name="additional_cash_paid"
+                label="Additional Cash Paid"
+                rules={[
+                  {
+                    validator: (_, v) => {
+                      if (v == null || v === "") return Promise.resolve();
+                      if (Number(v) < 0) return Promise.reject(new Error("Cannot be negative"));
+                      return Promise.resolve();
+                    },
+                  },
+                ]}
+              >
+                <InputNumber min={0} style={{ width: "100%" }} prefix="₹" placeholder="0" />
+              </Form.Item>
+              <Form.Item name="payment_reference" label="Payment Reference">
+                <Input placeholder="Receipt / reference #" />
+              </Form.Item>
+            </div>
+            <Form.Item name="payment_note" label="Payment Note">
+              <Input.TextArea rows={2} placeholder="Optional" />
+            </Form.Item>
+
+            <Form.Item name="reason" label="Reason (admin note)">
+              <Input.TextArea rows={2} placeholder="Why is this change being made?" />
+            </Form.Item>
+
+            <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
+              <Space>
+                <Button
+                  onClick={() => { setEditBookingOpen(false); setEditBookingTarget(null); editBookingForm.resetFields(); }}
+                  disabled={editingBooking}
+                >
+                  Cancel
+                </Button>
+                <Button type="primary" htmlType="submit" loading={editingBooking} icon={<EditOutlined />}>
+                  Save Changes
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        )}
+      </Modal>
+
+      {/* edit booking result modal */}
+      <Modal
+        open={!!editBookingResult}
+        onCancel={() => setEditBookingResult(null)}
+        footer={<Button type="primary" onClick={() => setEditBookingResult(null)}>Close</Button>}
+        title={
+          <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#4ade80" }}>
+            <CheckCircleOutlined />
+            Booking Updated
+          </span>
+        }
+        width={520}
+      >
+        {editBookingResult && (
+          <div>
+            <Descriptions column={2} size="small" bordered style={{ marginBottom: 12 }}>
+              <Descriptions.Item label="Old Total">₹{editBookingResult.old_total_amount}</Descriptions.Item>
+              <Descriptions.Item label="New Total">
+                <span style={{ fontWeight: 700, color: "#fbbf24" }}>₹{editBookingResult.new_total_amount}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Paid">
+                <span style={{ color: "#4ade80", fontWeight: 600 }}>₹{editBookingResult.amount_paid}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Cash Added">
+                ₹{editBookingResult.additional_cash_paid ?? 0}
+              </Descriptions.Item>
+              <Descriptions.Item label="Refund Paid">
+                ₹{editBookingResult.refund_paid ?? 0}
+              </Descriptions.Item>
+              <Descriptions.Item label="Refund Due">
+                <span style={{ color: editBookingResult.refund_due > 0 ? "#f87171" : "rgba(255,255,255,0.5)", fontWeight: 600 }}>
+                  ₹{editBookingResult.refund_due ?? 0}
+                </span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Status">
+                <Tag color={STATUS_COLORS[normalizeStatus(editBookingResult.status)] || "default"}>
+                  {normalizeStatus(editBookingResult.status)?.replace(/_/g, " ").toUpperCase()}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Refund Status">
+                <Tag color={editBookingResult.refund_status === "pending" ? "red" : editBookingResult.refund_status === "settled" ? "green" : "default"}>
+                  {String(editBookingResult.refund_status || "none").toUpperCase()}
+                </Tag>
+              </Descriptions.Item>
+            </Descriptions>
+
+            {editBookingResult.refund_status === "pending" && editBookingResult.refund_due > 0 && (
+              <div style={{
+                background: "rgba(248,113,113,0.1)",
+                border: "1px solid rgba(248,113,113,0.3)",
+                borderRadius: 8,
+                padding: 12,
+                fontSize: 12,
+                color: "#fca5a5",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}>
+                <WarningOutlined />
+                Refund of ₹{editBookingResult.refund_due} is pending — settle after handing cash back to the guest.
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
       {/* booking detail modal */}
       <Modal
         open={!!selectedBooking}
         onCancel={() => setSelectedBooking(null)}
-        footer={null}
+        footer={
+          selectedBooking ? (
+            <Space>
+              <Button
+                type="primary"
+                icon={<EditOutlined />}
+                onClick={() => openEditBooking(selectedBooking)}
+              >
+                Edit Booking
+              </Button>
+              <Button onClick={() => setSelectedBooking(null)}>Close</Button>
+            </Space>
+          ) : null
+        }
         width={640}
         title={
           <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1434,8 +2297,8 @@ export default function AdminDashboard() {
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="Primary Contact">{selectedBooking.primary_contact}</Descriptions.Item>
-              <Descriptions.Item label="Room">{selectedBooking.room_name}</Descriptions.Item>
-              <Descriptions.Item label="Room Type">{selectedBooking.room_type}</Descriptions.Item>
+              <Descriptions.Item label="Room">{selectedBooking.room_name || (selectedBooking.no_accommodation ? <Tag>Yatra Fee Only</Tag> : "NA")}</Descriptions.Item>
+              <Descriptions.Item label="Room Type">{selectedBooking.room_type || "NA"}</Descriptions.Item>
               <Descriptions.Item label="Total Occupants">{selectedBooking.total_occupants}</Descriptions.Item>
               <Descriptions.Item label="Total Amount">
                 <span style={{ fontWeight: 700 }}>₹{selectedBooking.total_amount}</span>
