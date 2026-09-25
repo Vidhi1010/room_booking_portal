@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, ArrowRight, ArrowLeft, Bed, Loader2, UserPlus, Trash2, Bus, Phone, X, AlertCircle } from "lucide-react";
+import { Users, ArrowRight, ArrowLeft, Loader2, UserPlus, Trash2, Bus, Phone, X, AlertCircle } from "lucide-react";
 import { defaultTheme } from "./themes";
 import { API_BASE } from "./config";
 
