@@ -251,7 +251,7 @@ export default function RoomSelection() {
       })
       .catch(() => {});
 
-    fetch(`${API_BASE}/get-yatra`)
+    fetch(`${API_BASE}/get-yatras`)
       .then((res) => res.ok ? res.json() : null)
       .then((data) => {
         if (!data) return;
