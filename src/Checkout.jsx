@@ -224,7 +224,7 @@ export default function Checkout() {
   }
 
   // redirect if no data
-  if ((!room || !primary) && !payRemaining) {
+  if ((!room || !primary) && !payRemaining && !noAccommodation) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
@@ -337,9 +337,10 @@ export default function Checkout() {
           preaching_area_connected: primary.preaching_area_connected.trim(),
           facilitator_name: primary.facilitator_name?.trim() || undefined,
           preferred_room_partner: primary.preferred_room_partner?.trim() || undefined,
-          room_id: room.id,
-          transport_opted: transportOpted,
-          transport_id: transportOpted && selectedTransport?.id ? selectedTransport.id : undefined,
+          room_id: noAccommodation ? undefined : room.id,
+          no_accommodation: noAccommodation || undefined,
+          transport_opted: noAccommodation ? false : transportOpted,
+          transport_id: !noAccommodation && transportOpted && selectedTransport?.id ? selectedTransport.id : undefined,
           members: members.length
             ? members.map((m) => ({
                 name: m.name.trim(),
@@ -402,7 +403,7 @@ export default function Checkout() {
       <div className="max-w-3xl mx-auto px-6 py-8">
         {/* back */}
         <button
-          onClick={() => navigate(payRemaining ? "/" : "/register", payRemaining ? undefined : { state: { room, primary, members, transportOpted, selectedTransport } })}
+          onClick={() => navigate(payRemaining ? "/" : "/register", payRemaining ? undefined : { state: { room, primary, members, transportOpted, selectedTransport, noAccommodation, yatraFeeOnlyAmount } })}
           className="flex items-center gap-2 text-sm font-medium mb-8 transition-colors"
           style={{ color: "var(--t-text-muted)" }}
           onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-accent-hover)")}
@@ -463,7 +464,49 @@ export default function Checkout() {
 
         {!paymentStatus?.includes("paid") && paymentStatus !== "failed" && (
           <>
-            {/* ── Room Preview ── */}
+            {/* ── Room Preview (or Yatra-Fee-Only banner) ── */}
+            {noAccommodation ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="p-6 rounded-2xl mb-6"
+              style={{ backgroundColor: "var(--t-bg-alt)", border: "1px solid var(--t-border)" }}
+            >
+              <h2 className="text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2" style={{ color: "var(--t-accent-from)" }}>
+                <CheckCircle className="w-4 h-4" />
+                Yatra Fee Only
+              </h2>
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold">No Accommodation / No Transport</h3>
+                  <div className="flex items-center gap-4 mt-1">
+                    <div className="flex items-center gap-1.5 text-sm" style={{ color: "var(--t-text-muted)" }}>
+                      <Users className="w-4 h-4" style={{ color: "var(--t-accent-from)" }} />
+                      {totalOccupants} {totalOccupants > 1 ? "guests" : "guest"}
+                    </div>
+                    {yatraFeeOnlyAmount ? (
+                      <div className="text-sm font-semibold" style={{ color: "var(--t-accent-from)" }}>
+                        ₹{yatraFeeOnlyAmount}/person
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="mt-4 pt-3" style={{ borderTop: "1px solid var(--t-border)" }}>
+                    <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "var(--t-text-muted)" }}>What's Included</p>
+                    <ul className="space-y-1.5 text-sm" style={{ color: "var(--t-text-secondary)" }}>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-green-500" />
+                        <span>Yatra Fees <span style={{ color: "var(--t-text-faint)" }}>(seminar hall + lecture hall facilities)</span></span>
+                      </li>
+                    </ul>
+                    <p className="text-xs mt-3" style={{ color: "var(--t-text-faint)" }}>
+                      Accommodation, prasadam and internal travel are not included.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+            ) : (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -515,6 +558,7 @@ export default function Checkout() {
                 )}
               </div>
             </motion.div>
+            )}
 
             {/* ── Guest Details Preview ── */}
             <motion.div
@@ -678,7 +722,7 @@ export default function Checkout() {
                 Pricing Details
               </h2>
               <div className="space-y-3 text-sm">
-                {!payRemaining && (
+                {!payRemaining && !noAccommodation && (
                 <div className="flex items-center justify-between">
                   <span style={{ color: "var(--t-text-secondary)" }}>
                     Room ({totalOccupants} {totalOccupants > 1 ? "guests" : "guest"} × ₹{room?.price})
@@ -686,8 +730,15 @@ export default function Checkout() {
                   <span className="font-semibold">₹{roomTotal}</span>
                 </div>
                 )}
-                {!payRemaining && transportOpted && selectedTransport && (
-                  <div className="flex items-center justify-between">
+                {!payRemaining && noAccommodation && (
+                <div className="flex items-center justify-between">
+                  <span style={{ color: "var(--t-text-secondary)" }}>
+                    Yatra Fee ({totalOccupants} {totalOccupants > 1 ? "guests" : "guest"} × ₹{yatraFeeOnlyAmount})
+                  </span>
+                  <span className="font-semibold">₹{roomTotal}</span>
+                </div>
+                )}
+                {!payRemaining && transportOpted && selectedTransport && (                  <div className="flex items-center justify-between">
                     <span style={{ color: "var(--t-text-secondary)" }}>
                       Transport ({totalOccupants} × ₹{selectedTransport.price})
                     </span>
