@@ -53,6 +53,7 @@ import {
   UserAddOutlined,
   EditOutlined,
   WarningOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import { API_BASE } from "./config";
 
@@ -154,6 +155,13 @@ export default function AdminDashboard() {
   const [settlingRefund, setSettlingRefund] = useState(false);
   const [settleRefundTarget, setSettleRefundTarget] = useState(null);
   const [settleRefundResult, setSettleRefundResult] = useState(null);
+
+  // Cancel-booking state
+  const [cancelBookingOpen, setCancelBookingOpen] = useState(false);
+  const [cancelBookingForm] = Form.useForm();
+  const [cancellingBooking, setCancellingBooking] = useState(false);
+  const [cancelBookingTarget, setCancelBookingTarget] = useState(null);
+  const [cancelBookingResult, setCancelBookingResult] = useState(null);
 
   const fetchDashboard = useCallback(async () => {
     setDashboardLoading(true);
@@ -674,6 +682,80 @@ export default function AdminDashboard() {
       message.error(e.message || "Failed to settle refund");
     } finally {
       setSettlingRefund(false);
+    }
+  };
+
+  const openCancelBooking = (booking) => {
+    if (!booking) return;
+    const netPaid = Math.max(0, (Number(booking.amount_paid) || 0) - (Number(booking.refund_paid) || 0));
+    setCancelBookingTarget({ ...booking, __net_paid: netPaid });
+    cancelBookingForm.resetFields();
+    cancelBookingForm.setFieldsValue({
+      refund_amount: netPaid,
+      reason: undefined,
+    });
+    setCancelBookingOpen(true);
+  };
+
+  const submitCancelBooking = async (values) => {
+    if (!cancelBookingTarget) return;
+    const target = cancelBookingTarget;
+    const netPaid = Number(target.__net_paid) || 0;
+    const refundAmount = values.refund_amount == null ? undefined : Number(values.refund_amount);
+    if (refundAmount != null) {
+      if (refundAmount < 0) {
+        message.error("Refund amount cannot be negative");
+        return;
+      }
+      if (refundAmount > netPaid) {
+        message.error(`Refund amount cannot exceed net paid (₹${netPaid})`);
+        return;
+      }
+    }
+    setCancellingBooking(true);
+    try {
+      const payload = { booking_id: target.id };
+      if (values.reason) payload.reason = values.reason;
+      if (refundAmount != null) payload.refund_amount = refundAmount;
+
+      const res = await fetch(`${API_BASE}/admin-cancel-booking`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.status === 401 || res.status === 403) {
+        message.error("Session expired. Please login again.");
+        localStorage.removeItem("admin_token");
+        navigate("/admin/login", { replace: true });
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 409) {
+        message.warning(data.error || "Booking is already cancelled");
+        setCancelBookingOpen(false);
+        setCancelBookingTarget(null);
+        setSelectedBooking(null);
+        resetAndFetch();
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || data.message || "Failed to cancel booking");
+      }
+
+      message.success("Booking cancelled");
+      setCancelBookingOpen(false);
+      setCancelBookingTarget(null);
+      setSelectedBooking(null);
+      setCancelBookingResult(data);
+      resetAndFetch();
+    } catch (e) {
+      message.error(e.message || "Failed to cancel booking");
+    } finally {
+      setCancellingBooking(false);
     }
   };
 
@@ -2513,6 +2595,183 @@ export default function AdminDashboard() {
         )}
       </Modal>
 
+      {/* cancel booking modal */}
+      <Modal
+        open={cancelBookingOpen}
+        onCancel={() => { if (!cancellingBooking) { setCancelBookingOpen(false); setCancelBookingTarget(null); cancelBookingForm.resetFields(); } }}
+        footer={null}
+        width={520}
+        destroyOnClose
+        title={
+          <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#f87171" }}>
+            <StopOutlined />
+            Cancel Booking
+          </span>
+        }
+      >
+        {cancelBookingTarget && (
+          <Form
+            form={cancelBookingForm}
+            layout="vertical"
+            onFinish={submitCancelBooking}
+            style={{ marginTop: 8 }}
+          >
+            <div style={{
+              background: "rgba(248,113,113,0.08)",
+              border: "1px solid rgba(248,113,113,0.3)",
+              borderRadius: 10,
+              padding: 12,
+              marginBottom: 16,
+              fontSize: 12,
+              color: "#fca5a5",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 8,
+            }}>
+              <WarningOutlined style={{ marginTop: 2 }} />
+              <div>
+                This will mark the booking as <strong>cancelled</strong>, release its beds/fee-only headcount, and add the refund amount to <strong>refund due</strong>. This cannot be undone. Actual payout is done separately via <em>Settle Refund</em>.
+              </div>
+            </div>
+
+            <div style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 10,
+              padding: 12,
+              marginBottom: 16,
+              fontSize: 12,
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 1fr",
+              gap: 12,
+            }}>
+              <div>
+                <div style={{ color: "rgba(255,255,255,0.4)" }}>Amount Paid</div>
+                <div style={{ color: "#4ade80", fontWeight: 700, fontSize: 16 }}>₹{cancelBookingTarget.amount_paid ?? 0}</div>
+              </div>
+              <div>
+                <div style={{ color: "rgba(255,255,255,0.4)" }}>Already Refunded</div>
+                <div style={{ color: "rgba(255,255,255,0.7)", fontWeight: 600, fontSize: 16 }}>₹{cancelBookingTarget.refund_paid ?? 0}</div>
+              </div>
+              <div>
+                <div style={{ color: "rgba(255,255,255,0.4)" }}>Net Paid</div>
+                <div style={{ color: "#fbbf24", fontWeight: 700, fontSize: 16 }}>₹{cancelBookingTarget.__net_paid}</div>
+              </div>
+            </div>
+
+            <Form.Item
+              name="refund_amount"
+              label={<span>Refund Amount <span style={{ color: "rgba(255,255,255,0.4)", fontWeight: 400, fontSize: 11 }}>(added to refund due; defaults to net paid)</span></span>}
+              rules={[
+                {
+                  validator: (_, v) => {
+                    if (v == null || v === "") return Promise.resolve();
+                    const n = Number(v);
+                    if (n < 0) return Promise.reject(new Error("Cannot be negative"));
+                    const netPaid = Number(cancelBookingTarget.__net_paid) || 0;
+                    if (n > netPaid) return Promise.reject(new Error(`Cannot exceed net paid (₹${netPaid})`));
+                    return Promise.resolve();
+                  },
+                },
+              ]}
+            >
+              <InputNumber
+                min={0}
+                max={Number(cancelBookingTarget.__net_paid) || undefined}
+                style={{ width: "100%" }}
+                prefix="₹"
+              />
+            </Form.Item>
+
+            <Form.Item name="reason" label="Reason (admin note)">
+              <Input.TextArea rows={3} placeholder="Why is this booking being cancelled?" />
+            </Form.Item>
+
+            <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
+              <Space>
+                <Button
+                  onClick={() => { setCancelBookingOpen(false); setCancelBookingTarget(null); cancelBookingForm.resetFields(); }}
+                  disabled={cancellingBooking}
+                >
+                  Keep Booking
+                </Button>
+                <Button
+                  danger
+                  type="primary"
+                  htmlType="submit"
+                  loading={cancellingBooking}
+                  icon={<StopOutlined />}
+                >
+                  Confirm Cancellation
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        )}
+      </Modal>
+
+      {/* cancel booking result modal */}
+      <Modal
+        open={!!cancelBookingResult}
+        onCancel={() => setCancelBookingResult(null)}
+        footer={
+          <Space>
+            {cancelBookingResult?.refund_status === "pending" && Number(cancelBookingResult?.refund_due) > 0 && (
+              <Button
+                danger
+                type="primary"
+                icon={<DollarOutlined />}
+                onClick={() => openSettleRefund({
+                  id: cancelBookingResult.booking_id,
+                  refund_due: cancelBookingResult.refund_due,
+                  refund_paid: cancelBookingResult.refund_paid,
+                  refund_status: cancelBookingResult.refund_status,
+                })}
+              >
+                Settle Refund
+              </Button>
+            )}
+            <Button type="primary" onClick={() => setCancelBookingResult(null)}>Close</Button>
+          </Space>
+        }
+        title={
+          <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#f87171" }}>
+            <StopOutlined />
+            Booking Cancelled
+          </span>
+        }
+        width={480}
+      >
+        {cancelBookingResult && (
+          <Descriptions column={1} size="small" bordered>
+            <Descriptions.Item label="Booking ID">
+              <Text copyable style={{ fontFamily: "monospace", fontSize: 11 }}>{cancelBookingResult.booking_id}</Text>
+            </Descriptions.Item>
+            <Descriptions.Item label="Status">
+              <Tag color="red">{String(cancelBookingResult.status || "cancelled").toUpperCase()}</Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="Amount Paid">₹{cancelBookingResult.amount_paid ?? 0}</Descriptions.Item>
+            <Descriptions.Item label="Refund Paid">₹{cancelBookingResult.refund_paid ?? 0}</Descriptions.Item>
+            <Descriptions.Item label="Refund Due">
+              <span style={{ color: Number(cancelBookingResult.refund_due) > 0 ? "#f87171" : "rgba(255,255,255,0.5)", fontWeight: 700 }}>
+                ₹{cancelBookingResult.refund_due ?? 0}
+              </span>
+            </Descriptions.Item>
+            <Descriptions.Item label="Refund Status">
+              <Tag color={cancelBookingResult.refund_status === "pending" ? "red" : cancelBookingResult.refund_status === "settled" ? "green" : "default"}>
+                {String(cancelBookingResult.refund_status || "none").toUpperCase()}
+              </Tag>
+            </Descriptions.Item>
+            {cancelBookingResult.cancellation?.reason && (
+              <Descriptions.Item label="Reason">{cancelBookingResult.cancellation.reason}</Descriptions.Item>
+            )}
+            {cancelBookingResult.cancellation?.cancelled_at && (
+              <Descriptions.Item label="Cancelled At">{fmtDate(cancelBookingResult.cancellation.cancelled_at)}</Descriptions.Item>
+            )}
+          </Descriptions>
+        )}
+      </Modal>
+
       {/* booking detail modal */}
       <Modal
         open={!!selectedBooking}
@@ -2530,13 +2789,24 @@ export default function AdminDashboard() {
                   Settle Refund (₹{selectedBooking.refund_due})
                 </Button>
               )}
-              <Button
-                type="primary"
-                icon={<EditOutlined />}
-                onClick={() => openEditBooking(selectedBooking)}
-              >
-                Edit Booking
-              </Button>
+              {selectedBooking.status !== "cancelled" && (
+                <Button
+                  danger
+                  icon={<StopOutlined />}
+                  onClick={() => openCancelBooking(selectedBooking)}
+                >
+                  Cancel Booking
+                </Button>
+              )}
+              {selectedBooking.status !== "cancelled" && (
+                <Button
+                  type="primary"
+                  icon={<EditOutlined />}
+                  onClick={() => openEditBooking(selectedBooking)}
+                >
+                  Edit Booking
+                </Button>
+              )}
               <Button onClick={() => setSelectedBooking(null)}>Close</Button>
             </Space>
           ) : null
@@ -2551,23 +2821,6 @@ export default function AdminDashboard() {
       >
         {selectedBooking && (
           <div>
-            {selectedBooking.refund_status === "pending" && Number(selectedBooking.refund_due) > 0 && (
-              <div style={{
-                background: "rgba(248,113,113,0.1)",
-                border: "1px solid rgba(248,113,113,0.3)",
-                borderRadius: 8,
-                padding: 12,
-                marginBottom: 16,
-                fontSize: 13,
-                color: "#fca5a5",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}>
-                <WarningOutlined />
-                Refund of <strong>₹{selectedBooking.refund_due}</strong> is pending. Pay the guest back (UPI / cash / bank / Razorpay dashboard), then click <em>Settle Refund</em> to record it.
-              </div>
-            )}
             <Descriptions column={2} size="small" bordered style={{ marginBottom: 16 }}>
               <Descriptions.Item label="Booking ID" span={2}>
                 <Text copyable style={{ fontFamily: "monospace", fontSize: 11 }}>{selectedBooking.id}</Text>
