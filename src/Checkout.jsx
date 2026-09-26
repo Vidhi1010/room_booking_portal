@@ -30,6 +30,7 @@ export default function Checkout() {
   const [fetchedBooking, setFetchedBooking] = useState(null);
   const [fetchingBooking, setFetchingBooking] = useState(!!bookingIdParam);
   const [transportPrice, setTransportPrice] = useState(null);
+  const [fetchedYatraFee, setFetchedYatraFee] = useState(0);
 
   useEffect(() => {
     if (bookingIdParam && searchParams.get("app") === "whatsapp") {
@@ -59,20 +60,31 @@ export default function Checkout() {
   const resolvedExistingBooking = fetchedBooking || location.state?.existingBooking || null;
   const payRemaining = !!fetchedBooking || (location.state?.payRemaining || false);
 
+  const noAccommodation = payRemaining
+    ? !!resolvedExistingBooking?.no_accommodation
+    : !!location.state?.noAccommodation;
+  const yatraFeeOnlyAmount = location.state?.yatraFeeOnlyAmount || fetchedYatraFee || 0;
+
   const room = payRemaining
-    ? { name: resolvedExistingBooking?.room_name, room_type: resolvedExistingBooking?.room_type, id: resolvedExistingBooking?.room_id, price: resolvedExistingBooking?.total_occupants ? Math.round((resolvedExistingBooking?.total_amount || 0) / resolvedExistingBooking.total_occupants) : 0, capacity: resolvedExistingBooking?.total_occupants }
+    ? (resolvedExistingBooking?.no_accommodation
+        ? null
+        : { name: resolvedExistingBooking?.room_name, room_type: resolvedExistingBooking?.room_type, id: resolvedExistingBooking?.room_id, price: resolvedExistingBooking?.total_occupants ? Math.round((resolvedExistingBooking?.total_amount || 0) / resolvedExistingBooking.total_occupants) : 0, capacity: resolvedExistingBooking?.total_occupants })
     : location.state?.room;
   const primary = payRemaining
     ? { name: "—", contact_number: resolvedExistingBooking?.primary_contact }
     : location.state?.primary;
   const members = payRemaining ? [] : (location.state?.members || []);
-  const transportOpted = payRemaining ? (resolvedExistingBooking?.transport_opted || false) : (location.state?.transportOpted || false);
+  const transportOpted = noAccommodation
+    ? false
+    : (payRemaining ? (resolvedExistingBooking?.transport_opted || false) : (location.state?.transportOpted || false));
   const selectedTransport = payRemaining && resolvedExistingBooking?.transport_name
     ? { name: resolvedExistingBooking.transport_name, id: resolvedExistingBooking.transport_id, price: 0 }
     : (payRemaining ? null : (location.state?.selectedTransport || null));
 
   const totalOccupants = payRemaining ? (resolvedExistingBooking?.total_occupants || 1) : (1 + members.length);
-  const roomTotal = room?.price ? room.price * totalOccupants : 0;
+  const roomTotal = noAccommodation
+    ? yatraFeeOnlyAmount * totalOccupants
+    : (room?.price ? room.price * totalOccupants : 0);
   const transportTotal = transportOpted && selectedTransport ? selectedTransport.price * totalOccupants : 0;
   const totalAmount = payRemaining ? (resolvedExistingBooking?.total_amount || 0) : (roomTotal + transportTotal);
   const alreadyPaid = payRemaining ? (resolvedExistingBooking?.amount_paid || 0) : 0;
@@ -99,6 +111,12 @@ export default function Checkout() {
     if (payRemaining && alreadyPaid > 0) setPayAmount(remainingAmount);
   }, [resolvedExistingBooking, alreadyPaid, payRemaining, remainingAmount]);
 
+  // Keep payAmount in sync with totalAmount for new bookings once the fee resolves
+  useEffect(() => {
+    if (payRemaining) return;
+    setPayAmount(totalAmount);
+  }, [totalAmount, payRemaining]);
+
   // Fetch transport price from API if booking has transport_id
   useEffect(() => {
     const tId = resolvedExistingBooking?.transport_id;
@@ -112,6 +130,22 @@ export default function Checkout() {
       })
       .catch(() => {});
   }, [resolvedExistingBooking?.transport_id]);
+
+  // Fallback fetch for yatra-fee-only amount if navigation state didn't carry it
+  useEffect(() => {
+    if (!noAccommodation) return;
+    if (location.state?.yatraFeeOnlyAmount) return;
+    fetch(`${API_BASE}/get-yatras`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (!data) return;
+        const list = Array.isArray(data?.yatras) ? data.yatras : (Array.isArray(data?.body) ? data.body : (Array.isArray(data) ? data : []));
+        const y = list[0] || data.yatra || data;
+        const amt = Number(y?.yatra_fee_only_amount);
+        if (!Number.isNaN(amt) && amt > 0) setFetchedYatraFee(amt);
+      })
+      .catch(() => {});
+  }, [noAccommodation, location.state?.yatraFeeOnlyAmount]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -224,7 +258,7 @@ export default function Checkout() {
   }
 
   // redirect if no data
-  if ((!room || !primary) && !payRemaining) {
+  if ((!room || !primary) && !payRemaining && !noAccommodation) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
@@ -337,9 +371,10 @@ export default function Checkout() {
           preaching_area_connected: primary.preaching_area_connected.trim(),
           facilitator_name: primary.facilitator_name?.trim() || undefined,
           preferred_room_partner: primary.preferred_room_partner?.trim() || undefined,
-          room_id: room.id,
-          transport_opted: transportOpted,
-          transport_id: transportOpted && selectedTransport?.id ? selectedTransport.id : undefined,
+          room_id: noAccommodation ? undefined : room.id,
+          no_accommodation: noAccommodation || undefined,
+          transport_opted: noAccommodation ? false : transportOpted,
+          transport_id: !noAccommodation && transportOpted && selectedTransport?.id ? selectedTransport.id : undefined,
           members: members.length
             ? members.map((m) => ({
                 name: m.name.trim(),
@@ -402,7 +437,7 @@ export default function Checkout() {
       <div className="max-w-3xl mx-auto px-6 py-8">
         {/* back */}
         <button
-          onClick={() => navigate(payRemaining ? "/" : "/register", payRemaining ? undefined : { state: { room, primary, members, transportOpted, selectedTransport } })}
+          onClick={() => navigate(payRemaining ? "/" : "/register", payRemaining ? undefined : { state: { room, primary, members, transportOpted, selectedTransport, noAccommodation, yatraFeeOnlyAmount } })}
           className="flex items-center gap-2 text-sm font-medium mb-8 transition-colors"
           style={{ color: "var(--t-text-muted)" }}
           onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-accent-hover)")}
@@ -463,7 +498,57 @@ export default function Checkout() {
 
         {!paymentStatus?.includes("paid") && paymentStatus !== "failed" && (
           <>
-            {/* ── Room Preview ── */}
+            {/* ── Room Preview (or Yatra-Fee-Only banner) ── */}
+            {noAccommodation ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="p-6 rounded-2xl mb-6"
+              style={{ backgroundColor: "var(--t-bg-alt)", border: "1px solid var(--t-border)" }}
+            >
+              <h2 className="text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2" style={{ color: "var(--t-accent-from)" }}>
+                <CheckCircle className="w-4 h-4" />
+                Yatra Fee Only
+              </h2>
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold">No Accommodation / No Transport</h3>
+                  <div className="flex items-center gap-4 mt-1">
+                    <div className="flex items-center gap-1.5 text-sm" style={{ color: "var(--t-text-muted)" }}>
+                      <Users className="w-4 h-4" style={{ color: "var(--t-accent-from)" }} />
+                      {totalOccupants} {totalOccupants > 1 ? "guests" : "guest"}
+                    </div>
+                    {yatraFeeOnlyAmount ? (
+                      <div className="text-sm font-semibold" style={{ color: "var(--t-accent-from)" }}>
+                        ₹{yatraFeeOnlyAmount}/person
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="mt-4 pt-3" style={{ borderTop: "1px solid var(--t-border)" }}>
+                    <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "var(--t-text-muted)" }}>What's Included</p>
+                    <ul className="space-y-1.5 text-sm" style={{ color: "var(--t-text-secondary)" }}>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-green-500" />
+                        <span>Yatra Fees <span style={{ color: "var(--t-text-faint)" }}>(seminar hall + lecture hall facilities)</span></span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-green-500" />
+                        <span>3 days Prasadam</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-green-500" />
+                        <span>Internal Travel <span style={{ color: "var(--t-text-faint)" }}>(bus facilities within Vraj)</span></span>
+                      </li>
+                    </ul>
+                    <p className="text-xs mt-3" style={{ color: "var(--t-text-faint)" }}>
+                      Accommodation is not included.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+            ) : (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -515,6 +600,7 @@ export default function Checkout() {
                 )}
               </div>
             </motion.div>
+            )}
 
             {/* ── Guest Details Preview ── */}
             <motion.div
@@ -678,7 +764,7 @@ export default function Checkout() {
                 Pricing Details
               </h2>
               <div className="space-y-3 text-sm">
-                {!payRemaining && (
+                {!payRemaining && !noAccommodation && (
                 <div className="flex items-center justify-between">
                   <span style={{ color: "var(--t-text-secondary)" }}>
                     Room ({totalOccupants} {totalOccupants > 1 ? "guests" : "guest"} × ₹{room?.price})
@@ -686,8 +772,15 @@ export default function Checkout() {
                   <span className="font-semibold">₹{roomTotal}</span>
                 </div>
                 )}
-                {!payRemaining && transportOpted && selectedTransport && (
-                  <div className="flex items-center justify-between">
+                {!payRemaining && noAccommodation && (
+                <div className="flex items-center justify-between">
+                  <span style={{ color: "var(--t-text-secondary)" }}>
+                    Yatra Fee ({totalOccupants} {totalOccupants > 1 ? "guests" : "guest"} × ₹{yatraFeeOnlyAmount})
+                  </span>
+                  <span className="font-semibold">₹{roomTotal}</span>
+                </div>
+                )}
+                {!payRemaining && transportOpted && selectedTransport && (                  <div className="flex items-center justify-between">
                     <span style={{ color: "var(--t-text-secondary)" }}>
                       Transport ({totalOccupants} × ₹{selectedTransport.price})
                     </span>

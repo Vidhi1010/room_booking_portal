@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, ArrowRight, ArrowLeft, Bed, Loader2, UserPlus, Trash2, Bus, Phone, X, AlertCircle } from "lucide-react";
+import { Users, ArrowRight, ArrowLeft, Loader2, UserPlus, Trash2, Bus, Phone, X, AlertCircle } from "lucide-react";
 import { defaultTheme } from "./themes";
 import { API_BASE } from "./config";
 
@@ -188,6 +188,10 @@ export default function RoomSelection() {
   const [error, setError] = useState(null);
   const [selectedRoomType, setSelectedRoomType] = useState(savedState?.room?.room_type || null);
 
+  // no-accommodation (yatra-fee-only) option
+  const [noAccommodation, setNoAccommodation] = useState(savedState?.noAccommodation || false);
+  const [yatraFeeOnlyAmount, setYatraFeeOnlyAmount] = useState(savedState?.yatraFeeOnlyAmount || 0);
+
   // primary user form
   const [primary, setPrimary] = useState(savedState?.primary || {
     name: "",
@@ -246,10 +250,22 @@ export default function RoomSelection() {
         setUserNames(names);
       })
       .catch(() => {});
+
+    fetch(`${API_BASE}/get-yatras`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (!data) return;
+        const list = Array.isArray(data?.yatras) ? data.yatras : (Array.isArray(data?.body) ? data.body : (Array.isArray(data) ? data : []));
+        const y = list[0] || data.yatra || data;
+        const amt = Number(y?.yatra_fee_only_amount);
+        if (!Number.isNaN(amt) && amt > 0) setYatraFeeOnlyAmount(amt);
+      })
+      .catch(() => {});
   }, []);
 
   const selectedRoom = rooms.find((r) => r.room_type === selectedRoomType);
-  const maxMembers = selectedRoom ? selectedRoom.capacity - 1 : 0;
+  // Allow larger member cap in yatra-fee-only mode since there's no room capacity constraint
+  const maxMembers = noAccommodation ? 20 : (selectedRoom ? selectedRoom.capacity - 1 : 0);
 
   const updatePrimary = (field, value) => {
     setPrimary((p) => ({ ...p, [field]: value }));
@@ -274,10 +290,11 @@ export default function RoomSelection() {
 
   // trim members if room capacity changes
   useEffect(() => {
+    if (noAccommodation) return;
     if (selectedRoom && members.length > selectedRoom.capacity - 1) {
       setMembers((m) => m.slice(0, selectedRoom.capacity - 1));
     }
-  }, [selectedRoomType]);
+  }, [selectedRoomType, noAccommodation]);
 
   const validate = () => {
     const errs = {};
@@ -292,9 +309,9 @@ export default function RoomSelection() {
       errs.preaching_area_connected = "Required";
     if (!primary.facilitator_name.trim())
       errs.facilitator_name = "Required";
-    if (!selectedRoomType) errs.room = "Please select a room";
+    if (!noAccommodation && !selectedRoomType) errs.room = "Please select a room";
 
-    if (transportOptions.length > 0) {
+    if (!noAccommodation && transportOptions.length > 0) {
       if (transportChoice === null) errs.transport = "Please choose whether you want transportation";
       else if (transportChoice === "yes" && !selectedTransport) errs.transport = "Please select a transport option";
     }
@@ -337,12 +354,14 @@ export default function RoomSelection() {
 
     navigate("/checkout", {
       state: {
-        room: selectedRoom,
+        room: noAccommodation ? null : selectedRoom,
         primary,
         members,
-        transportOpted,
-        selectedTransport,
-        transportChoice,
+        transportOpted: noAccommodation ? false : transportOpted,
+        selectedTransport: noAccommodation ? null : selectedTransport,
+        transportChoice: noAccommodation ? null : transportChoice,
+        noAccommodation,
+        yatraFeeOnlyAmount,
       },
     });
   };
@@ -630,7 +649,61 @@ export default function RoomSelection() {
         {/* divider */}
         <div className="h-px mb-8" style={{ backgroundColor: "var(--t-border)" }} />
 
+        {/* ── Accommodation Toggle ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12 }}
+          className="mb-8 p-5 rounded-2xl"
+          style={{ backgroundColor: "var(--t-bg-alt)", border: "1px solid var(--t-border)" }}
+        >
+          <h2 className="text-lg font-bold mb-2">Accommodation & Transport</h2>
+          <p className="text-sm mb-4" style={{ color: "var(--t-text-muted)" }}>
+            Do you need accommodation and internal travel booking? If not, you'll only be charged the Yatra fee{yatraFeeOnlyAmount ? ` (₹${yatraFeeOnlyAmount}/person)` : ""}.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => { setNoAccommodation(false); if (errors.room) setErrors((e) => ({ ...e, room: null })); }}
+              className="p-4 rounded-2xl font-semibold transition-all duration-300 text-left"
+              style={{
+                border: !noAccommodation ? "2px solid var(--t-accent-from)" : "1px solid var(--t-border-strong)",
+                backgroundColor: !noAccommodation ? "var(--t-card-tint)" : "transparent",
+                color: !noAccommodation ? "var(--t-accent-from)" : "var(--t-text)",
+              }}
+            >
+              <p className="font-bold text-sm">Book Accommodation</p>
+              <p className="text-xs mt-1 font-normal" style={{ color: "var(--t-text-muted)" }}>
+                Room + prasadam + internal travel
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setNoAccommodation(true);
+                setSelectedRoomType(null);
+                setTransportChoice(null);
+                setSelectedTransport(null);
+                if (errors.room) setErrors((e) => ({ ...e, room: null }));
+                if (errors.transport) setErrors((e) => ({ ...e, transport: null }));
+              }}
+              className="p-4 rounded-2xl font-semibold transition-all duration-300 text-left"
+              style={{
+                border: noAccommodation ? "2px solid var(--t-accent-from)" : "1px solid var(--t-border-strong)",
+                backgroundColor: noAccommodation ? "var(--t-card-tint)" : "transparent",
+                color: noAccommodation ? "var(--t-accent-from)" : "var(--t-text)",
+              }}
+            >
+              <p className="font-bold text-sm">Yatra Fee Only</p>
+              <p className="text-xs mt-1 font-normal" style={{ color: "var(--t-text-muted)" }}>
+                No accommodation or transport
+              </p>
+            </button>
+          </div>
+        </motion.div>
+
         {/* ── Section 2: Room Selection ── */}
+        {!noAccommodation && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -741,12 +814,13 @@ export default function RoomSelection() {
             </div>
           )}
         </motion.div>
+        )}
 
         {/* divider */}
         <div className="h-px mb-8" style={{ backgroundColor: "var(--t-border)" }} />
 
         {/* ── Section 3: Additional Members ── */}
-        {selectedRoom && (
+        {(selectedRoom || noAccommodation) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -822,7 +896,7 @@ export default function RoomSelection() {
         )}
 
         {/* ── Section 4: Transport ── */}
-        {transportOptions.length > 0 && (
+        {!noAccommodation && transportOptions.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
