@@ -148,6 +148,13 @@ export default function AdminDashboard() {
   const [editBookingTarget, setEditBookingTarget] = useState(null);
   const [editBookingResult, setEditBookingResult] = useState(null);
 
+  // Settle-refund state
+  const [settleRefundOpen, setSettleRefundOpen] = useState(false);
+  const [settleRefundForm] = Form.useForm();
+  const [settlingRefund, setSettlingRefund] = useState(false);
+  const [settleRefundTarget, setSettleRefundTarget] = useState(null);
+  const [settleRefundResult, setSettleRefundResult] = useState(null);
+
   const fetchDashboard = useCallback(async () => {
     setDashboardLoading(true);
     try {
@@ -596,6 +603,80 @@ export default function AdminDashboard() {
     }
   };
 
+  const openSettleRefund = (booking) => {
+    if (!booking) return;
+    setSettleRefundTarget(booking);
+    settleRefundForm.resetFields();
+    settleRefundForm.setFieldsValue({
+      amount: Number(booking.refund_due) || 0,
+      reference: undefined,
+      note: undefined,
+    });
+    setSettleRefundOpen(true);
+  };
+
+  const submitSettleRefund = async (values) => {
+    if (!settleRefundTarget) return;
+    const target = settleRefundTarget;
+    const amount = Number(values.amount || 0);
+    const refundDue = Number(target.refund_due) || 0;
+    if (amount <= 0) {
+      message.error("Amount must be greater than 0");
+      return;
+    }
+    if (refundDue > 0 && amount > refundDue) {
+      message.error(`Amount cannot exceed refund due (₹${refundDue})`);
+      return;
+    }
+    setSettlingRefund(true);
+    try {
+      const payload = { booking_id: target.id, amount };
+      if (values.reference) payload.reference = values.reference;
+      if (values.note) payload.note = values.note;
+
+      const res = await fetch(`${API_BASE}/settle-refund`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.status === 401 || res.status === 403) {
+        message.error("Session expired. Please login again.");
+        localStorage.removeItem("admin_token");
+        navigate("/admin/login", { replace: true });
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 409) {
+        message.warning(data.error || "Booking changed since read — reload and retry");
+        setSettleRefundOpen(false);
+        setSettleRefundTarget(null);
+        setSelectedBooking(null);
+        setEditBookingResult(null);
+        resetAndFetch();
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || data.message || "Failed to settle refund");
+      }
+
+      message.success("Refund settled");
+      setSettleRefundOpen(false);
+      setSettleRefundTarget(null);
+      setSelectedBooking(null);
+      setEditBookingResult(null);
+      setSettleRefundResult(data);
+      resetAndFetch();
+    } catch (e) {
+      message.error(e.message || "Failed to settle refund");
+    } finally {
+      setSettlingRefund(false);
+    }
+  };
+
   const columns = [
     {
       title: "Name",
@@ -656,6 +737,28 @@ export default function AdminDashboard() {
       width: 100,
       align: "center",
       render: (_, r) => r.transport_opted ? <Tag color="blue">{r.transport_name || "Yes"}</Tag> : <Tag>No</Tag>,
+    },
+    {
+      title: "Refund",
+      key: "refund",
+      width: 130,
+      render: (_, r) => {
+        const due = Number(r.refund_due) || 0;
+        if (r.refund_status === "pending" && due > 0) {
+          return (
+            <Tag
+              color="red"
+              icon={<WarningOutlined />}
+              onClick={(e) => { e.stopPropagation(); openSettleRefund(r); }}
+              style={{ cursor: "pointer", margin: 0 }}
+            >
+              ₹{due} DUE
+            </Tag>
+          );
+        }
+        if (r.refund_status === "settled") return <Tag color="green">SETTLED</Tag>;
+        return <span style={{ color: "rgba(255,255,255,0.25)" }}>—</span>;
+      },
     },
     {
       title: "Booked",
@@ -2249,13 +2352,164 @@ export default function AdminDashboard() {
                 color: "#fca5a5",
                 display: "flex",
                 alignItems: "center",
+                justifyContent: "space-between",
                 gap: 8,
               }}>
-                <WarningOutlined />
-                Refund of ₹{editBookingResult.refund_due} is pending — settle after handing cash back to the guest.
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <WarningOutlined />
+                  Refund of ₹{editBookingResult.refund_due} is pending — settle after handing cash back to the guest.
+                </span>
+                <Button
+                  danger
+                  type="primary"
+                  size="small"
+                  icon={<DollarOutlined />}
+                  onClick={() => openSettleRefund({
+                    id: editBookingResult.booking_id,
+                    refund_due: editBookingResult.refund_due,
+                    refund_paid: editBookingResult.refund_paid,
+                    refund_status: editBookingResult.refund_status,
+                  })}
+                >
+                  Settle Refund
+                </Button>
               </div>
             )}
           </div>
+        )}
+      </Modal>
+
+      {/* settle refund modal */}
+      <Modal
+        open={settleRefundOpen}
+        onCancel={() => { if (!settlingRefund) { setSettleRefundOpen(false); setSettleRefundTarget(null); settleRefundForm.resetFields(); } }}
+        footer={null}
+        width={480}
+        destroyOnClose
+        title={
+          <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#f87171" }}>
+            <DollarOutlined />
+            Settle Refund
+          </span>
+        }
+      >
+        {settleRefundTarget && (
+          <Form
+            form={settleRefundForm}
+            layout="vertical"
+            onFinish={submitSettleRefund}
+            style={{ marginTop: 8 }}
+          >
+            <div style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 10,
+              padding: 12,
+              marginBottom: 16,
+              fontSize: 12,
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 12,
+            }}>
+              <div>
+                <div style={{ color: "rgba(255,255,255,0.4)" }}>Refund Due</div>
+                <div style={{ color: "#f87171", fontWeight: 700, fontSize: 18 }}>₹{settleRefundTarget.refund_due ?? 0}</div>
+              </div>
+              <div>
+                <div style={{ color: "rgba(255,255,255,0.4)" }}>Already Refunded</div>
+                <div style={{ color: "#4ade80", fontWeight: 600, fontSize: 16 }}>₹{settleRefundTarget.refund_paid ?? 0}</div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 12 }}>
+              Record the actual refund you paid to the guest (UPI, cash, bank transfer, Razorpay refund, etc.).
+            </div>
+
+            <Form.Item
+              name="amount"
+              label="Amount Refunded"
+              rules={[
+                { required: true, message: "Enter amount" },
+                {
+                  validator: (_, v) => {
+                    const n = Number(v);
+                    if (!n || n <= 0) return Promise.reject(new Error("Must be greater than 0"));
+                    const due = Number(settleRefundTarget.refund_due) || 0;
+                    if (due > 0 && n > due) return Promise.reject(new Error(`Cannot exceed refund due (₹${due})`));
+                    return Promise.resolve();
+                  },
+                },
+              ]}
+            >
+              <InputNumber
+                min={0}
+                max={Number(settleRefundTarget.refund_due) || undefined}
+                style={{ width: "100%" }}
+                prefix="₹"
+              />
+            </Form.Item>
+
+            <Form.Item name="reference" label="Reference">
+              <Input placeholder="UPI txn / bank ref / Razorpay refund id" />
+            </Form.Item>
+
+            <Form.Item name="note" label="Note">
+              <Input.TextArea rows={2} placeholder="Optional — how the refund was paid, etc." />
+            </Form.Item>
+
+            <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
+              <Space>
+                <Button
+                  onClick={() => { setSettleRefundOpen(false); setSettleRefundTarget(null); settleRefundForm.resetFields(); }}
+                  disabled={settlingRefund}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  danger
+                  type="primary"
+                  htmlType="submit"
+                  loading={settlingRefund}
+                  icon={<DollarOutlined />}
+                >
+                  Record Refund
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        )}
+      </Modal>
+
+      {/* settle refund result modal */}
+      <Modal
+        open={!!settleRefundResult}
+        onCancel={() => setSettleRefundResult(null)}
+        footer={<Button type="primary" onClick={() => setSettleRefundResult(null)}>Close</Button>}
+        title={
+          <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#4ade80" }}>
+            <CheckCircleOutlined />
+            Refund Recorded
+          </span>
+        }
+        width={440}
+      >
+        {settleRefundResult && (
+          <Descriptions column={1} size="small" bordered>
+            <Descriptions.Item label="Amount Settled">
+              <span style={{ color: "#4ade80", fontWeight: 700 }}>₹{settleRefundResult.amount ?? settleRefundResult.settled_amount ?? 0}</span>
+            </Descriptions.Item>
+            <Descriptions.Item label="Refund Paid">₹{settleRefundResult.refund_paid ?? 0}</Descriptions.Item>
+            <Descriptions.Item label="Refund Due">
+              <span style={{ color: Number(settleRefundResult.refund_due) > 0 ? "#f87171" : "rgba(255,255,255,0.5)", fontWeight: 600 }}>
+                ₹{settleRefundResult.refund_due ?? 0}
+              </span>
+            </Descriptions.Item>
+            <Descriptions.Item label="Refund Status">
+              <Tag color={settleRefundResult.refund_status === "pending" ? "red" : settleRefundResult.refund_status === "settled" ? "green" : "default"}>
+                {String(settleRefundResult.refund_status || "").toUpperCase()}
+              </Tag>
+            </Descriptions.Item>
+          </Descriptions>
         )}
       </Modal>
 
@@ -2266,6 +2520,16 @@ export default function AdminDashboard() {
         footer={
           selectedBooking ? (
             <Space>
+              {selectedBooking.refund_status === "pending" && Number(selectedBooking.refund_due) > 0 && (
+                <Button
+                  danger
+                  type="primary"
+                  icon={<DollarOutlined />}
+                  onClick={() => openSettleRefund(selectedBooking)}
+                >
+                  Settle Refund (₹{selectedBooking.refund_due})
+                </Button>
+              )}
               <Button
                 type="primary"
                 icon={<EditOutlined />}
@@ -2287,6 +2551,23 @@ export default function AdminDashboard() {
       >
         {selectedBooking && (
           <div>
+            {selectedBooking.refund_status === "pending" && Number(selectedBooking.refund_due) > 0 && (
+              <div style={{
+                background: "rgba(248,113,113,0.1)",
+                border: "1px solid rgba(248,113,113,0.3)",
+                borderRadius: 8,
+                padding: 12,
+                marginBottom: 16,
+                fontSize: 13,
+                color: "#fca5a5",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}>
+                <WarningOutlined />
+                Refund of <strong>₹{selectedBooking.refund_due}</strong> is pending. Pay the guest back (UPI / cash / bank / Razorpay dashboard), then click <em>Settle Refund</em> to record it.
+              </div>
+            )}
             <Descriptions column={2} size="small" bordered style={{ marginBottom: 16 }}>
               <Descriptions.Item label="Booking ID" span={2}>
                 <Text copyable style={{ fontFamily: "monospace", fontSize: 11 }}>{selectedBooking.id}</Text>
@@ -2315,6 +2596,22 @@ export default function AdminDashboard() {
                 {selectedBooking.transport_opted ? <Tag color="blue">{selectedBooking.transport_name || "Yes"}</Tag> : "No"}
               </Descriptions.Item>
               <Descriptions.Item label="Booked At">{fmtDate(selectedBooking.created_at)}</Descriptions.Item>
+              {selectedBooking.refund_status && selectedBooking.refund_status !== "none" && (
+                <>
+                  <Descriptions.Item label="Refund Status">
+                    <Tag color={selectedBooking.refund_status === "pending" ? "red" : "green"}>
+                      {String(selectedBooking.refund_status).toUpperCase()}
+                    </Tag>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Refund Due / Paid">
+                    <span style={{ color: Number(selectedBooking.refund_due) > 0 ? "#f87171" : "rgba(255,255,255,0.6)", fontWeight: 600 }}>
+                      ₹{selectedBooking.refund_due ?? 0}
+                    </span>
+                    <span style={{ color: "rgba(255,255,255,0.3)" }}> / </span>
+                    <span style={{ color: "#4ade80", fontWeight: 600 }}>₹{selectedBooking.refund_paid ?? 0}</span>
+                  </Descriptions.Item>
+                </>
+              )}
               {selectedBooking.last_payment_method && (
                 <Descriptions.Item label="Last Payment">
                   <Tag>{selectedBooking.last_payment_method?.toUpperCase()}</Tag>
