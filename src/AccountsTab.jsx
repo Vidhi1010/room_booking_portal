@@ -103,51 +103,51 @@ export default function AccountsTab({ token }) {
   // ── Fetchers ──
   const fetchSummary = useCallback(async () => {
     setSummaryLoading(true);
-    try { const res = await fetch(`${API_BASE}/get-accounts-summary`, { headers: authHeaders }); if (handleAuthError(res)) return; setSummary(await res.json()); }
+    try { const res = await fetch(`${API_BASE}/accounts-manage?action=get-accounts-summary`, { headers: authHeaders }); if (handleAuthError(res)) return; setSummary(await res.json()); }
     catch { message.error("Failed to fetch summary"); } finally { setSummaryLoading(false); }
   }, [token]);
 
   const fetchExpenseCategories = useCallback(async () => {
-    try { const res = await fetch(`${API_BASE}/get-expense-categories`, { headers: authHeaders }); if (handleAuthError(res)) return; setExpenseCategories((await res.json()).categories || []); } catch {}
+    try { const res = await fetch(`${API_BASE}/accounts-config?action=get-expense-categories`, { headers: authHeaders }); if (handleAuthError(res)) return; setExpenseCategories((await res.json()).categories || []); } catch {}
   }, [token]);
 
   const fetchCollectionCategories = useCallback(async () => {
-    try { const res = await fetch(`${API_BASE}/get-collection-categories`, { headers: authHeaders }); if (handleAuthError(res)) return; setCollectionCategories((await res.json()).categories || []); } catch {}
+    try { const res = await fetch(`${API_BASE}/accounts-config?action=get-collection-categories`, { headers: authHeaders }); if (handleAuthError(res)) return; setCollectionCategories((await res.json()).categories || []); } catch {}
   }, [token]);
 
   const fetchAccounts = useCallback(async () => {
     setAccountsLoading(true);
-    try { const res = await fetch(`${API_BASE}/get-accounts`, { headers: authHeaders }); if (handleAuthError(res)) return; setAccounts((await res.json()).accounts || []); } catch {}
+    try { const res = await fetch(`${API_BASE}/accounts-manage?action=get-accounts`, { headers: authHeaders }); if (handleAuthError(res)) return; setAccounts((await res.json()).accounts || []); } catch {}
     finally { setAccountsLoading(false); }
   }, [token]);
 
   const fetchExpenses = useCallback(async () => {
     setExpensesLoading(true);
-    try { const res = await fetch(`${API_BASE}/get-expenses`, { headers: authHeaders }); if (handleAuthError(res)) return; setExpenses((await res.json()).expenses || []); }
+    try { const res = await fetch(`${API_BASE}/accounts-expenses?action=get-expenses`, { headers: authHeaders }); if (handleAuthError(res)) return; setExpenses((await res.json()).expenses || []); }
     catch { message.error("Failed to fetch expenses"); } finally { setExpensesLoading(false); }
   }, [token]);
 
   const fetchCollections = useCallback(async () => {
     setCollectionsLoading(true);
-    try { const res = await fetch(`${API_BASE}/get-collections`, { headers: authHeaders }); if (handleAuthError(res)) return; setCollections((await res.json()).collections || []); }
+    try { const res = await fetch(`${API_BASE}/accounts-collections?action=get-collections`, { headers: authHeaders }); if (handleAuthError(res)) return; setCollections((await res.json()).collections || []); }
     catch { message.error("Failed to fetch collections"); } finally { setCollectionsLoading(false); }
   }, [token]);
 
   const fetchTransactions = useCallback(async (type) => {
     setTxnsLoading(true);
-    try { const params = new URLSearchParams(); if (type) params.set("type", type); const res = await fetch(`${API_BASE}/get-transactions?${params}`, { headers: authHeaders }); if (handleAuthError(res)) return; setTransactions((await res.json()).transactions || []); }
+    try { const params = new URLSearchParams({ action: "get-transactions" }); if (type) params.set("type", type); const res = await fetch(`${API_BASE}/accounts-transactions?${params}`, { headers: authHeaders }); if (handleAuthError(res)) return; setTransactions((await res.json()).transactions || []); }
     catch { message.error("Failed to fetch transactions"); } finally { setTxnsLoading(false); }
   }, [token]);
 
   const fetchExpensePayments = useCallback(async (id) => {
     setExpensePaymentsLoading(true);
-    try { const res = await fetch(`${API_BASE}/get-transactions?expense_id=${id}`, { headers: authHeaders }); if (handleAuthError(res)) return; setExpensePayments((await res.json()).transactions || []); } catch {}
+    try { const res = await fetch(`${API_BASE}/accounts-transactions?action=get-transactions&expense_id=${id}`, { headers: authHeaders }); if (handleAuthError(res)) return; setExpensePayments((await res.json()).transactions || []); } catch {}
     finally { setExpensePaymentsLoading(false); }
   }, [token]);
 
   const fetchCollectionReceipts = useCallback(async (id) => {
     setCollectionReceiptsLoading(true);
-    try { const res = await fetch(`${API_BASE}/get-transactions?collection_id=${id}`, { headers: authHeaders }); if (handleAuthError(res)) return; setCollectionReceipts((await res.json()).transactions || []); } catch {}
+    try { const res = await fetch(`${API_BASE}/accounts-transactions?action=get-transactions&collection_id=${id}`, { headers: authHeaders }); if (handleAuthError(res)) return; setCollectionReceipts((await res.json()).transactions || []); } catch {}
     finally { setCollectionReceiptsLoading(false); }
   }, [token]);
 
@@ -186,8 +186,8 @@ export default function AccountsTab({ token }) {
   }, [collections, collectionCategories]);
 
   // ── API Actions ──
-  const apiPost = async (url, body) => {
-    const res = await fetch(`${API_BASE}${url}`, { method: "POST", headers: authHeaders, body: JSON.stringify(body) });
+  const apiPost = async (url, action, body) => {
+    const res = await fetch(`${API_BASE}${url}`, { method: "POST", headers: authHeaders, body: JSON.stringify({ action, ...body }) });
     if (handleAuthError(res)) return null;
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Request failed");
@@ -201,12 +201,12 @@ export default function AccountsTab({ token }) {
     try {
       const cat = expenseCategories.find(c => c.id === values.category_id);
       const dateStr = values.date?.format("YYYY-MM-DD");
-      const result = await apiPost("/save-expense", { ...values, id: editingExpense?.id, category_name: cat?.name || "", date: dateStr });
+      const result = await apiPost("/accounts-expenses", "save-expense", { ...values, id: editingExpense?.id, category_name: cat?.name || "", date: dateStr });
 
       // If "also record payment" is checked and this is a new expense
       if (!editingExpense && values.record_payment && values.payment_account_id && result?.expense?.id) {
         const paymentAmount = values.payment_amount || values.total_amount;
-        await apiPost("/add-expense-payment", {
+        await apiPost("/accounts-transactions", "add-expense-payment", {
           expense_id: result.expense.id,
           amount: paymentAmount,
           from_account_id: values.payment_account_id,
@@ -222,13 +222,13 @@ export default function AccountsTab({ token }) {
   };
 
   const deleteExpense = async (id) => {
-    try { await apiPost("/delete-expense", { id }); message.success("Expense deleted"); refreshAll(); } catch (e) { message.error(e.message); }
+    try { await apiPost("/accounts-expenses", "delete-expense", { id }); message.success("Expense deleted"); refreshAll(); } catch (e) { message.error(e.message); }
   };
 
   const submitPayment = async (values) => {
     setSavingPayment(true);
     try {
-      await apiPost("/add-expense-payment", { ...values, expense_id: selectedExpense.id, date: values.date?.format("YYYY-MM-DD") });
+      await apiPost("/accounts-transactions", "add-expense-payment", { ...values, expense_id: selectedExpense.id, date: values.date?.format("YYYY-MM-DD") });
       message.success("Payment added");
       setAddPaymentOpen(false); addPaymentForm.resetFields();
       fetchExpensePayments(selectedExpense.id); refreshAll();
@@ -240,12 +240,12 @@ export default function AccountsTab({ token }) {
     try {
       const cat = collectionCategories.find(c => c.id === values.category_id);
       const dateStr = values.date?.format("YYYY-MM-DD");
-      const result = await apiPost("/save-collection", { ...values, id: editingCollection?.id, category_name: cat?.name || "", date: dateStr });
+      const result = await apiPost("/accounts-collections", "save-collection", { ...values, id: editingCollection?.id, category_name: cat?.name || "", date: dateStr });
 
       // If "also record receipt" is checked and this is a new collection
       if (!editingCollection && values.record_receipt && values.receipt_account_id && result?.collection?.id) {
         const receiptAmount = values.receipt_amount || values.total_amount;
-        await apiPost("/add-collection", {
+        await apiPost("/accounts-transactions", "add-collection", {
           collection_id: result.collection.id,
           amount: receiptAmount,
           to_account_id: values.receipt_account_id,
@@ -261,13 +261,13 @@ export default function AccountsTab({ token }) {
   };
 
   const deleteCollectionItem = async (id) => {
-    try { await apiPost("/delete-collection", { id }); message.success("Collection deleted"); refreshAll(); } catch (e) { message.error(e.message); }
+    try { await apiPost("/accounts-collections", "delete-collection", { id }); message.success("Collection deleted"); refreshAll(); } catch (e) { message.error(e.message); }
   };
 
   const submitReceipt = async (values) => {
     setSavingReceipt(true);
     try {
-      await apiPost("/add-collection", { ...values, collection_id: selectedCollection.id, date: values.date?.format("YYYY-MM-DD") });
+      await apiPost("/accounts-transactions", "add-collection", { ...values, collection_id: selectedCollection.id, date: values.date?.format("YYYY-MM-DD") });
       message.success("Receipt added");
       setAddReceiptOpen(false); addReceiptForm.resetFields();
       fetchCollectionReceipts(selectedCollection.id); refreshAll();
@@ -277,7 +277,7 @@ export default function AccountsTab({ token }) {
   const submitTransfer = async (values) => {
     setSavingTransfer(true);
     try {
-      await apiPost("/add-transfer", { ...values, date: values.date?.format("YYYY-MM-DD") });
+      await apiPost("/accounts-transactions", "add-transfer", { ...values, date: values.date?.format("YYYY-MM-DD") });
       message.success("Transfer recorded");
       setAddTransferOpen(false); addTransferForm.resetFields();
       fetchTransactions("transfer"); fetchAccounts(); fetchSummary();
@@ -286,7 +286,7 @@ export default function AccountsTab({ token }) {
 
   const deleteTransaction = async (id) => {
     try {
-      await apiPost("/delete-transaction", { id });
+      await apiPost("/accounts-transactions", "delete-transaction", { id });
       message.success("Transaction deleted");
       if (selectedExpense) fetchExpensePayments(selectedExpense.id);
       if (selectedCollection) fetchCollectionReceipts(selectedCollection.id);
@@ -297,21 +297,21 @@ export default function AccountsTab({ token }) {
   const submitAccount = async (values) => {
     setSavingAccount(true);
     try {
-      await apiPost("/save-account", { ...values, id: editingAccount?.id });
+      await apiPost("/accounts-manage", "save-account", { ...values, id: editingAccount?.id });
       message.success(editingAccount ? "Account updated" : "Account saved");
       setAccountModalOpen(false); accountForm.resetFields(); setEditingAccount(null); fetchAccounts();
     } catch (e) { message.error(e.message); } finally { setSavingAccount(false); }
   };
 
   const deleteAccount = async (id) => {
-    try { await apiPost("/delete-account", { id }); message.success("Account deleted"); fetchAccounts(); } catch (e) { message.error(e.message); }
+    try { await apiPost("/accounts-manage", "delete-account", { id }); message.success("Account deleted"); fetchAccounts(); } catch (e) { message.error(e.message); }
   };
 
   const submitCategory = async (values) => {
     setSavingCategory(true);
     try {
-      const url = categoryType === "expense" ? "/save-expense-category" : "/save-collection-category";
-      await apiPost(url, { ...values, id: editingCategory?.id, sub_categories: (values.sub_categories || "").split(",").map(s => s.trim()).filter(Boolean) });
+      const action = categoryType === "expense" ? "save-expense-category" : "save-collection-category";
+      await apiPost("/accounts-config", action, { ...values, id: editingCategory?.id, sub_categories: (values.sub_categories || "").split(",").map(s => s.trim()).filter(Boolean) });
       message.success(editingCategory ? "Category updated" : "Category saved");
       setCategoryModalOpen(false); categoryForm.resetFields(); setEditingCategory(null);
       if (categoryType === "expense") fetchExpenseCategories(); else fetchCollectionCategories();
@@ -320,7 +320,7 @@ export default function AccountsTab({ token }) {
 
   const deleteCategory = async (id, type) => {
     try {
-      await apiPost(type === "expense" ? "/delete-expense-category" : "/delete-collection-category", { id });
+      await apiPost("/accounts-config", type === "expense" ? "delete-expense-category" : "delete-collection-category", { id });
       message.success("Category deleted");
       if (type === "expense") fetchExpenseCategories(); else fetchCollectionCategories();
     } catch (e) { message.error(e.message); }
