@@ -56,6 +56,7 @@ import {
   StopOutlined,
 } from "@ant-design/icons";
 import { API_BASE } from "./config";
+import AccountsTab from "./AccountsTab";
 
 const { Sider, Content, Header } = Layout;
 const { Title, Text } = Typography;
@@ -945,6 +946,7 @@ export default function AdminDashboard() {
               { key: "bookings", icon: <BookOutlined />, label: "Bookings" },
               { key: "rooms", icon: <HomeOutlined />, label: "Rooms" },
               { key: "campaigns", icon: <NotificationOutlined />, label: "Campaigns" },
+              { key: "accounts", icon: <DollarOutlined />, label: "Accounts" },
             ]}
           />
         </Sider>
@@ -1772,6 +1774,10 @@ export default function AdminDashboard() {
                   )}
                 </Modal>
               </>
+            )}
+
+            {activeTab === "accounts" && (
+              <AccountsTab token={token} />
             )}
           </Content>
         </Layout>
