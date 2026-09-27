@@ -111,6 +111,7 @@ export default function AdminDashboard() {
     preaching_area: undefined,
     facilitator_name: undefined,
     gender: undefined,
+    booking_category: undefined,
   });
 
   // Dashboard state
@@ -287,6 +288,7 @@ export default function AdminDashboard() {
     if (filters.preaching_area) params.set("preaching_area", filters.preaching_area);
     if (filters.facilitator_name) params.set("facilitator_name", filters.facilitator_name);
     if (filters.gender) params.set("gender", filters.gender);
+    if (filters.booking_category) params.set("booking_category", filters.booking_category);
     if (cursor) params.set("next_key", cursor);
     return params;
   }, [filters]);
@@ -769,12 +771,19 @@ export default function AdminDashboard() {
     {
       title: "Name",
       key: "name",
-      width: 170,
+      width: 200,
       render: (_, r) => {
         const primary = r.users?.find((u) => u.is_primary);
+        const category = r.booking_category || "paid";
+        const catColor = category === "staff" ? "blue" : category === "monk" ? "purple" : "gold";
         return (
           <div>
-            <div className="font-medium">{primary?.name || "-"}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span className="font-medium">{primary?.name || "-"}</span>
+              <Tag color={catColor} style={{ margin: 0, fontSize: 10, lineHeight: "16px", padding: "0 6px" }}>
+                {category.toUpperCase()}
+              </Tag>
+            </div>
             <div className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{r.primary_contact}</div>
           </div>
         );
@@ -1057,6 +1066,18 @@ export default function AdminDashboard() {
                     options={[
                       { label: "Male", value: "Male" },
                       { label: "Female", value: "Female" },
+                    ]}
+                  />
+                  <Select
+                    placeholder="Category"
+                    allowClear
+                    style={{ width: 130 }}
+                    value={filters.booking_category}
+                    onChange={(v) => setFilters((f) => ({ ...f, booking_category: v }))}
+                    options={[
+                      { label: "Paid", value: "paid" },
+                      { label: "Staff", value: "staff" },
+                      { label: "Monk", value: "monk" },
                     ]}
                   />
                   <Input
