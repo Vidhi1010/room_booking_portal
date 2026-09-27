@@ -433,6 +433,7 @@ export default function AdminDashboard() {
       no_accommodation: false,
       transport_opted: false,
       amount_paid: 0,
+      booking_category: "paid",
       members: [],
     });
     setCreateBookingOpen(true);
@@ -442,6 +443,8 @@ export default function AdminDashboard() {
   const submitCreateBooking = async (values, { allowDuplicate = false } = {}) => {
     setCreatingBooking(true);
     try {
+      const category = values.booking_category || "paid";
+      const isWaived = category === "staff" || category === "monk";
       const payload = {
         name: values.name?.trim(),
         age: Number(values.age),
@@ -460,10 +463,13 @@ export default function AdminDashboard() {
           facilitator_name: m.facilitator_name || undefined,
         })),
         no_accommodation: !!values.no_accommodation,
-        amount_paid: Number(values.amount_paid || 0),
-        payment_reference: values.payment_reference || undefined,
-        payment_note: values.payment_note || undefined,
+        booking_category: category,
       };
+      if (!isWaived) {
+        payload.amount_paid = Number(values.amount_paid || 0);
+        if (values.payment_reference) payload.payment_reference = values.payment_reference;
+        if (values.payment_note) payload.payment_note = values.payment_note;
+      }
       if (!values.no_accommodation) {
         payload.room_id = values.room_id;
         payload.transport_opted = !!values.transport_opted;
@@ -1196,6 +1202,46 @@ export default function AdminDashboard() {
                       </Card>
                     </div>
 
+                    {/* Category Breakdown */}
+                    {dashboardData.category_breakdown && (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, marginBottom: 16 }}>
+                        <Card
+                          title={
+                            <span style={{ color: "#fff" }}>
+                              <TeamOutlined style={{ marginRight: 8 }} />
+                              Category Breakdown
+                              <span style={{ marginLeft: 8, fontSize: 12, color: "rgba(255,255,255,0.4)", fontWeight: 400 }}>
+                                by occupants
+                              </span>
+                            </span>
+                          }
+                          style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}
+                          styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-around" }}>
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Paid</span>}
+                              value={dashboardData.category_breakdown?.paid ?? 0}
+                              prefix={<DollarOutlined />}
+                              valueStyle={{ color: "#fbbf24", fontSize: 22 }}
+                            />
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Staff</span>}
+                              value={dashboardData.category_breakdown?.staff ?? 0}
+                              prefix={<UserOutlined />}
+                              valueStyle={{ color: "#60a5fa", fontSize: 22 }}
+                            />
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Monk</span>}
+                              value={dashboardData.category_breakdown?.monk ?? 0}
+                              prefix={<UserOutlined />}
+                              valueStyle={{ color: "#c084fc", fontSize: 22 }}
+                            />
+                          </div>
+                        </Card>
+                      </div>
+                    )}
+
                     {/* Financials */}
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
                       <Card style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}>
@@ -1800,6 +1846,17 @@ export default function AdminDashboard() {
             onFinish={(values) => submitCreateBooking(values)}
             style={{ marginTop: 8 }}
           >
+            <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Booking Category</div>
+            <Form.Item name="booking_category" label="Category" rules={[{ required: true }]}>
+              <Select
+                options={[
+                  { label: "Paid — regular guest (cash collected)", value: "paid" },
+                  { label: "Staff — no charge, beds still reserved", value: "staff" },
+                  { label: "Monk — no charge, beds still reserved", value: "monk" },
+                ]}
+              />
+            </Form.Item>
+
             <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Primary Guest</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <Form.Item name="name" label="Name" rules={[{ required: true, message: "Name required" }]}>
@@ -1974,10 +2031,14 @@ export default function AdminDashboard() {
                 const roomId = getFieldValue("room_id");
                 const transportOpted = getFieldValue("transport_opted");
                 const transportId = getFieldValue("transport_id");
+                const category = getFieldValue("booking_category") || "paid";
+                const isWaived = category === "staff" || category === "monk";
                 const members = getFieldValue("members") || [];
                 const occupants = 1 + members.length;
                 let perPerson = 0;
-                if (noAcc) {
+                if (isWaived) {
+                  perPerson = 0;
+                } else if (noAcc) {
                   perPerson = createBookingMeta.yatraFeeOnly;
                 } else {
                   const room = createBookingMeta.rooms.find((r) => r.id === roomId);
@@ -1988,8 +2049,8 @@ export default function AdminDashboard() {
                 return (
                   <div
                     style={{
-                      background: "rgba(217,119,6,0.08)",
-                      border: "1px solid rgba(217,119,6,0.25)",
+                      background: isWaived ? "rgba(96,165,250,0.08)" : "rgba(217,119,6,0.08)",
+                      border: `1px solid ${isWaived ? "rgba(96,165,250,0.3)" : "rgba(217,119,6,0.25)"}`,
                       borderRadius: 10,
                       padding: 12,
                       marginBottom: 16,
@@ -1999,38 +2060,68 @@ export default function AdminDashboard() {
                     }}
                   >
                     <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>
-                      {occupants} occupant{occupants > 1 ? "s" : ""} × ₹{perPerson} {noAcc ? "(yatra fee)" : "(room + transport)"}
+                      {isWaived ? (
+                        <>{occupants} occupant{occupants > 1 ? "s" : ""} · <Tag color="blue" style={{ marginLeft: 4 }}>WAIVED ({category.toUpperCase()})</Tag></>
+                      ) : (
+                        <>{occupants} occupant{occupants > 1 ? "s" : ""} × ₹{perPerson} {noAcc ? "(yatra fee)" : "(room + transport)"}</>
+                      )}
                     </div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: "#fbbf24" }}>Total ₹{total}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: isWaived ? "#60a5fa" : "#fbbf24" }}>
+                      Total ₹{total}
+                    </div>
                   </div>
                 );
               }}
             </Form.Item>
 
-            <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Cash Payment</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <Form.Item
-                name="amount_paid"
-                label="Amount Paid (cash)"
-                rules={[
-                  { required: true, message: "Enter amount" },
-                  {
-                    validator: (_, v) => {
-                      if (v == null) return Promise.resolve();
-                      if (v < 0) return Promise.reject(new Error("Cannot be negative"));
-                      return Promise.resolve();
-                    },
-                  },
-                ]}
-              >
-                <InputNumber min={0} style={{ width: "100%" }} prefix="₹" />
-              </Form.Item>
-              <Form.Item name="payment_reference" label="Payment Reference">
-                <Input placeholder="Receipt / reference #" />
-              </Form.Item>
-            </div>
-            <Form.Item name="payment_note" label="Payment Note">
-              <Input.TextArea rows={2} placeholder="Optional" />
+            <Form.Item noStyle shouldUpdate={(p, c) => p.booking_category !== c.booking_category}>
+              {({ getFieldValue }) => {
+                const category = getFieldValue("booking_category") || "paid";
+                if (category === "staff" || category === "monk") {
+                  return (
+                    <div style={{
+                      background: "rgba(96,165,250,0.08)",
+                      border: "1px solid rgba(96,165,250,0.25)",
+                      borderRadius: 10,
+                      padding: 12,
+                      marginBottom: 16,
+                      fontSize: 12,
+                      color: "rgba(255,255,255,0.6)",
+                    }}>
+                      No cash collection required for {category} bookings — beds are still reserved on the chosen room.
+                    </div>
+                  );
+                }
+                return (
+                  <>
+                    <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Cash Payment</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                      <Form.Item
+                        name="amount_paid"
+                        label="Amount Paid (cash)"
+                        rules={[
+                          { required: true, message: "Enter amount" },
+                          {
+                            validator: (_, v) => {
+                              if (v == null) return Promise.resolve();
+                              if (v < 0) return Promise.reject(new Error("Cannot be negative"));
+                              return Promise.resolve();
+                            },
+                          },
+                        ]}
+                      >
+                        <InputNumber min={0} style={{ width: "100%" }} prefix="₹" />
+                      </Form.Item>
+                      <Form.Item name="payment_reference" label="Payment Reference">
+                        <Input placeholder="Receipt / reference #" />
+                      </Form.Item>
+                    </div>
+                    <Form.Item name="payment_note" label="Payment Note">
+                      <Input.TextArea rows={2} placeholder="Optional" />
+                    </Form.Item>
+                  </>
+                );
+              }}
             </Form.Item>
 
             <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
@@ -2082,7 +2173,9 @@ export default function AdminDashboard() {
             <Descriptions.Item label="Occupants">{createBookingResult.total_occupants}</Descriptions.Item>
             {createBookingResult.payment_source && (
               <Descriptions.Item label="Payment Source">
-                <Tag color="gold">{String(createBookingResult.payment_source).toUpperCase()}</Tag>
+                <Tag color={createBookingResult.payment_source === "waived" ? "blue" : "gold"}>
+                  {String(createBookingResult.payment_source).toUpperCase()}
+                </Tag>
               </Descriptions.Item>
             )}
           </Descriptions>
