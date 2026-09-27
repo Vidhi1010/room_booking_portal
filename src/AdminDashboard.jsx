@@ -101,6 +101,37 @@ const ROLE_COLORS = {
   accounts: "green",
 };
 
+// Kept in sync with the backend `ROLE_PERMISSIONS` map.
+const ROLE_PERMISSIONS = {
+  super_admin: ["*"],
+  admin: [
+    "booking:*",
+    "refund:*",
+    "yatra:*",
+    "campaign:*",
+    "settlement:*",
+    "accounts:*",
+    "user:read",
+    "dashboard:read",
+    "sheet:sync",
+  ],
+  manager: [
+    "booking:read",
+    "booking:create",
+    "booking:update",
+    "yatra:read",
+    "user:read",
+    "sheet:sync",
+  ],
+  accounts: [
+    "booking:read",
+    "refund:*",
+    "settlement:*",
+    "accounts:*",
+    "dashboard:read",
+  ],
+};
+
 // Decode JWT payload without verifying — used only for client-side UI hints (role, email).
 const decodeJwt = (token) => {
   if (!token) return null;
@@ -120,6 +151,33 @@ export default function AdminDashboard() {
   const token = localStorage.getItem("admin_token");
   const currentAdmin = useMemo(() => decodeJwt(token) || {}, [token]);
   const isSuperAdmin = currentAdmin.role === "super_admin";
+
+  // Matches "*", exact "resource:action", or wildcard "resource:*".
+  const hasPermission = useCallback((perm) => {
+    const perms = ROLE_PERMISSIONS[currentAdmin.role] || [];
+    if (perms.includes("*")) return true;
+    if (perms.includes(perm)) return true;
+    const [resource] = perm.split(":");
+    return perms.includes(`${resource}:*`);
+  }, [currentAdmin.role]);
+
+  const menuItems = useMemo(() => {
+    const items = [];
+    if (hasPermission("dashboard:read")) items.push({ key: "dashboard", icon: <DashboardOutlined />, label: "Dashboard" });
+    if (hasPermission("booking:read")) items.push({ key: "bookings", icon: <BookOutlined />, label: "Bookings" });
+    if (hasPermission("booking:read")) items.push({ key: "rooms", icon: <HomeOutlined />, label: "Rooms" });
+    if (hasPermission("campaign:read")) items.push({ key: "campaigns", icon: <NotificationOutlined />, label: "Campaigns" });
+    if (hasPermission("accounts:read")) items.push({ key: "accounts", icon: <DollarOutlined />, label: "Accounts" });
+    if (isSuperAdmin) items.push({ key: "admin-users", icon: <SafetyCertificateOutlined />, label: "Admin Users" });
+    return items;
+  }, [hasPermission, isSuperAdmin]);
+
+  useEffect(() => {
+    if (!menuItems.length) return;
+    if (!menuItems.some((it) => it.key === activeTab)) {
+      setActiveTab(menuItems[0].key);
+    }
+  }, [menuItems, activeTab]);
 
   useEffect(() => {
     if (!token) navigate("/admin/login", { replace: true });
@@ -204,18 +262,28 @@ export default function AdminDashboard() {
   const [creatingAdminUser, setCreatingAdminUser] = useState(false);
   const [deletingAdminUserId, setDeletingAdminUserId] = useState(null);
 
+  // 401 → session expired (logout). 403 → authenticated but lacks permission (toast only).
+  const handleAuthError = useCallback((res, permissionMsg) => {
+    if (res.status === 401) {
+      message.error("Session expired. Please login again.");
+      localStorage.removeItem("admin_token");
+      navigate("/admin/login", { replace: true });
+      return true;
+    }
+    if (res.status === 403) {
+      message.warning(permissionMsg || "You don't have permission for this action");
+      return true;
+    }
+    return false;
+  }, [navigate]);
+
   const fetchDashboard = useCallback(async () => {
     setDashboardLoading(true);
     try {
       const res = await fetch(`${API_BASE}/get-dashboard`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.status === 401 || res.status === 403) {
-        message.error("Session expired. Please login again.");
-        localStorage.removeItem("admin_token");
-        navigate("/admin/login", { replace: true });
-        return;
-      }
+      if (handleAuthError(res, "You don't have permission to view the dashboard")) return;
       const data = await res.json();
       setDashboardData(data);
     } catch {
@@ -249,12 +317,7 @@ export default function AdminDashboard() {
       const res = await fetch(`${API_BASE}/get-campaigns${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.status === 401 || res.status === 403) {
-        message.error("Session expired. Please login again.");
-        localStorage.removeItem("admin_token");
-        navigate("/admin/login", { replace: true });
-        return;
-      }
+      if (handleAuthError(res, "You don't have permission to view campaigns")) return;
       const data = await res.json();
       setCampaigns(Array.isArray(data) ? data : data.campaigns || data.body || []);
     } catch {
@@ -350,12 +413,7 @@ export default function AdminDashboard() {
         const res = await fetch(`${API_BASE}/get-bookings?${params.toString()}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (res.status === 401 || res.status === 403) {
-          message.error("Session expired. Please login again.");
-          localStorage.removeItem("admin_token");
-          navigate("/admin/login", { replace: true });
-          return;
-        }
+        if (handleAuthError(res, "You don't have permission to view bookings")) return;
         const data = await res.json();
         const list = Array.isArray(data) ? data : data.bookings || data.body || [];
         const nk = data && typeof data === "object" && !Array.isArray(data) ? (data.next_key ?? null) : null;
@@ -420,12 +478,7 @@ export default function AdminDashboard() {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.status === 401 || res.status === 403) {
-        message.error("Session expired. Please login again.");
-        localStorage.removeItem("admin_token");
-        navigate("/admin/login", { replace: true });
-        return;
-      }
+      if (handleAuthError(res, "You don't have permission to sync the sheet")) return;
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.error || "Failed to sync sheet");
@@ -525,12 +578,7 @@ export default function AdminDashboard() {
         body: JSON.stringify(payload),
       });
 
-      if (res.status === 401 || res.status === 403) {
-        message.error("Session expired. Please login again.");
-        localStorage.removeItem("admin_token");
-        navigate("/admin/login", { replace: true });
-        return;
-      }
+      if (handleAuthError(res, "You don't have permission to create bookings")) return;
 
       const data = await res.json().catch(() => ({}));
 
@@ -619,12 +667,7 @@ export default function AdminDashboard() {
         body: JSON.stringify(payload),
       });
 
-      if (res.status === 401 || res.status === 403) {
-        message.error("Session expired. Please login again.");
-        localStorage.removeItem("admin_token");
-        navigate("/admin/login", { replace: true });
-        return;
-      }
+      if (handleAuthError(res, "You don't have permission to update bookings")) return;
 
       const data = await res.json().catch(() => ({}));
 
@@ -696,12 +739,7 @@ export default function AdminDashboard() {
         body: JSON.stringify(payload),
       });
 
-      if (res.status === 401 || res.status === 403) {
-        message.error("Session expired. Please login again.");
-        localStorage.removeItem("admin_token");
-        navigate("/admin/login", { replace: true });
-        return;
-      }
+      if (handleAuthError(res, "You don't have permission to settle refunds")) return;
 
       const data = await res.json().catch(() => ({}));
 
@@ -772,12 +810,7 @@ export default function AdminDashboard() {
         body: JSON.stringify(payload),
       });
 
-      if (res.status === 401 || res.status === 403) {
-        message.error("Session expired. Please login again.");
-        localStorage.removeItem("admin_token");
-        navigate("/admin/login", { replace: true });
-        return;
-      }
+      if (handleAuthError(res, "You don't have permission to cancel bookings")) return;
 
       const data = await res.json().catch(() => ({}));
 
@@ -813,14 +846,7 @@ export default function AdminDashboard() {
       const res = await fetch(`${API_BASE}/admin-users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.status === 401 || res.status === 403) {
-        if (res.status === 401) {
-          message.error("Session expired. Please login again.");
-          localStorage.removeItem("admin_token");
-          navigate("/admin/login", { replace: true });
-        } else {
-          message.warning("You don't have permission to view admin users");
-        }
+      if (handleAuthError(res, "You don't have permission to view admin users")) {
         setAdminUsers([]);
         return;
       }
@@ -831,7 +857,7 @@ export default function AdminDashboard() {
     } finally {
       setAdminUsersLoading(false);
     }
-  }, [token, navigate]);
+  }, [token, handleAuthError]);
 
   useEffect(() => {
     if (activeTab === "admin-users" && isSuperAdmin) fetchAdminUsers();
@@ -850,14 +876,7 @@ export default function AdminDashboard() {
           name: values.name?.trim() || undefined,
         }),
       });
-      if (res.status === 401 || res.status === 403) {
-        message.error(res.status === 401 ? "Session expired." : "You don't have permission");
-        if (res.status === 401) {
-          localStorage.removeItem("admin_token");
-          navigate("/admin/login", { replace: true });
-        }
-        return;
-      }
+      if (handleAuthError(res, "You don't have permission to create admins")) return;
       const data = await res.json().catch(() => ({}));
       if (res.status === 409) {
         message.warning(data.error || "An admin with that email already exists");
@@ -894,14 +913,7 @@ export default function AdminDashboard() {
             method: "DELETE",
             headers: { Authorization: `Bearer ${token}` },
           });
-          if (res.status === 401 || res.status === 403) {
-            message.error(res.status === 401 ? "Session expired." : "You don't have permission");
-            if (res.status === 401) {
-              localStorage.removeItem("admin_token");
-              navigate("/admin/login", { replace: true });
-            }
-            return;
-          }
+          if (handleAuthError(res, "You don't have permission to remove admins")) return;
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
             throw new Error(data.error || "Failed to remove admin");
@@ -992,12 +1004,13 @@ export default function AdminDashboard() {
       render: (_, r) => {
         const due = Number(r.refund_due) || 0;
         if (r.refund_status === "pending" && due > 0) {
+          const canSettle = hasPermission("refund:create");
           return (
             <Tag
               color="red"
               icon={<WarningOutlined />}
-              onClick={(e) => { e.stopPropagation(); openSettleRefund(r); }}
-              style={{ cursor: "pointer", margin: 0 }}
+              onClick={canSettle ? (e) => { e.stopPropagation(); openSettleRefund(r); } : undefined}
+              style={{ cursor: canSettle ? "pointer" : "default", margin: 0 }}
             >
               ₹{due} DUE
             </Tag>
@@ -1105,14 +1118,7 @@ export default function AdminDashboard() {
             selectedKeys={[activeTab]}
             onClick={({ key }) => setActiveTab(key)}
             style={{ background: "transparent", borderRight: 0 }}
-            items={[
-              { key: "dashboard", icon: <DashboardOutlined />, label: "Dashboard" },
-              { key: "bookings", icon: <BookOutlined />, label: "Bookings" },
-              { key: "rooms", icon: <HomeOutlined />, label: "Rooms" },
-              { key: "campaigns", icon: <NotificationOutlined />, label: "Campaigns" },
-              { key: "accounts", icon: <DollarOutlined />, label: "Accounts" },
-              ...(isSuperAdmin ? [{ key: "admin-users", icon: <SafetyCertificateOutlined />, label: "Admin Users" }] : []),
-            ]}
+            items={menuItems}
           />
         </Sider>
 
@@ -1259,20 +1265,24 @@ export default function AdminDashboard() {
                   <Button icon={<ReloadOutlined />} onClick={() => resetAndFetch()} loading={loading}>
                     Refresh
                   </Button>
-                  <Button
-                    icon={<UserAddOutlined />}
-                    type="primary"
-                    onClick={openCreateBooking}
-                  >
-                    Create Booking
-                  </Button>
-                  <Button
-                    icon={<SyncOutlined />}
-                    onClick={handleSyncSheet}
-                    loading={syncing}
-                  >
-                    Sync Sheet
-                  </Button>
+                  {hasPermission("booking:create") && (
+                    <Button
+                      icon={<UserAddOutlined />}
+                      type="primary"
+                      onClick={openCreateBooking}
+                    >
+                      Create Booking
+                    </Button>
+                  )}
+                  {hasPermission("sheet:sync") && (
+                    <Button
+                      icon={<SyncOutlined />}
+                      onClick={handleSyncSheet}
+                      loading={syncing}
+                    >
+                      Sync Sheet
+                    </Button>
+                  )}
                   {lastSyncedAt && (
                     <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>
                       Last synced: {fmtDate(lastSyncedAt)}
@@ -1689,9 +1699,11 @@ export default function AdminDashboard() {
                     <Button icon={<ReloadOutlined />} onClick={() => fetchCampaigns(selectedYatraId)} loading={campaignsLoading}>
                       Refresh
                     </Button>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
-                      Create Campaign
-                    </Button>
+                    {hasPermission("campaign:create") && (
+                      <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
+                        Create Campaign
+                      </Button>
+                    )}
                   </Space>
                 </div>
 
@@ -1793,7 +1805,7 @@ export default function AdminDashboard() {
                             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
                               {c.activated_at ? `Activated ${fmtDate(c.activated_at)}` : `Created ${fmtDate(c.created_at)}`}
                             </div>
-                            {isPending && (
+                            {isPending && hasPermission("campaign:update") && (
                               <Button
                                 type="primary"
                                 size="small"
@@ -2871,20 +2883,22 @@ export default function AdminDashboard() {
                   <WarningOutlined />
                   Refund of ₹{editBookingResult.refund_due} is pending — settle after handing cash back to the guest.
                 </span>
-                <Button
-                  danger
-                  type="primary"
-                  size="small"
-                  icon={<DollarOutlined />}
-                  onClick={() => openSettleRefund({
-                    id: editBookingResult.booking_id,
-                    refund_due: editBookingResult.refund_due,
-                    refund_paid: editBookingResult.refund_paid,
-                    refund_status: editBookingResult.refund_status,
-                  })}
-                >
-                  Settle Refund
-                </Button>
+                {hasPermission("refund:create") && (
+                  <Button
+                    danger
+                    type="primary"
+                    size="small"
+                    icon={<DollarOutlined />}
+                    onClick={() => openSettleRefund({
+                      id: editBookingResult.booking_id,
+                      refund_due: editBookingResult.refund_due,
+                      refund_paid: editBookingResult.refund_paid,
+                      refund_status: editBookingResult.refund_status,
+                    })}
+                  >
+                    Settle Refund
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -3146,7 +3160,7 @@ export default function AdminDashboard() {
         onCancel={() => setCancelBookingResult(null)}
         footer={
           <Space>
-            {cancelBookingResult?.refund_status === "pending" && Number(cancelBookingResult?.refund_due) > 0 && (
+            {hasPermission("refund:create") && cancelBookingResult?.refund_status === "pending" && Number(cancelBookingResult?.refund_due) > 0 && (
               <Button
                 danger
                 type="primary"
@@ -3209,7 +3223,7 @@ export default function AdminDashboard() {
         footer={
           selectedBooking ? (
             <Space>
-              {selectedBooking.refund_status === "pending" && Number(selectedBooking.refund_due) > 0 && (
+              {hasPermission("refund:create") && selectedBooking.refund_status === "pending" && Number(selectedBooking.refund_due) > 0 && (
                 <Button
                   danger
                   type="primary"
@@ -3219,7 +3233,7 @@ export default function AdminDashboard() {
                   Settle Refund (₹{selectedBooking.refund_due})
                 </Button>
               )}
-              {selectedBooking.status !== "cancelled" && (
+              {hasPermission("booking:delete") && selectedBooking.status !== "cancelled" && (
                 <Button
                   danger
                   icon={<StopOutlined />}
@@ -3228,7 +3242,7 @@ export default function AdminDashboard() {
                   Cancel Booking
                 </Button>
               )}
-              {selectedBooking.status !== "cancelled" && (
+              {hasPermission("booking:update") && selectedBooking.status !== "cancelled" && (
                 <Button
                   type="primary"
                   icon={<EditOutlined />}
