@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Layout,
@@ -54,6 +54,7 @@ import {
   EditOutlined,
   WarningOutlined,
   StopOutlined,
+  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { API_BASE } from "./config";
 import AccountsTab from "./AccountsTab";
@@ -86,9 +87,39 @@ const TEMPLATE_TYPE_MAP = {
   yatra_invitation: "marketing",
 };
 
+const ROLE_LABELS = {
+  super_admin: "Super Admin",
+  admin: "Admin",
+  manager: "Manager",
+  accounts: "Accounts",
+};
+
+const ROLE_COLORS = {
+  super_admin: "magenta",
+  admin: "red",
+  manager: "blue",
+  accounts: "green",
+};
+
+// Decode JWT payload without verifying — used only for client-side UI hints (role, email).
+const decodeJwt = (token) => {
+  if (!token) return null;
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) return null;
+    const b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+};
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const token = localStorage.getItem("admin_token");
+  const currentAdmin = useMemo(() => decodeJwt(token) || {}, [token]);
+  const isSuperAdmin = currentAdmin.role === "super_admin";
 
   useEffect(() => {
     if (!token) navigate("/admin/login", { replace: true });
@@ -112,6 +143,7 @@ export default function AdminDashboard() {
     preaching_area: undefined,
     facilitator_name: undefined,
     gender: undefined,
+    booking_category: undefined,
   });
 
   // Dashboard state
@@ -163,6 +195,14 @@ export default function AdminDashboard() {
   const [cancellingBooking, setCancellingBooking] = useState(false);
   const [cancelBookingTarget, setCancelBookingTarget] = useState(null);
   const [cancelBookingResult, setCancelBookingResult] = useState(null);
+
+  // Admin-users state
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [createAdminUserOpen, setCreateAdminUserOpen] = useState(false);
+  const [createAdminUserForm] = Form.useForm();
+  const [creatingAdminUser, setCreatingAdminUser] = useState(false);
+  const [deletingAdminUserId, setDeletingAdminUserId] = useState(null);
 
   const fetchDashboard = useCallback(async () => {
     setDashboardLoading(true);
@@ -288,6 +328,7 @@ export default function AdminDashboard() {
     if (filters.preaching_area) params.set("preaching_area", filters.preaching_area);
     if (filters.facilitator_name) params.set("facilitator_name", filters.facilitator_name);
     if (filters.gender) params.set("gender", filters.gender);
+    if (filters.booking_category) params.set("booking_category", filters.booking_category);
     if (cursor) params.set("next_key", cursor);
     return params;
   }, [filters]);
@@ -434,6 +475,7 @@ export default function AdminDashboard() {
       no_accommodation: false,
       transport_opted: false,
       amount_paid: 0,
+      booking_category: "paid",
       members: [],
     });
     setCreateBookingOpen(true);
@@ -443,6 +485,8 @@ export default function AdminDashboard() {
   const submitCreateBooking = async (values, { allowDuplicate = false } = {}) => {
     setCreatingBooking(true);
     try {
+      const category = values.booking_category || "paid";
+      const isWaived = category === "staff" || category === "monk";
       const payload = {
         name: values.name?.trim(),
         age: Number(values.age),
@@ -461,10 +505,13 @@ export default function AdminDashboard() {
           facilitator_name: m.facilitator_name || undefined,
         })),
         no_accommodation: !!values.no_accommodation,
-        amount_paid: Number(values.amount_paid || 0),
-        payment_reference: values.payment_reference || undefined,
-        payment_note: values.payment_note || undefined,
+        booking_category: category,
       };
+      if (!isWaived) {
+        payload.amount_paid = Number(values.amount_paid || 0);
+        if (values.payment_reference) payload.payment_reference = values.payment_reference;
+        if (values.payment_note) payload.payment_note = values.payment_note;
+      }
       if (!values.no_accommodation) {
         payload.room_id = values.room_id;
         payload.transport_opted = !!values.transport_opted;
@@ -760,16 +807,133 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchAdminUsers = useCallback(async () => {
+    setAdminUsersLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin-users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401 || res.status === 403) {
+        if (res.status === 401) {
+          message.error("Session expired. Please login again.");
+          localStorage.removeItem("admin_token");
+          navigate("/admin/login", { replace: true });
+        } else {
+          message.warning("You don't have permission to view admin users");
+        }
+        setAdminUsers([]);
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      setAdminUsers(Array.isArray(data) ? data : data.admins || data.body || []);
+    } catch {
+      message.error("Failed to fetch admin users");
+    } finally {
+      setAdminUsersLoading(false);
+    }
+  }, [token, navigate]);
+
+  useEffect(() => {
+    if (activeTab === "admin-users" && isSuperAdmin) fetchAdminUsers();
+  }, [activeTab, isSuperAdmin, fetchAdminUsers]);
+
+  const submitCreateAdminUser = async (values) => {
+    setCreatingAdminUser(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin-users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          email: values.email?.trim().toLowerCase(),
+          password: values.password,
+          role: values.role,
+          name: values.name?.trim() || undefined,
+        }),
+      });
+      if (res.status === 401 || res.status === 403) {
+        message.error(res.status === 401 ? "Session expired." : "You don't have permission");
+        if (res.status === 401) {
+          localStorage.removeItem("admin_token");
+          navigate("/admin/login", { replace: true });
+        }
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 409) {
+        message.warning(data.error || "An admin with that email already exists");
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || data.message || "Failed to create admin");
+      message.success("Admin created");
+      setCreateAdminUserOpen(false);
+      createAdminUserForm.resetFields();
+      fetchAdminUsers();
+    } catch (e) {
+      message.error(e.message || "Failed to create admin");
+    } finally {
+      setCreatingAdminUser(false);
+    }
+  };
+
+  const handleDeleteAdminUser = (admin) => {
+    Modal.confirm({
+      title: "Remove admin?",
+      icon: <WarningOutlined style={{ color: "#f87171" }} />,
+      content: (
+        <div>
+          <div>This will remove <strong>{admin.email}</strong> ({ROLE_LABELS[admin.role] || admin.role}).</div>
+          <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.5)" }}>They'll immediately lose access to the admin dashboard.</div>
+        </div>
+      ),
+      okText: "Remove",
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        setDeletingAdminUserId(admin.id);
+        try {
+          const res = await fetch(`${API_BASE}/admin-users?id=${encodeURIComponent(admin.id)}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.status === 401 || res.status === 403) {
+            message.error(res.status === 401 ? "Session expired." : "You don't have permission");
+            if (res.status === 401) {
+              localStorage.removeItem("admin_token");
+              navigate("/admin/login", { replace: true });
+            }
+            return;
+          }
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || "Failed to remove admin");
+          }
+          message.success("Admin removed");
+          fetchAdminUsers();
+        } catch (e) {
+          message.error(e.message || "Failed to remove admin");
+        } finally {
+          setDeletingAdminUserId(null);
+        }
+      },
+    });
+  };
+
   const columns = [
     {
       title: "Name",
       key: "name",
-      width: 170,
+      width: 200,
       render: (_, r) => {
         const primary = r.users?.find((u) => u.is_primary);
+        const category = r.booking_category || "paid";
+        const catColor = category === "staff" ? "blue" : category === "monk" ? "purple" : "gold";
         return (
           <div>
-            <div className="font-medium">{primary?.name || "-"}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span className="font-medium">{primary?.name || "-"}</span>
+              <Tag color={catColor} style={{ margin: 0, fontSize: 10, lineHeight: "16px", padding: "0 6px" }}>
+                {category.toUpperCase()}
+              </Tag>
+            </div>
             <div className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{r.primary_contact}</div>
           </div>
         );
@@ -947,6 +1111,7 @@ export default function AdminDashboard() {
               { key: "rooms", icon: <HomeOutlined />, label: "Rooms" },
               { key: "campaigns", icon: <NotificationOutlined />, label: "Campaigns" },
               { key: "accounts", icon: <DollarOutlined />, label: "Accounts" },
+              ...(isSuperAdmin ? [{ key: "admin-users", icon: <SafetyCertificateOutlined />, label: "Admin Users" }] : []),
             ]}
           />
         </Sider>
@@ -975,7 +1140,16 @@ export default function AdminDashboard() {
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
                 <Avatar size="small" icon={<UserOutlined />} style={{ backgroundColor: "#d97706" }} />
-                <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>Admin</Text>
+                <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
+                  <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 13 }}>
+                    {currentAdmin.email || currentAdmin.name || "Admin"}
+                  </Text>
+                  {currentAdmin.role && (
+                    <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>
+                      {ROLE_LABELS[currentAdmin.role] || currentAdmin.role}
+                    </Text>
+                  )}
+                </div>
               </div>
             </Dropdown>
           </Header>
@@ -1053,6 +1227,18 @@ export default function AdminDashboard() {
                     options={[
                       { label: "Male", value: "Male" },
                       { label: "Female", value: "Female" },
+                    ]}
+                  />
+                  <Select
+                    placeholder="Category"
+                    allowClear
+                    style={{ width: 130 }}
+                    value={filters.booking_category}
+                    onChange={(v) => setFilters((f) => ({ ...f, booking_category: v }))}
+                    options={[
+                      { label: "Paid", value: "paid" },
+                      { label: "Staff", value: "staff" },
+                      { label: "Monk", value: "monk" },
                     ]}
                   />
                   <Input
@@ -1197,6 +1383,46 @@ export default function AdminDashboard() {
                         </div>
                       </Card>
                     </div>
+
+                    {/* Category Breakdown */}
+                    {dashboardData.category_breakdown && (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, marginBottom: 16 }}>
+                        <Card
+                          title={
+                            <span style={{ color: "#fff" }}>
+                              <TeamOutlined style={{ marginRight: 8 }} />
+                              Category Breakdown
+                              <span style={{ marginLeft: 8, fontSize: 12, color: "rgba(255,255,255,0.4)", fontWeight: 400 }}>
+                                by occupants
+                              </span>
+                            </span>
+                          }
+                          style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}
+                          styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-around" }}>
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Paid</span>}
+                              value={dashboardData.category_breakdown?.paid ?? 0}
+                              prefix={<DollarOutlined />}
+                              valueStyle={{ color: "#fbbf24", fontSize: 22 }}
+                            />
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Staff</span>}
+                              value={dashboardData.category_breakdown?.staff ?? 0}
+                              prefix={<UserOutlined />}
+                              valueStyle={{ color: "#60a5fa", fontSize: 22 }}
+                            />
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Monk</span>}
+                              value={dashboardData.category_breakdown?.monk ?? 0}
+                              prefix={<UserOutlined />}
+                              valueStyle={{ color: "#c084fc", fontSize: 22 }}
+                            />
+                          </div>
+                        </Card>
+                      </div>
+                    )}
 
                     {/* Financials */}
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
@@ -1779,6 +2005,157 @@ export default function AdminDashboard() {
             {activeTab === "accounts" && (
               <AccountsTab token={token} />
             )}
+
+            {activeTab === "admin-users" && (
+              <>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+                  <div>
+                    <Title level={4} style={{ color: "#fff", margin: 0 }}>Admin Users</Title>
+                    <Text style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Manage admin dashboard access
+                    </Text>
+                  </div>
+                  <Space wrap>
+                    <Button icon={<ReloadOutlined />} onClick={fetchAdminUsers} loading={adminUsersLoading}>
+                      Refresh
+                    </Button>
+                    <Button
+                      type="primary"
+                      icon={<UserAddOutlined />}
+                      onClick={() => { createAdminUserForm.resetFields(); createAdminUserForm.setFieldsValue({ role: "manager" }); setCreateAdminUserOpen(true); }}
+                    >
+                      Add Admin
+                    </Button>
+                  </Space>
+                </div>
+
+                <Table
+                  dataSource={adminUsers}
+                  rowKey="id"
+                  loading={adminUsersLoading}
+                  pagination={false}
+                  size="middle"
+                  scroll={{ x: 720 }}
+                  columns={[
+                    {
+                      title: "Email",
+                      dataIndex: "email",
+                      key: "email",
+                      render: (v, r) => (
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{v}</div>
+                          {r.name && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{r.name}</div>}
+                        </div>
+                      ),
+                    },
+                    {
+                      title: "Role",
+                      dataIndex: "role",
+                      key: "role",
+                      width: 160,
+                      render: (v) => (
+                        <Tag color={ROLE_COLORS[v] || "default"}>{ROLE_LABELS[v] || v?.toUpperCase()}</Tag>
+                      ),
+                    },
+                    {
+                      title: "Created",
+                      dataIndex: "created_at",
+                      key: "created_at",
+                      width: 180,
+                      render: (v) => v ? fmtDate(v) : "-",
+                    },
+                    {
+                      title: "",
+                      key: "actions",
+                      width: 120,
+                      align: "right",
+                      render: (_, r) => {
+                        const isSelf = r.email && currentAdmin.email && r.email.toLowerCase() === String(currentAdmin.email).toLowerCase();
+                        return (
+                          <Button
+                            danger
+                            size="small"
+                            icon={<DeleteOutlined />}
+                            loading={deletingAdminUserId === r.id}
+                            disabled={isSelf}
+                            title={isSelf ? "You can't remove yourself" : undefined}
+                            onClick={() => handleDeleteAdminUser(r)}
+                          >
+                            Remove
+                          </Button>
+                        );
+                      },
+                    },
+                  ]}
+                  locale={{ emptyText: <Empty description="No admin users" /> }}
+                />
+
+                <Modal
+                  open={createAdminUserOpen}
+                  onCancel={() => { if (!creatingAdminUser) { setCreateAdminUserOpen(false); createAdminUserForm.resetFields(); } }}
+                  footer={null}
+                  width={480}
+                  destroyOnClose
+                  title={
+                    <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <SafetyCertificateOutlined />
+                      Add Admin User
+                    </span>
+                  }
+                >
+                  <Form
+                    form={createAdminUserForm}
+                    layout="vertical"
+                    onFinish={submitCreateAdminUser}
+                    style={{ marginTop: 8 }}
+                  >
+                    <Form.Item
+                      name="email"
+                      label="Email"
+                      rules={[
+                        { required: true, message: "Email is required" },
+                        { type: "email", message: "Enter a valid email" },
+                      ]}
+                    >
+                      <Input placeholder="admin@example.com" autoComplete="off" />
+                    </Form.Item>
+                    <Form.Item name="name" label="Display Name (optional)">
+                      <Input placeholder="Aakash" />
+                    </Form.Item>
+                    <Form.Item
+                      name="password"
+                      label="Password"
+                      rules={[
+                        { required: true, message: "Password is required" },
+                        { min: 8, message: "At least 8 characters" },
+                      ]}
+                    >
+                      <Input.Password placeholder="Min 8 characters" autoComplete="new-password" />
+                    </Form.Item>
+                    <Form.Item name="role" label="Role" rules={[{ required: true }]}>
+                      <Select
+                        options={[
+                          { label: "Super Admin — full access", value: "super_admin" },
+                          { label: "Admin — bookings, refunds, campaigns, settlements", value: "admin" },
+                          { label: "Manager — bookings + yatra read/sheet sync", value: "manager" },
+                          { label: "Accounts — refunds, settlements, dashboard", value: "accounts" },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
+                      <Space>
+                        <Button onClick={() => { setCreateAdminUserOpen(false); createAdminUserForm.resetFields(); }} disabled={creatingAdminUser}>
+                          Cancel
+                        </Button>
+                        <Button type="primary" htmlType="submit" loading={creatingAdminUser} icon={<UserAddOutlined />}>
+                          Create Admin
+                        </Button>
+                      </Space>
+                    </Form.Item>
+                  </Form>
+                </Modal>
+              </>
+            )}
           </Content>
         </Layout>
       </Layout>
@@ -1806,6 +2183,17 @@ export default function AdminDashboard() {
             onFinish={(values) => submitCreateBooking(values)}
             style={{ marginTop: 8 }}
           >
+            <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Booking Category</div>
+            <Form.Item name="booking_category" label="Category" rules={[{ required: true }]}>
+              <Select
+                options={[
+                  { label: "Paid — regular guest (cash collected)", value: "paid" },
+                  { label: "Staff — no charge, beds still reserved", value: "staff" },
+                  { label: "Monk — no charge, beds still reserved", value: "monk" },
+                ]}
+              />
+            </Form.Item>
+
             <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Primary Guest</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <Form.Item name="name" label="Name" rules={[{ required: true, message: "Name required" }]}>
@@ -1980,10 +2368,14 @@ export default function AdminDashboard() {
                 const roomId = getFieldValue("room_id");
                 const transportOpted = getFieldValue("transport_opted");
                 const transportId = getFieldValue("transport_id");
+                const category = getFieldValue("booking_category") || "paid";
+                const isWaived = category === "staff" || category === "monk";
                 const members = getFieldValue("members") || [];
                 const occupants = 1 + members.length;
                 let perPerson = 0;
-                if (noAcc) {
+                if (isWaived) {
+                  perPerson = 0;
+                } else if (noAcc) {
                   perPerson = createBookingMeta.yatraFeeOnly;
                 } else {
                   const room = createBookingMeta.rooms.find((r) => r.id === roomId);
@@ -1994,8 +2386,8 @@ export default function AdminDashboard() {
                 return (
                   <div
                     style={{
-                      background: "rgba(217,119,6,0.08)",
-                      border: "1px solid rgba(217,119,6,0.25)",
+                      background: isWaived ? "rgba(96,165,250,0.08)" : "rgba(217,119,6,0.08)",
+                      border: `1px solid ${isWaived ? "rgba(96,165,250,0.3)" : "rgba(217,119,6,0.25)"}`,
                       borderRadius: 10,
                       padding: 12,
                       marginBottom: 16,
@@ -2005,38 +2397,68 @@ export default function AdminDashboard() {
                     }}
                   >
                     <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>
-                      {occupants} occupant{occupants > 1 ? "s" : ""} × ₹{perPerson} {noAcc ? "(yatra fee)" : "(room + transport)"}
+                      {isWaived ? (
+                        <>{occupants} occupant{occupants > 1 ? "s" : ""} · <Tag color="blue" style={{ marginLeft: 4 }}>WAIVED ({category.toUpperCase()})</Tag></>
+                      ) : (
+                        <>{occupants} occupant{occupants > 1 ? "s" : ""} × ₹{perPerson} {noAcc ? "(yatra fee)" : "(room + transport)"}</>
+                      )}
                     </div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: "#fbbf24" }}>Total ₹{total}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: isWaived ? "#60a5fa" : "#fbbf24" }}>
+                      Total ₹{total}
+                    </div>
                   </div>
                 );
               }}
             </Form.Item>
 
-            <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Cash Payment</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <Form.Item
-                name="amount_paid"
-                label="Amount Paid (cash)"
-                rules={[
-                  { required: true, message: "Enter amount" },
-                  {
-                    validator: (_, v) => {
-                      if (v == null) return Promise.resolve();
-                      if (v < 0) return Promise.reject(new Error("Cannot be negative"));
-                      return Promise.resolve();
-                    },
-                  },
-                ]}
-              >
-                <InputNumber min={0} style={{ width: "100%" }} prefix="₹" />
-              </Form.Item>
-              <Form.Item name="payment_reference" label="Payment Reference">
-                <Input placeholder="Receipt / reference #" />
-              </Form.Item>
-            </div>
-            <Form.Item name="payment_note" label="Payment Note">
-              <Input.TextArea rows={2} placeholder="Optional" />
+            <Form.Item noStyle shouldUpdate={(p, c) => p.booking_category !== c.booking_category}>
+              {({ getFieldValue }) => {
+                const category = getFieldValue("booking_category") || "paid";
+                if (category === "staff" || category === "monk") {
+                  return (
+                    <div style={{
+                      background: "rgba(96,165,250,0.08)",
+                      border: "1px solid rgba(96,165,250,0.25)",
+                      borderRadius: 10,
+                      padding: 12,
+                      marginBottom: 16,
+                      fontSize: 12,
+                      color: "rgba(255,255,255,0.6)",
+                    }}>
+                      No cash collection required for {category} bookings — beds are still reserved on the chosen room.
+                    </div>
+                  );
+                }
+                return (
+                  <>
+                    <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Cash Payment</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                      <Form.Item
+                        name="amount_paid"
+                        label="Amount Paid (cash)"
+                        rules={[
+                          { required: true, message: "Enter amount" },
+                          {
+                            validator: (_, v) => {
+                              if (v == null) return Promise.resolve();
+                              if (v < 0) return Promise.reject(new Error("Cannot be negative"));
+                              return Promise.resolve();
+                            },
+                          },
+                        ]}
+                      >
+                        <InputNumber min={0} style={{ width: "100%" }} prefix="₹" />
+                      </Form.Item>
+                      <Form.Item name="payment_reference" label="Payment Reference">
+                        <Input placeholder="Receipt / reference #" />
+                      </Form.Item>
+                    </div>
+                    <Form.Item name="payment_note" label="Payment Note">
+                      <Input.TextArea rows={2} placeholder="Optional" />
+                    </Form.Item>
+                  </>
+                );
+              }}
             </Form.Item>
 
             <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
@@ -2088,7 +2510,9 @@ export default function AdminDashboard() {
             <Descriptions.Item label="Occupants">{createBookingResult.total_occupants}</Descriptions.Item>
             {createBookingResult.payment_source && (
               <Descriptions.Item label="Payment Source">
-                <Tag color="gold">{String(createBookingResult.payment_source).toUpperCase()}</Tag>
+                <Tag color={createBookingResult.payment_source === "waived" ? "blue" : "gold"}>
+                  {String(createBookingResult.payment_source).toUpperCase()}
+                </Tag>
               </Descriptions.Item>
             )}
           </Descriptions>
