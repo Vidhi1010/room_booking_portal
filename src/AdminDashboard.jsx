@@ -53,6 +53,7 @@ import {
   UserAddOutlined,
   EditOutlined,
   WarningOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import { API_BASE } from "./config";
 
@@ -110,6 +111,7 @@ export default function AdminDashboard() {
     preaching_area: undefined,
     facilitator_name: undefined,
     gender: undefined,
+    booking_category: undefined,
   });
 
   // Dashboard state
@@ -154,6 +156,13 @@ export default function AdminDashboard() {
   const [settlingRefund, setSettlingRefund] = useState(false);
   const [settleRefundTarget, setSettleRefundTarget] = useState(null);
   const [settleRefundResult, setSettleRefundResult] = useState(null);
+
+  // Cancel-booking state
+  const [cancelBookingOpen, setCancelBookingOpen] = useState(false);
+  const [cancelBookingForm] = Form.useForm();
+  const [cancellingBooking, setCancellingBooking] = useState(false);
+  const [cancelBookingTarget, setCancelBookingTarget] = useState(null);
+  const [cancelBookingResult, setCancelBookingResult] = useState(null);
 
   const fetchDashboard = useCallback(async () => {
     setDashboardLoading(true);
@@ -279,6 +288,7 @@ export default function AdminDashboard() {
     if (filters.preaching_area) params.set("preaching_area", filters.preaching_area);
     if (filters.facilitator_name) params.set("facilitator_name", filters.facilitator_name);
     if (filters.gender) params.set("gender", filters.gender);
+    if (filters.booking_category) params.set("booking_category", filters.booking_category);
     if (cursor) params.set("next_key", cursor);
     return params;
   }, [filters]);
@@ -425,6 +435,7 @@ export default function AdminDashboard() {
       no_accommodation: false,
       transport_opted: false,
       amount_paid: 0,
+      booking_category: "paid",
       members: [],
     });
     setCreateBookingOpen(true);
@@ -434,6 +445,8 @@ export default function AdminDashboard() {
   const submitCreateBooking = async (values, { allowDuplicate = false } = {}) => {
     setCreatingBooking(true);
     try {
+      const category = values.booking_category || "paid";
+      const isWaived = category === "staff" || category === "monk";
       const payload = {
         name: values.name?.trim(),
         age: Number(values.age),
@@ -452,10 +465,13 @@ export default function AdminDashboard() {
           facilitator_name: m.facilitator_name || undefined,
         })),
         no_accommodation: !!values.no_accommodation,
-        amount_paid: Number(values.amount_paid || 0),
-        payment_reference: values.payment_reference || undefined,
-        payment_note: values.payment_note || undefined,
+        booking_category: category,
       };
+      if (!isWaived) {
+        payload.amount_paid = Number(values.amount_paid || 0);
+        if (values.payment_reference) payload.payment_reference = values.payment_reference;
+        if (values.payment_note) payload.payment_note = values.payment_note;
+      }
       if (!values.no_accommodation) {
         payload.room_id = values.room_id;
         payload.transport_opted = !!values.transport_opted;
@@ -677,16 +693,97 @@ export default function AdminDashboard() {
     }
   };
 
+  const openCancelBooking = (booking) => {
+    if (!booking) return;
+    const netPaid = Math.max(0, (Number(booking.amount_paid) || 0) - (Number(booking.refund_paid) || 0));
+    setCancelBookingTarget({ ...booking, __net_paid: netPaid });
+    cancelBookingForm.resetFields();
+    cancelBookingForm.setFieldsValue({
+      refund_amount: netPaid,
+      reason: undefined,
+    });
+    setCancelBookingOpen(true);
+  };
+
+  const submitCancelBooking = async (values) => {
+    if (!cancelBookingTarget) return;
+    const target = cancelBookingTarget;
+    const netPaid = Number(target.__net_paid) || 0;
+    const refundAmount = values.refund_amount == null ? undefined : Number(values.refund_amount);
+    if (refundAmount != null) {
+      if (refundAmount < 0) {
+        message.error("Refund amount cannot be negative");
+        return;
+      }
+      if (refundAmount > netPaid) {
+        message.error(`Refund amount cannot exceed net paid (₹${netPaid})`);
+        return;
+      }
+    }
+    setCancellingBooking(true);
+    try {
+      const payload = { booking_id: target.id };
+      if (values.reason) payload.reason = values.reason;
+      if (refundAmount != null) payload.refund_amount = refundAmount;
+
+      const res = await fetch(`${API_BASE}/admin-cancel-booking`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.status === 401 || res.status === 403) {
+        message.error("Session expired. Please login again.");
+        localStorage.removeItem("admin_token");
+        navigate("/admin/login", { replace: true });
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 409) {
+        message.warning(data.error || "Booking is already cancelled");
+        setCancelBookingOpen(false);
+        setCancelBookingTarget(null);
+        setSelectedBooking(null);
+        resetAndFetch();
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || data.message || "Failed to cancel booking");
+      }
+
+      message.success("Booking cancelled");
+      setCancelBookingOpen(false);
+      setCancelBookingTarget(null);
+      setSelectedBooking(null);
+      setCancelBookingResult(data);
+      resetAndFetch();
+    } catch (e) {
+      message.error(e.message || "Failed to cancel booking");
+    } finally {
+      setCancellingBooking(false);
+    }
+  };
+
   const columns = [
     {
       title: "Name",
       key: "name",
-      width: 170,
+      width: 200,
       render: (_, r) => {
         const primary = r.users?.find((u) => u.is_primary);
+        const category = r.booking_category || "paid";
+        const catColor = category === "staff" ? "blue" : category === "monk" ? "purple" : "gold";
         return (
           <div>
-            <div className="font-medium">{primary?.name || "-"}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span className="font-medium">{primary?.name || "-"}</span>
+              <Tag color={catColor} style={{ margin: 0, fontSize: 10, lineHeight: "16px", padding: "0 6px" }}>
+                {category.toUpperCase()}
+              </Tag>
+            </div>
             <div className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{r.primary_contact}</div>
           </div>
         );
@@ -971,6 +1068,18 @@ export default function AdminDashboard() {
                       { label: "Female", value: "Female" },
                     ]}
                   />
+                  <Select
+                    placeholder="Category"
+                    allowClear
+                    style={{ width: 130 }}
+                    value={filters.booking_category}
+                    onChange={(v) => setFilters((f) => ({ ...f, booking_category: v }))}
+                    options={[
+                      { label: "Paid", value: "paid" },
+                      { label: "Staff", value: "staff" },
+                      { label: "Monk", value: "monk" },
+                    ]}
+                  />
                   <Input
                     placeholder="Facilitator name"
                     allowClear
@@ -1113,6 +1222,46 @@ export default function AdminDashboard() {
                         </div>
                       </Card>
                     </div>
+
+                    {/* Category Breakdown */}
+                    {dashboardData.category_breakdown && (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, marginBottom: 16 }}>
+                        <Card
+                          title={
+                            <span style={{ color: "#fff" }}>
+                              <TeamOutlined style={{ marginRight: 8 }} />
+                              Category Breakdown
+                              <span style={{ marginLeft: 8, fontSize: 12, color: "rgba(255,255,255,0.4)", fontWeight: 400 }}>
+                                by occupants
+                              </span>
+                            </span>
+                          }
+                          style={{ background: "#141720", border: "1px solid rgba(255,255,255,0.06)" }}
+                          styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-around" }}>
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Paid</span>}
+                              value={dashboardData.category_breakdown?.paid ?? 0}
+                              prefix={<DollarOutlined />}
+                              valueStyle={{ color: "#fbbf24", fontSize: 22 }}
+                            />
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Staff</span>}
+                              value={dashboardData.category_breakdown?.staff ?? 0}
+                              prefix={<UserOutlined />}
+                              valueStyle={{ color: "#60a5fa", fontSize: 22 }}
+                            />
+                            <Statistic
+                              title={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Monk</span>}
+                              value={dashboardData.category_breakdown?.monk ?? 0}
+                              prefix={<UserOutlined />}
+                              valueStyle={{ color: "#c084fc", fontSize: 22 }}
+                            />
+                          </div>
+                        </Card>
+                      </div>
+                    )}
 
                     {/* Financials */}
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
@@ -1718,6 +1867,17 @@ export default function AdminDashboard() {
             onFinish={(values) => submitCreateBooking(values)}
             style={{ marginTop: 8 }}
           >
+            <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Booking Category</div>
+            <Form.Item name="booking_category" label="Category" rules={[{ required: true }]}>
+              <Select
+                options={[
+                  { label: "Paid — regular guest (cash collected)", value: "paid" },
+                  { label: "Staff — no charge, beds still reserved", value: "staff" },
+                  { label: "Monk — no charge, beds still reserved", value: "monk" },
+                ]}
+              />
+            </Form.Item>
+
             <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Primary Guest</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <Form.Item name="name" label="Name" rules={[{ required: true, message: "Name required" }]}>
@@ -1892,10 +2052,14 @@ export default function AdminDashboard() {
                 const roomId = getFieldValue("room_id");
                 const transportOpted = getFieldValue("transport_opted");
                 const transportId = getFieldValue("transport_id");
+                const category = getFieldValue("booking_category") || "paid";
+                const isWaived = category === "staff" || category === "monk";
                 const members = getFieldValue("members") || [];
                 const occupants = 1 + members.length;
                 let perPerson = 0;
-                if (noAcc) {
+                if (isWaived) {
+                  perPerson = 0;
+                } else if (noAcc) {
                   perPerson = createBookingMeta.yatraFeeOnly;
                 } else {
                   const room = createBookingMeta.rooms.find((r) => r.id === roomId);
@@ -1906,8 +2070,8 @@ export default function AdminDashboard() {
                 return (
                   <div
                     style={{
-                      background: "rgba(217,119,6,0.08)",
-                      border: "1px solid rgba(217,119,6,0.25)",
+                      background: isWaived ? "rgba(96,165,250,0.08)" : "rgba(217,119,6,0.08)",
+                      border: `1px solid ${isWaived ? "rgba(96,165,250,0.3)" : "rgba(217,119,6,0.25)"}`,
                       borderRadius: 10,
                       padding: 12,
                       marginBottom: 16,
@@ -1917,38 +2081,68 @@ export default function AdminDashboard() {
                     }}
                   >
                     <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>
-                      {occupants} occupant{occupants > 1 ? "s" : ""} × ₹{perPerson} {noAcc ? "(yatra fee)" : "(room + transport)"}
+                      {isWaived ? (
+                        <>{occupants} occupant{occupants > 1 ? "s" : ""} · <Tag color="blue" style={{ marginLeft: 4 }}>WAIVED ({category.toUpperCase()})</Tag></>
+                      ) : (
+                        <>{occupants} occupant{occupants > 1 ? "s" : ""} × ₹{perPerson} {noAcc ? "(yatra fee)" : "(room + transport)"}</>
+                      )}
                     </div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: "#fbbf24" }}>Total ₹{total}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: isWaived ? "#60a5fa" : "#fbbf24" }}>
+                      Total ₹{total}
+                    </div>
                   </div>
                 );
               }}
             </Form.Item>
 
-            <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Cash Payment</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <Form.Item
-                name="amount_paid"
-                label="Amount Paid (cash)"
-                rules={[
-                  { required: true, message: "Enter amount" },
-                  {
-                    validator: (_, v) => {
-                      if (v == null) return Promise.resolve();
-                      if (v < 0) return Promise.reject(new Error("Cannot be negative"));
-                      return Promise.resolve();
-                    },
-                  },
-                ]}
-              >
-                <InputNumber min={0} style={{ width: "100%" }} prefix="₹" />
-              </Form.Item>
-              <Form.Item name="payment_reference" label="Payment Reference">
-                <Input placeholder="Receipt / reference #" />
-              </Form.Item>
-            </div>
-            <Form.Item name="payment_note" label="Payment Note">
-              <Input.TextArea rows={2} placeholder="Optional" />
+            <Form.Item noStyle shouldUpdate={(p, c) => p.booking_category !== c.booking_category}>
+              {({ getFieldValue }) => {
+                const category = getFieldValue("booking_category") || "paid";
+                if (category === "staff" || category === "monk") {
+                  return (
+                    <div style={{
+                      background: "rgba(96,165,250,0.08)",
+                      border: "1px solid rgba(96,165,250,0.25)",
+                      borderRadius: 10,
+                      padding: 12,
+                      marginBottom: 16,
+                      fontSize: 12,
+                      color: "rgba(255,255,255,0.6)",
+                    }}>
+                      No cash collection required for {category} bookings — beds are still reserved on the chosen room.
+                    </div>
+                  );
+                }
+                return (
+                  <>
+                    <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Cash Payment</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                      <Form.Item
+                        name="amount_paid"
+                        label="Amount Paid (cash)"
+                        rules={[
+                          { required: true, message: "Enter amount" },
+                          {
+                            validator: (_, v) => {
+                              if (v == null) return Promise.resolve();
+                              if (v < 0) return Promise.reject(new Error("Cannot be negative"));
+                              return Promise.resolve();
+                            },
+                          },
+                        ]}
+                      >
+                        <InputNumber min={0} style={{ width: "100%" }} prefix="₹" />
+                      </Form.Item>
+                      <Form.Item name="payment_reference" label="Payment Reference">
+                        <Input placeholder="Receipt / reference #" />
+                      </Form.Item>
+                    </div>
+                    <Form.Item name="payment_note" label="Payment Note">
+                      <Input.TextArea rows={2} placeholder="Optional" />
+                    </Form.Item>
+                  </>
+                );
+              }}
             </Form.Item>
 
             <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
@@ -2000,7 +2194,9 @@ export default function AdminDashboard() {
             <Descriptions.Item label="Occupants">{createBookingResult.total_occupants}</Descriptions.Item>
             {createBookingResult.payment_source && (
               <Descriptions.Item label="Payment Source">
-                <Tag color="gold">{String(createBookingResult.payment_source).toUpperCase()}</Tag>
+                <Tag color={createBookingResult.payment_source === "waived" ? "blue" : "gold"}>
+                  {String(createBookingResult.payment_source).toUpperCase()}
+                </Tag>
               </Descriptions.Item>
             )}
           </Descriptions>
@@ -2513,6 +2709,183 @@ export default function AdminDashboard() {
         )}
       </Modal>
 
+      {/* cancel booking modal */}
+      <Modal
+        open={cancelBookingOpen}
+        onCancel={() => { if (!cancellingBooking) { setCancelBookingOpen(false); setCancelBookingTarget(null); cancelBookingForm.resetFields(); } }}
+        footer={null}
+        width={520}
+        destroyOnClose
+        title={
+          <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#f87171" }}>
+            <StopOutlined />
+            Cancel Booking
+          </span>
+        }
+      >
+        {cancelBookingTarget && (
+          <Form
+            form={cancelBookingForm}
+            layout="vertical"
+            onFinish={submitCancelBooking}
+            style={{ marginTop: 8 }}
+          >
+            <div style={{
+              background: "rgba(248,113,113,0.08)",
+              border: "1px solid rgba(248,113,113,0.3)",
+              borderRadius: 10,
+              padding: 12,
+              marginBottom: 16,
+              fontSize: 12,
+              color: "#fca5a5",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 8,
+            }}>
+              <WarningOutlined style={{ marginTop: 2 }} />
+              <div>
+                This will mark the booking as <strong>cancelled</strong>, release its beds/fee-only headcount, and add the refund amount to <strong>refund due</strong>. This cannot be undone. Actual payout is done separately via <em>Settle Refund</em>.
+              </div>
+            </div>
+
+            <div style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 10,
+              padding: 12,
+              marginBottom: 16,
+              fontSize: 12,
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 1fr",
+              gap: 12,
+            }}>
+              <div>
+                <div style={{ color: "rgba(255,255,255,0.4)" }}>Amount Paid</div>
+                <div style={{ color: "#4ade80", fontWeight: 700, fontSize: 16 }}>₹{cancelBookingTarget.amount_paid ?? 0}</div>
+              </div>
+              <div>
+                <div style={{ color: "rgba(255,255,255,0.4)" }}>Already Refunded</div>
+                <div style={{ color: "rgba(255,255,255,0.7)", fontWeight: 600, fontSize: 16 }}>₹{cancelBookingTarget.refund_paid ?? 0}</div>
+              </div>
+              <div>
+                <div style={{ color: "rgba(255,255,255,0.4)" }}>Net Paid</div>
+                <div style={{ color: "#fbbf24", fontWeight: 700, fontSize: 16 }}>₹{cancelBookingTarget.__net_paid}</div>
+              </div>
+            </div>
+
+            <Form.Item
+              name="refund_amount"
+              label={<span>Refund Amount <span style={{ color: "rgba(255,255,255,0.4)", fontWeight: 400, fontSize: 11 }}>(added to refund due; defaults to net paid)</span></span>}
+              rules={[
+                {
+                  validator: (_, v) => {
+                    if (v == null || v === "") return Promise.resolve();
+                    const n = Number(v);
+                    if (n < 0) return Promise.reject(new Error("Cannot be negative"));
+                    const netPaid = Number(cancelBookingTarget.__net_paid) || 0;
+                    if (n > netPaid) return Promise.reject(new Error(`Cannot exceed net paid (₹${netPaid})`));
+                    return Promise.resolve();
+                  },
+                },
+              ]}
+            >
+              <InputNumber
+                min={0}
+                max={Number(cancelBookingTarget.__net_paid) || undefined}
+                style={{ width: "100%" }}
+                prefix="₹"
+              />
+            </Form.Item>
+
+            <Form.Item name="reason" label="Reason (admin note)">
+              <Input.TextArea rows={3} placeholder="Why is this booking being cancelled?" />
+            </Form.Item>
+
+            <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
+              <Space>
+                <Button
+                  onClick={() => { setCancelBookingOpen(false); setCancelBookingTarget(null); cancelBookingForm.resetFields(); }}
+                  disabled={cancellingBooking}
+                >
+                  Keep Booking
+                </Button>
+                <Button
+                  danger
+                  type="primary"
+                  htmlType="submit"
+                  loading={cancellingBooking}
+                  icon={<StopOutlined />}
+                >
+                  Confirm Cancellation
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        )}
+      </Modal>
+
+      {/* cancel booking result modal */}
+      <Modal
+        open={!!cancelBookingResult}
+        onCancel={() => setCancelBookingResult(null)}
+        footer={
+          <Space>
+            {cancelBookingResult?.refund_status === "pending" && Number(cancelBookingResult?.refund_due) > 0 && (
+              <Button
+                danger
+                type="primary"
+                icon={<DollarOutlined />}
+                onClick={() => openSettleRefund({
+                  id: cancelBookingResult.booking_id,
+                  refund_due: cancelBookingResult.refund_due,
+                  refund_paid: cancelBookingResult.refund_paid,
+                  refund_status: cancelBookingResult.refund_status,
+                })}
+              >
+                Settle Refund
+              </Button>
+            )}
+            <Button type="primary" onClick={() => setCancelBookingResult(null)}>Close</Button>
+          </Space>
+        }
+        title={
+          <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#f87171" }}>
+            <StopOutlined />
+            Booking Cancelled
+          </span>
+        }
+        width={480}
+      >
+        {cancelBookingResult && (
+          <Descriptions column={1} size="small" bordered>
+            <Descriptions.Item label="Booking ID">
+              <Text copyable style={{ fontFamily: "monospace", fontSize: 11 }}>{cancelBookingResult.booking_id}</Text>
+            </Descriptions.Item>
+            <Descriptions.Item label="Status">
+              <Tag color="red">{String(cancelBookingResult.status || "cancelled").toUpperCase()}</Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="Amount Paid">₹{cancelBookingResult.amount_paid ?? 0}</Descriptions.Item>
+            <Descriptions.Item label="Refund Paid">₹{cancelBookingResult.refund_paid ?? 0}</Descriptions.Item>
+            <Descriptions.Item label="Refund Due">
+              <span style={{ color: Number(cancelBookingResult.refund_due) > 0 ? "#f87171" : "rgba(255,255,255,0.5)", fontWeight: 700 }}>
+                ₹{cancelBookingResult.refund_due ?? 0}
+              </span>
+            </Descriptions.Item>
+            <Descriptions.Item label="Refund Status">
+              <Tag color={cancelBookingResult.refund_status === "pending" ? "red" : cancelBookingResult.refund_status === "settled" ? "green" : "default"}>
+                {String(cancelBookingResult.refund_status || "none").toUpperCase()}
+              </Tag>
+            </Descriptions.Item>
+            {cancelBookingResult.cancellation?.reason && (
+              <Descriptions.Item label="Reason">{cancelBookingResult.cancellation.reason}</Descriptions.Item>
+            )}
+            {cancelBookingResult.cancellation?.cancelled_at && (
+              <Descriptions.Item label="Cancelled At">{fmtDate(cancelBookingResult.cancellation.cancelled_at)}</Descriptions.Item>
+            )}
+          </Descriptions>
+        )}
+      </Modal>
+
       {/* booking detail modal */}
       <Modal
         open={!!selectedBooking}
@@ -2530,13 +2903,24 @@ export default function AdminDashboard() {
                   Settle Refund (₹{selectedBooking.refund_due})
                 </Button>
               )}
-              <Button
-                type="primary"
-                icon={<EditOutlined />}
-                onClick={() => openEditBooking(selectedBooking)}
-              >
-                Edit Booking
-              </Button>
+              {selectedBooking.status !== "cancelled" && (
+                <Button
+                  danger
+                  icon={<StopOutlined />}
+                  onClick={() => openCancelBooking(selectedBooking)}
+                >
+                  Cancel Booking
+                </Button>
+              )}
+              {selectedBooking.status !== "cancelled" && (
+                <Button
+                  type="primary"
+                  icon={<EditOutlined />}
+                  onClick={() => openEditBooking(selectedBooking)}
+                >
+                  Edit Booking
+                </Button>
+              )}
               <Button onClick={() => setSelectedBooking(null)}>Close</Button>
             </Space>
           ) : null
@@ -2551,23 +2935,6 @@ export default function AdminDashboard() {
       >
         {selectedBooking && (
           <div>
-            {selectedBooking.refund_status === "pending" && Number(selectedBooking.refund_due) > 0 && (
-              <div style={{
-                background: "rgba(248,113,113,0.1)",
-                border: "1px solid rgba(248,113,113,0.3)",
-                borderRadius: 8,
-                padding: 12,
-                marginBottom: 16,
-                fontSize: 13,
-                color: "#fca5a5",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}>
-                <WarningOutlined />
-                Refund of <strong>₹{selectedBooking.refund_due}</strong> is pending. Pay the guest back (UPI / cash / bank / Razorpay dashboard), then click <em>Settle Refund</em> to record it.
-              </div>
-            )}
             <Descriptions column={2} size="small" bordered style={{ marginBottom: 16 }}>
               <Descriptions.Item label="Booking ID" span={2}>
                 <Text copyable style={{ fontFamily: "monospace", fontSize: 11 }}>{selectedBooking.id}</Text>
