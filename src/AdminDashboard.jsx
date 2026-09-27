@@ -151,6 +151,7 @@ export default function AdminDashboard() {
   const token = localStorage.getItem("admin_token");
   const currentAdmin = useMemo(() => decodeJwt(token) || {}, [token]);
   const isSuperAdmin = currentAdmin.role === "super_admin";
+  const [activeTab, setActiveTab] = useState("bookings");
 
   // Matches "*", exact "resource:action", or wildcard "resource:*".
   const hasPermission = useCallback((perm) => {
@@ -184,7 +185,6 @@ export default function AdminDashboard() {
   }, [token, navigate]);
 
   const [collapsed, setCollapsed] = useState(false);
-  const [activeTab, setActiveTab] = useState("bookings");
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
