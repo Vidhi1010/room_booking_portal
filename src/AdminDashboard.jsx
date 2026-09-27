@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Layout,
@@ -54,6 +54,7 @@ import {
   EditOutlined,
   WarningOutlined,
   StopOutlined,
+  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { API_BASE } from "./config";
 
@@ -85,9 +86,39 @@ const TEMPLATE_TYPE_MAP = {
   yatra_invitation: "marketing",
 };
 
+const ROLE_LABELS = {
+  super_admin: "Super Admin",
+  admin: "Admin",
+  manager: "Manager",
+  accounts: "Accounts",
+};
+
+const ROLE_COLORS = {
+  super_admin: "magenta",
+  admin: "red",
+  manager: "blue",
+  accounts: "green",
+};
+
+// Decode JWT payload without verifying — used only for client-side UI hints (role, email).
+const decodeJwt = (token) => {
+  if (!token) return null;
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) return null;
+    const b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+};
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const token = localStorage.getItem("admin_token");
+  const currentAdmin = useMemo(() => decodeJwt(token) || {}, [token]);
+  const isSuperAdmin = currentAdmin.role === "super_admin";
 
   useEffect(() => {
     if (!token) navigate("/admin/login", { replace: true });
@@ -163,6 +194,14 @@ export default function AdminDashboard() {
   const [cancellingBooking, setCancellingBooking] = useState(false);
   const [cancelBookingTarget, setCancelBookingTarget] = useState(null);
   const [cancelBookingResult, setCancelBookingResult] = useState(null);
+
+  // Admin-users state
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [createAdminUserOpen, setCreateAdminUserOpen] = useState(false);
+  const [createAdminUserForm] = Form.useForm();
+  const [creatingAdminUser, setCreatingAdminUser] = useState(false);
+  const [deletingAdminUserId, setDeletingAdminUserId] = useState(null);
 
   const fetchDashboard = useCallback(async () => {
     setDashboardLoading(true);
@@ -767,6 +806,116 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchAdminUsers = useCallback(async () => {
+    setAdminUsersLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin-users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401 || res.status === 403) {
+        if (res.status === 401) {
+          message.error("Session expired. Please login again.");
+          localStorage.removeItem("admin_token");
+          navigate("/admin/login", { replace: true });
+        } else {
+          message.warning("You don't have permission to view admin users");
+        }
+        setAdminUsers([]);
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      setAdminUsers(Array.isArray(data) ? data : data.admins || data.body || []);
+    } catch {
+      message.error("Failed to fetch admin users");
+    } finally {
+      setAdminUsersLoading(false);
+    }
+  }, [token, navigate]);
+
+  useEffect(() => {
+    if (activeTab === "admin-users" && isSuperAdmin) fetchAdminUsers();
+  }, [activeTab, isSuperAdmin, fetchAdminUsers]);
+
+  const submitCreateAdminUser = async (values) => {
+    setCreatingAdminUser(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin-users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          email: values.email?.trim().toLowerCase(),
+          password: values.password,
+          role: values.role,
+          name: values.name?.trim() || undefined,
+        }),
+      });
+      if (res.status === 401 || res.status === 403) {
+        message.error(res.status === 401 ? "Session expired." : "You don't have permission");
+        if (res.status === 401) {
+          localStorage.removeItem("admin_token");
+          navigate("/admin/login", { replace: true });
+        }
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 409) {
+        message.warning(data.error || "An admin with that email already exists");
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || data.message || "Failed to create admin");
+      message.success("Admin created");
+      setCreateAdminUserOpen(false);
+      createAdminUserForm.resetFields();
+      fetchAdminUsers();
+    } catch (e) {
+      message.error(e.message || "Failed to create admin");
+    } finally {
+      setCreatingAdminUser(false);
+    }
+  };
+
+  const handleDeleteAdminUser = (admin) => {
+    Modal.confirm({
+      title: "Remove admin?",
+      icon: <WarningOutlined style={{ color: "#f87171" }} />,
+      content: (
+        <div>
+          <div>This will remove <strong>{admin.email}</strong> ({ROLE_LABELS[admin.role] || admin.role}).</div>
+          <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.5)" }}>They'll immediately lose access to the admin dashboard.</div>
+        </div>
+      ),
+      okText: "Remove",
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        setDeletingAdminUserId(admin.id);
+        try {
+          const res = await fetch(`${API_BASE}/admin-users?id=${encodeURIComponent(admin.id)}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.status === 401 || res.status === 403) {
+            message.error(res.status === 401 ? "Session expired." : "You don't have permission");
+            if (res.status === 401) {
+              localStorage.removeItem("admin_token");
+              navigate("/admin/login", { replace: true });
+            }
+            return;
+          }
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || "Failed to remove admin");
+          }
+          message.success("Admin removed");
+          fetchAdminUsers();
+        } catch (e) {
+          message.error(e.message || "Failed to remove admin");
+        } finally {
+          setDeletingAdminUserId(null);
+        }
+      },
+    });
+  };
+
   const columns = [
     {
       title: "Name",
@@ -960,6 +1109,7 @@ export default function AdminDashboard() {
               { key: "bookings", icon: <BookOutlined />, label: "Bookings" },
               { key: "rooms", icon: <HomeOutlined />, label: "Rooms" },
               { key: "campaigns", icon: <NotificationOutlined />, label: "Campaigns" },
+              ...(isSuperAdmin ? [{ key: "admin-users", icon: <SafetyCertificateOutlined />, label: "Admin Users" }] : []),
             ]}
           />
         </Sider>
@@ -988,7 +1138,16 @@ export default function AdminDashboard() {
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
                 <Avatar size="small" icon={<UserOutlined />} style={{ backgroundColor: "#d97706" }} />
-                <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>Admin</Text>
+                <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
+                  <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 13 }}>
+                    {currentAdmin.email || currentAdmin.name || "Admin"}
+                  </Text>
+                  {currentAdmin.role && (
+                    <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>
+                      {ROLE_LABELS[currentAdmin.role] || currentAdmin.role}
+                    </Text>
+                  )}
+                </div>
               </div>
             </Dropdown>
           </Header>
@@ -1837,6 +1996,157 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   )}
+                </Modal>
+              </>
+            )}
+
+            {activeTab === "admin-users" && (
+              <>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+                  <div>
+                    <Title level={4} style={{ color: "#fff", margin: 0 }}>Admin Users</Title>
+                    <Text style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Manage admin dashboard access
+                    </Text>
+                  </div>
+                  <Space wrap>
+                    <Button icon={<ReloadOutlined />} onClick={fetchAdminUsers} loading={adminUsersLoading}>
+                      Refresh
+                    </Button>
+                    <Button
+                      type="primary"
+                      icon={<UserAddOutlined />}
+                      onClick={() => { createAdminUserForm.resetFields(); createAdminUserForm.setFieldsValue({ role: "manager" }); setCreateAdminUserOpen(true); }}
+                    >
+                      Add Admin
+                    </Button>
+                  </Space>
+                </div>
+
+                <Table
+                  dataSource={adminUsers}
+                  rowKey="id"
+                  loading={adminUsersLoading}
+                  pagination={false}
+                  size="middle"
+                  scroll={{ x: 720 }}
+                  columns={[
+                    {
+                      title: "Email",
+                      dataIndex: "email",
+                      key: "email",
+                      render: (v, r) => (
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{v}</div>
+                          {r.name && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{r.name}</div>}
+                        </div>
+                      ),
+                    },
+                    {
+                      title: "Role",
+                      dataIndex: "role",
+                      key: "role",
+                      width: 160,
+                      render: (v) => (
+                        <Tag color={ROLE_COLORS[v] || "default"}>{ROLE_LABELS[v] || v?.toUpperCase()}</Tag>
+                      ),
+                    },
+                    {
+                      title: "Created",
+                      dataIndex: "created_at",
+                      key: "created_at",
+                      width: 180,
+                      render: (v) => v ? fmtDate(v) : "-",
+                    },
+                    {
+                      title: "",
+                      key: "actions",
+                      width: 120,
+                      align: "right",
+                      render: (_, r) => {
+                        const isSelf = r.email && currentAdmin.email && r.email.toLowerCase() === String(currentAdmin.email).toLowerCase();
+                        return (
+                          <Button
+                            danger
+                            size="small"
+                            icon={<DeleteOutlined />}
+                            loading={deletingAdminUserId === r.id}
+                            disabled={isSelf}
+                            title={isSelf ? "You can't remove yourself" : undefined}
+                            onClick={() => handleDeleteAdminUser(r)}
+                          >
+                            Remove
+                          </Button>
+                        );
+                      },
+                    },
+                  ]}
+                  locale={{ emptyText: <Empty description="No admin users" /> }}
+                />
+
+                <Modal
+                  open={createAdminUserOpen}
+                  onCancel={() => { if (!creatingAdminUser) { setCreateAdminUserOpen(false); createAdminUserForm.resetFields(); } }}
+                  footer={null}
+                  width={480}
+                  destroyOnClose
+                  title={
+                    <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <SafetyCertificateOutlined />
+                      Add Admin User
+                    </span>
+                  }
+                >
+                  <Form
+                    form={createAdminUserForm}
+                    layout="vertical"
+                    onFinish={submitCreateAdminUser}
+                    style={{ marginTop: 8 }}
+                  >
+                    <Form.Item
+                      name="email"
+                      label="Email"
+                      rules={[
+                        { required: true, message: "Email is required" },
+                        { type: "email", message: "Enter a valid email" },
+                      ]}
+                    >
+                      <Input placeholder="admin@example.com" autoComplete="off" />
+                    </Form.Item>
+                    <Form.Item name="name" label="Display Name (optional)">
+                      <Input placeholder="Aakash" />
+                    </Form.Item>
+                    <Form.Item
+                      name="password"
+                      label="Password"
+                      rules={[
+                        { required: true, message: "Password is required" },
+                        { min: 8, message: "At least 8 characters" },
+                      ]}
+                    >
+                      <Input.Password placeholder="Min 8 characters" autoComplete="new-password" />
+                    </Form.Item>
+                    <Form.Item name="role" label="Role" rules={[{ required: true }]}>
+                      <Select
+                        options={[
+                          { label: "Super Admin — full access", value: "super_admin" },
+                          { label: "Admin — bookings, refunds, campaigns, settlements", value: "admin" },
+                          { label: "Manager — bookings + yatra read/sheet sync", value: "manager" },
+                          { label: "Accounts — refunds, settlements, dashboard", value: "accounts" },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
+                      <Space>
+                        <Button onClick={() => { setCreateAdminUserOpen(false); createAdminUserForm.resetFields(); }} disabled={creatingAdminUser}>
+                          Cancel
+                        </Button>
+                        <Button type="primary" htmlType="submit" loading={creatingAdminUser} icon={<UserAddOutlined />}>
+                          Create Admin
+                        </Button>
+                      </Space>
+                    </Form.Item>
+                  </Form>
                 </Modal>
               </>
             )}
