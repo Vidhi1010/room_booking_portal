@@ -200,8 +200,9 @@ export default function AccountsTab({ token }) {
     setSavingExpense(true);
     try {
       const cat = expenseCategories.find(c => c.id === values.category_id);
+      if (!cat) { message.error("Category not found — please refresh and try again"); setSavingExpense(false); return; }
       const dateStr = values.date?.format("YYYY-MM-DD");
-      const result = await apiPost("/accounts-expenses", "save-expense", { ...values, id: editingExpense?.id, category_name: cat?.name || "", date: dateStr });
+      const result = await apiPost("/accounts-expenses", "save-expense", { ...values, id: editingExpense?.id, category_name: cat.name, date: dateStr });
 
       // If "also record payment" is checked and this is a new expense
       if (!editingExpense && values.record_payment && values.payment_account_id && result?.expense?.id) {
@@ -239,8 +240,9 @@ export default function AccountsTab({ token }) {
     setSavingCollectionItem(true);
     try {
       const cat = collectionCategories.find(c => c.id === values.category_id);
+      if (!cat) { message.error("Category not found — please refresh and try again"); setSavingCollectionItem(false); return; }
       const dateStr = values.date?.format("YYYY-MM-DD");
-      const result = await apiPost("/accounts-collections", "save-collection", { ...values, id: editingCollection?.id, category_name: cat?.name || "", date: dateStr });
+      const result = await apiPost("/accounts-collections", "save-collection", { ...values, id: editingCollection?.id, category_name: cat.name, date: dateStr });
 
       // If "also record receipt" is checked and this is a new collection
       if (!editingCollection && values.record_receipt && values.receipt_account_id && result?.collection?.id) {
@@ -333,13 +335,13 @@ export default function AccountsTab({ token }) {
   const openEditExpense = (e) => {
     setEditingExpense(e);
     setExpenseModalOpen(true);
-    setTimeout(() => expenseForm.setFieldsValue({ ...e, date: undefined }), 0);
+    setTimeout(() => expenseForm.setFieldsValue({ ...e, date: e.date ? dayjs(e.date) : undefined }), 0);
   };
 
   const openEditCollection = (c) => {
     setEditingCollection(c);
     setCollectionModalOpen(true);
-    setTimeout(() => collectionForm.setFieldsValue({ ...c, date: undefined }), 0);
+    setTimeout(() => collectionForm.setFieldsValue({ ...c, date: c.date ? dayjs(c.date) : undefined }), 0);
   };
 
   const openAddExpenseForCategory = (catId) => {
