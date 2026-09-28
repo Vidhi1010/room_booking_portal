@@ -8,6 +8,7 @@ const RoomSelection = lazy(() => import('./RoomSelection'));
 const Checkout = lazy(() => import('./Checkout'));
 const AdminLogin = lazy(() => import('./AdminLogin'));
 const AdminDashboard = lazy(() => import('./AdminDashboard'));
+const SchedulePage = lazy(() => import('./SchedulePage'));
 
 function PageTracker() {
   const location = useLocation();
@@ -30,6 +31,7 @@ function App() {
       <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#FDF8F0]"><div className="w-8 h-8 border-3 border-amber-400 border-t-transparent rounded-full animate-spin" /></div>}>
         <Routes>
           <Route path="/" element={<VrajKartikYatra />} />
+          <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/register" element={<RoomSelection />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/room-booking" element={<RoomBookingPortal />} />
