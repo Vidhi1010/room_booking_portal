@@ -383,7 +383,7 @@ export default function AccountsTab({ token }) {
   ];
 
   const collectionColsInSubCat = [
-    { title: "Description", dataIndex: "description", key: "desc", ellipsis: true, width: 180 },
+    { title: "Description", key: "desc", width: 180, render: (_, r) => <span>{r.description} {r.booking_id && <Tag color="blue" style={{ fontSize: 10, marginLeft: 4 }}>Booking</Tag>}</span> },
     { title: "Expected", dataIndex: "total_amount", key: "total", width: 100, render: fmtAmount },
     { title: "Received", dataIndex: "received_amount", key: "recv", width: 100, render: fmtAmount },
     { title: "Status", dataIndex: "status", key: "status", width: 130, render: (s) => <Tag color={COLLECTION_STATUS_COLORS[s]}>{s?.replace(/_/g, " ").toUpperCase()}</Tag> },
@@ -786,6 +786,7 @@ export default function AccountsTab({ token }) {
             <div style={{ marginBottom: 8 }}>
               <Text type="secondary">Category: </Text>{selectedCollection.category_name}{selectedCollection.sub_category && ` / ${selectedCollection.sub_category}`}
               <br /><Text type="secondary">Date: </Text>{fmtDate(selectedCollection.date)}
+              {selectedCollection.booking_id && <><br /><Text type="secondary">Booking: </Text><Tag color="blue">Linked to booking</Tag></>}
               {selectedCollection.notes && <><br /><Text type="secondary">Notes: </Text>{selectedCollection.notes}</>}
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "16px 0 8px" }}>
