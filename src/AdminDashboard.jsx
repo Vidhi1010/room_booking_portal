@@ -687,9 +687,6 @@ export default function AdminDashboard() {
       room_id: booking.room_id || undefined,
       transport_opted: !!booking.transport_opted,
       transport_id: booking.transport_id || undefined,
-      additional_cash_paid: 0,
-      payment_reference: undefined,
-      payment_note: undefined,
       reason: undefined,
     });
     setEditBookingOpen(true);
@@ -706,8 +703,6 @@ export default function AdminDashboard() {
       const roomChanged = !values.no_accommodation && values.room_id && values.room_id !== target.room_id;
       const transportOptedChanged = !!values.transport_opted !== !!target.transport_opted;
       const transportIdChanged = !!values.transport_opted && values.transport_id && values.transport_id !== target.transport_id;
-      const cash = Number(values.additional_cash_paid || 0);
-
       if (noAccChanged) payload.no_accommodation = !!values.no_accommodation;
       if (!values.no_accommodation && roomChanged) payload.room_id = values.room_id;
       if (!values.no_accommodation) {
@@ -716,14 +711,9 @@ export default function AdminDashboard() {
           payload.transport_id = values.transport_id;
         }
       }
-      if (cash > 0) {
-        payload.additional_cash_paid = cash;
-        if (values.payment_reference) payload.payment_reference = values.payment_reference;
-        if (values.payment_note) payload.payment_note = values.payment_note;
-      }
       if (values.reason) payload.reason = values.reason;
 
-      const changeKeys = ["room_id", "transport_opted", "transport_id", "no_accommodation", "additional_cash_paid"];
+      const changeKeys = ["room_id", "transport_opted", "transport_id", "no_accommodation"];
       if (!changeKeys.some((k) => k in payload)) {
         message.warning("No changes to save");
         setEditingBooking(false);
@@ -2789,7 +2779,6 @@ export default function AdminDashboard() {
                 const roomId = getFieldValue("room_id");
                 const transportOpted = getFieldValue("transport_opted");
                 const transportId = getFieldValue("transport_id");
-                const cash = Number(getFieldValue("additional_cash_paid") || 0);
                 const occupants = editBookingTarget.total_occupants || 1;
                 let perPerson = 0;
                 if (noAcc) {
@@ -2803,7 +2792,7 @@ export default function AdminDashboard() {
                 const oldTotal = Number(editBookingTarget.total_amount) || 0;
                 const oldPaid = Number(editBookingTarget.amount_paid) || 0;
                 const refundPaid = Number(editBookingTarget.refund_paid) || 0;
-                const netPaid = oldPaid + cash - refundPaid;
+                const netPaid = oldPaid - refundPaid;
                 const refundDue = Math.max(0, netPaid - newTotal);
                 const balance = Math.max(0, newTotal - netPaid);
                 const delta = newTotal - oldTotal;
@@ -2850,31 +2839,6 @@ export default function AdminDashboard() {
               }}
             </Form.Item>
 
-            <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Additional Payment (optional)</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <Form.Item
-                name="additional_cash_paid"
-                label="Additional Amount Paid"
-                rules={[
-                  {
-                    validator: (_, v) => {
-                      if (v == null || v === "") return Promise.resolve();
-                      if (Number(v) < 0) return Promise.reject(new Error("Cannot be negative"));
-                      return Promise.resolve();
-                    },
-                  },
-                ]}
-              >
-                <InputNumber min={0} style={{ width: "100%" }} prefix="₹" placeholder="0" />
-              </Form.Item>
-              <Form.Item name="payment_reference" label="Payment Reference">
-                <Input placeholder="Receipt / reference #" />
-              </Form.Item>
-            </div>
-            <Form.Item name="payment_note" label="Payment Note">
-              <Input.TextArea rows={2} placeholder="Optional" />
-            </Form.Item>
-
             <Form.Item name="reason" label="Reason (admin note)">
               <Input.TextArea rows={2} placeholder="Why is this change being made?" />
             </Form.Item>
@@ -2918,9 +2882,6 @@ export default function AdminDashboard() {
               </Descriptions.Item>
               <Descriptions.Item label="Paid">
                 <span style={{ color: "#4ade80", fontWeight: 600 }}>₹{editBookingResult.amount_paid}</span>
-              </Descriptions.Item>
-              <Descriptions.Item label="Amount Added">
-                ₹{editBookingResult.additional_cash_paid ?? 0}
               </Descriptions.Item>
               <Descriptions.Item label="Refund Paid">
                 ₹{editBookingResult.refund_paid ?? 0}
