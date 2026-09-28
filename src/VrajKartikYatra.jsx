@@ -26,6 +26,7 @@ import {
   Clock,
 } from "lucide-react";
 import { defaultTheme } from "./themes";
+import { yatraSchedule, yatraDateRange } from "./yatraSchedule";
 
 /* ───────────────────────── helpers ───────────────────────── */
 function Section({ children, className = "", id }) {
@@ -180,6 +181,7 @@ export default function VrajKartikYatra() {
   const [lightboxImg, setLightboxImg] = useState(null);
   const [heroSlide, setHeroSlide] = useState(0);
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const [activeDay, setActiveDay] = useState(0);
 
   useEffect(() => {
     const target = new Date("2026-09-20T23:59:59").getTime();
@@ -727,24 +729,120 @@ export default function VrajKartikYatra() {
               <span style={{ background: `linear-gradient(to right, var(--t-accent-from), var(--t-accent-to))`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Itinerary</span>
             </h2>
             <p className="mt-4 text-lg max-w-2xl mx-auto" style={{ color: "var(--t-text-muted)" }}>Three days of divine experiences, carefully planned for your spiritual transformation.</p>
+            <p className="mt-2 text-sm" style={{ color: "var(--t-text-faint)" }}>{yatraDateRange} · Tentative schedule</p>
           </div>
-          <div className="relative">
-            <div className="absolute left-8 md:left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-amber-400/40 via-amber-400/20 to-transparent" />
-            {/* itinerary items - to be announced soon */}
-            <div className="text-center py-16">
-              <p className="text-lg font-semibold" style={{ color: "var(--t-accent-from)" }}>To be announced soon</p>
-              <p className="text-sm mt-2" style={{ color: "var(--t-text-muted)" }}>Detailed day-wise itinerary will be shared shortly. Stay tuned!</p>
-            </div>
-            {/* {itinerary.map((item, i) => (
-              <motion.div key={i} initial={{ opacity: 0, x: i % 2 === 0 ? -40 : 40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1, duration: 0.6 }} className={`relative flex items-start gap-8 mb-12 ${i % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"}`}>
-                <div className="absolute left-8 md:left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-amber-500 z-10 shadow-lg shadow-amber-400/30" style={{ border: "4px solid var(--t-bg)" }} />
-                <div className={`ml-16 md:ml-0 md:w-[calc(50%-2rem)] ${i % 2 === 0 ? "md:pr-8 md:text-right" : "md:pl-8"}`}>
-                  <span className="inline-block px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/20 text-amber-700 text-xs font-bold tracking-wider mb-3">{item.day}</span>
-                  <h3 className="text-xl font-bold mb-2">{item.title}</h3>
-                  <p className="text-sm leading-relaxed" style={{ color: "var(--t-text-muted)" }}>{item.desc}</p>
-                </div>
-              </motion.div>
-            ))} */}
+
+          {/* day tabs */}
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-10">
+            {yatraSchedule.map((day, i) => (
+              <button
+                key={day.day}
+                onClick={() => setActiveDay(i)}
+                className="px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300"
+                style={
+                  activeDay === i
+                    ? {
+                        background: `linear-gradient(to right, var(--t-accent-from), var(--t-accent-to))`,
+                        color: "#fff",
+                        boxShadow: "0 8px 20px -8px var(--t-accent-from)",
+                      }
+                    : {
+                        backgroundColor: "var(--t-card-tint)",
+                        border: "1px solid var(--t-border)",
+                        color: "var(--t-text-secondary)",
+                      }
+                }
+              >
+                <span className="tracking-wider uppercase text-[10px] mr-2 opacity-70">
+                  {day.label}
+                </span>
+                {day.date.split(",")[0]}
+              </button>
+            ))}
+          </div>
+
+          {/* active day preview */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeDay}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="relative"
+            >
+              <div
+                className="text-center mb-8 text-sm"
+                style={{ color: "var(--t-text-muted)" }}
+              >
+                {yatraSchedule[activeDay].date}
+              </div>
+
+              <ul className="max-w-2xl mx-auto space-y-3">
+                {yatraSchedule[activeDay].items
+                  .filter((it) => it.preview)
+                  .map((item, i) => (
+                    <motion.li
+                      key={i}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05, duration: 0.4 }}
+                      className="grid grid-cols-[100px_1fr] sm:grid-cols-[130px_1fr] gap-4 sm:gap-6 items-start px-4 py-3 rounded-xl"
+                      style={{
+                        backgroundColor: item.highlight
+                          ? "var(--t-card-tint)"
+                          : "transparent",
+                        border: "1px solid var(--t-border)",
+                      }}
+                    >
+                      <div
+                        className="text-xs sm:text-sm font-mono tabular-nums leading-relaxed"
+                        style={{
+                          color: item.highlight
+                            ? "var(--t-accent-tag)"
+                            : "var(--t-text-muted)",
+                        }}
+                      >
+                        <div className="inline-flex items-center gap-1.5">
+                          <Clock className="w-3 h-3 opacity-60 shrink-0" />
+                          <span>{item.from}</span>
+                        </div>
+                        {item.to && (
+                          <div className="mt-0.5 pl-4 opacity-80">
+                            → {item.to}
+                          </div>
+                        )}
+                      </div>
+                      <div
+                        className={`text-sm sm:text-base leading-relaxed ${
+                          item.highlight ? "font-semibold" : ""
+                        }`}
+                        style={{
+                          color: item.highlight
+                            ? "var(--t-text)"
+                            : "var(--t-text-secondary)",
+                        }}
+                      >
+                        {item.title}
+                      </div>
+                    </motion.li>
+                  ))}
+              </ul>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* CTA to full schedule */}
+          <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              onClick={() => {
+                trackEvent("Schedule", "view_full_schedule", "itinerary_section");
+                nav("/schedule");
+              }}
+              className="group inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold text-sm hover:shadow-lg hover:shadow-amber-500/25 transition-all duration-300 hover:scale-105"
+            >
+              View Full Schedule
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </button>
           </div>
         </div>
       </Section>

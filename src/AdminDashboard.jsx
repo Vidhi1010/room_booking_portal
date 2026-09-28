@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Layout,
@@ -25,6 +25,7 @@ import {
   Progress,
   Empty,
   Spin,
+  DatePicker,
 } from "antd";
 import {
   DashboardOutlined,
@@ -54,8 +55,10 @@ import {
   EditOutlined,
   WarningOutlined,
   StopOutlined,
+  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { API_BASE } from "./config";
+import AccountsTab from "./AccountsTab";
 
 const { Sider, Content, Header } = Layout;
 const { Title, Text } = Typography;
@@ -85,16 +88,104 @@ const TEMPLATE_TYPE_MAP = {
   yatra_invitation: "marketing",
 };
 
+const ROLE_LABELS = {
+  super_admin: "Super Admin",
+  admin: "Admin",
+  manager: "Manager",
+  accounts: "Accounts",
+};
+
+const ROLE_COLORS = {
+  super_admin: "magenta",
+  admin: "red",
+  manager: "blue",
+  accounts: "green",
+};
+
+// Kept in sync with the backend `ROLE_PERMISSIONS` map.
+const ROLE_PERMISSIONS = {
+  super_admin: ["*"],
+  admin: [
+    "booking:*",
+    "refund:*",
+    "yatra:*",
+    "campaign:*",
+    "settlement:*",
+    "accounts:*",
+    "user:read",
+    "dashboard:read",
+    "sheet:sync",
+  ],
+  manager: [
+    "booking:read",
+    "booking:create",
+    "booking:update",
+    "yatra:read",
+    "user:read",
+    "sheet:sync",
+  ],
+  accounts: [
+    "booking:read",
+    "refund:*",
+    "settlement:*",
+    "accounts:*",
+    "dashboard:read",
+  ],
+};
+
+// Decode JWT payload without verifying — used only for client-side UI hints (role, email).
+const decodeJwt = (token) => {
+  if (!token) return null;
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) return null;
+    const b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+};
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const token = localStorage.getItem("admin_token");
+  const currentAdmin = useMemo(() => decodeJwt(token) || {}, [token]);
+  const isSuperAdmin = currentAdmin.role === "super_admin";
+  const [activeTab, setActiveTab] = useState("bookings");
+
+  // Matches "*", exact "resource:action", or wildcard "resource:*".
+  const hasPermission = useCallback((perm) => {
+    const perms = ROLE_PERMISSIONS[currentAdmin.role] || [];
+    if (perms.includes("*")) return true;
+    if (perms.includes(perm)) return true;
+    const [resource] = perm.split(":");
+    return perms.includes(`${resource}:*`);
+  }, [currentAdmin.role]);
+
+  const menuItems = useMemo(() => {
+    const items = [];
+    if (hasPermission("dashboard:read")) items.push({ key: "dashboard", icon: <DashboardOutlined />, label: "Dashboard" });
+    if (hasPermission("booking:read")) items.push({ key: "bookings", icon: <BookOutlined />, label: "Bookings" });
+    if (hasPermission("booking:read")) items.push({ key: "rooms", icon: <HomeOutlined />, label: "Rooms" });
+    if (hasPermission("campaign:read")) items.push({ key: "campaigns", icon: <NotificationOutlined />, label: "Campaigns" });
+    if (hasPermission("accounts:read")) items.push({ key: "accounts", icon: <DollarOutlined />, label: "Accounts" });
+    if (isSuperAdmin) items.push({ key: "admin-users", icon: <SafetyCertificateOutlined />, label: "Admin Users" });
+    return items;
+  }, [hasPermission, isSuperAdmin]);
+
+  useEffect(() => {
+    if (!menuItems.length) return;
+    if (!menuItems.some((it) => it.key === activeTab)) {
+      setActiveTab(menuItems[0].key);
+    }
+  }, [menuItems, activeTab]);
 
   useEffect(() => {
     if (!token) navigate("/admin/login", { replace: true });
   }, [token, navigate]);
 
   const [collapsed, setCollapsed] = useState(false);
-  const [activeTab, setActiveTab] = useState("bookings");
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
@@ -135,7 +226,7 @@ export default function AdminDashboard() {
   const [syncResult, setSyncResult] = useState(null);
   const [lastSyncedAt, setLastSyncedAt] = useState(() => localStorage.getItem("bookings_last_synced_at") || null);
 
-  // Create-booking (manual/cash) state
+  // Create-booking (manual) state
   const [createBookingOpen, setCreateBookingOpen] = useState(false);
   const [createBookingForm] = Form.useForm();
   const [creatingBooking, setCreatingBooking] = useState(false);
@@ -157,6 +248,14 @@ export default function AdminDashboard() {
   const [settleRefundTarget, setSettleRefundTarget] = useState(null);
   const [settleRefundResult, setSettleRefundResult] = useState(null);
 
+  // Booking payment history state
+  const [bookingTxns, setBookingTxns] = useState([]);
+  const [bookingTxnsLoading, setBookingTxnsLoading] = useState(false);
+  const [addBookingPaymentOpen, setAddBookingPaymentOpen] = useState(false);
+  const [addBookingPaymentForm] = Form.useForm();
+  const [savingBookingPayment, setSavingBookingPayment] = useState(false);
+  const [bookingAccounts, setBookingAccounts] = useState([]);
+
   // Cancel-booking state
   const [cancelBookingOpen, setCancelBookingOpen] = useState(false);
   const [cancelBookingForm] = Form.useForm();
@@ -164,18 +263,85 @@ export default function AdminDashboard() {
   const [cancelBookingTarget, setCancelBookingTarget] = useState(null);
   const [cancelBookingResult, setCancelBookingResult] = useState(null);
 
+  // Admin-users state
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [createAdminUserOpen, setCreateAdminUserOpen] = useState(false);
+  const [createAdminUserForm] = Form.useForm();
+  const [creatingAdminUser, setCreatingAdminUser] = useState(false);
+  const [deletingAdminUserId, setDeletingAdminUserId] = useState(null);
+
+  // 401 → session expired (logout). 403 → authenticated but lacks permission (toast only).
+  const handleAuthError = useCallback((res, permissionMsg) => {
+    if (res.status === 401) {
+      message.error("Session expired. Please login again.");
+      localStorage.removeItem("admin_token");
+      navigate("/admin/login", { replace: true });
+      return true;
+    }
+    if (res.status === 403) {
+      message.warning(permissionMsg || "You don't have permission for this action");
+      return true;
+    }
+    return false;
+  }, [navigate]);
+
+  const fetchBookingTxns = useCallback(async (txnIds) => {
+    if (!txnIds || txnIds.length === 0) { setBookingTxns([]); return; }
+    setBookingTxnsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/accounts-transactions?action=get-transactions`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        const all = data.transactions || [];
+        setBookingTxns(all.filter((t) => txnIds.includes(t.id)));
+      }
+    } catch {}
+    finally { setBookingTxnsLoading(false); }
+  }, [token]);
+
+  const fetchBookingAccounts = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/accounts-manage?action=get-accounts`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) { const data = await res.json(); setBookingAccounts(data.accounts || []); }
+    } catch {}
+  }, [token]);
+
+  const submitBookingPayment = async (values) => {
+    if (!selectedBooking) return;
+    setSavingBookingPayment(true);
+    try {
+      const res = await fetch(`${API_BASE}/accounts-transactions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add-booking-payment",
+          booking_id: selectedBooking.id,
+          amount: values.amount,
+          account_id: values.account_id,
+          date: values.date?.format?.("YYYY-MM-DD") || new Date().toISOString().split("T")[0],
+          notes: values.notes || null,
+        }),
+      });
+      if (res.status === 401 || res.status === 403) { message.error("Session expired"); return; }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      message.success("Payment recorded");
+      setAddBookingPaymentOpen(false);
+      addBookingPaymentForm.resetFields();
+      fetchBookingTxns([ ...(selectedBooking.transaction_ids || []), data.transaction_id ]);
+      resetAndFetch();
+    } catch (e) { message.error(e.message); }
+    finally { setSavingBookingPayment(false); }
+  };
+
   const fetchDashboard = useCallback(async () => {
     setDashboardLoading(true);
     try {
       const res = await fetch(`${API_BASE}/get-dashboard`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.status === 401 || res.status === 403) {
-        message.error("Session expired. Please login again.");
-        localStorage.removeItem("admin_token");
-        navigate("/admin/login", { replace: true });
-        return;
-      }
+      if (handleAuthError(res, "You don't have permission to view the dashboard")) return;
       const data = await res.json();
       setDashboardData(data);
     } catch {
@@ -188,6 +354,15 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (activeTab === "dashboard") fetchDashboard();
   }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch payment history when a booking is selected
+  useEffect(() => {
+    if (selectedBooking?.transaction_ids?.length > 0) {
+      fetchBookingTxns(selectedBooking.transaction_ids);
+    } else {
+      setBookingTxns([]);
+    }
+  }, [selectedBooking?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchYatras = useCallback(async () => {
     try {
@@ -209,12 +384,7 @@ export default function AdminDashboard() {
       const res = await fetch(`${API_BASE}/get-campaigns${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.status === 401 || res.status === 403) {
-        message.error("Session expired. Please login again.");
-        localStorage.removeItem("admin_token");
-        navigate("/admin/login", { replace: true });
-        return;
-      }
+      if (handleAuthError(res, "You don't have permission to view campaigns")) return;
       const data = await res.json();
       setCampaigns(Array.isArray(data) ? data : data.campaigns || data.body || []);
     } catch {
@@ -310,12 +480,7 @@ export default function AdminDashboard() {
         const res = await fetch(`${API_BASE}/get-bookings?${params.toString()}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (res.status === 401 || res.status === 403) {
-          message.error("Session expired. Please login again.");
-          localStorage.removeItem("admin_token");
-          navigate("/admin/login", { replace: true });
-          return;
-        }
+        if (handleAuthError(res, "You don't have permission to view bookings")) return;
         const data = await res.json();
         const list = Array.isArray(data) ? data : data.bookings || data.body || [];
         const nk = data && typeof data === "object" && !Array.isArray(data) ? (data.next_key ?? null) : null;
@@ -380,12 +545,7 @@ export default function AdminDashboard() {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.status === 401 || res.status === 403) {
-        message.error("Session expired. Please login again.");
-        localStorage.removeItem("admin_token");
-        navigate("/admin/login", { replace: true });
-        return;
-      }
+      if (handleAuthError(res, "You don't have permission to sync the sheet")) return;
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.error || "Failed to sync sheet");
@@ -440,6 +600,7 @@ export default function AdminDashboard() {
     });
     setCreateBookingOpen(true);
     if (!createBookingMeta.loaded) loadCreateBookingMeta();
+    fetchBookingAccounts();
   };
 
   const submitCreateBooking = async (values, { allowDuplicate = false } = {}) => {
@@ -469,6 +630,7 @@ export default function AdminDashboard() {
       };
       if (!isWaived) {
         payload.amount_paid = Number(values.amount_paid || 0);
+        if (values.account_id) payload.account_id = values.account_id;
         if (values.payment_reference) payload.payment_reference = values.payment_reference;
         if (values.payment_note) payload.payment_note = values.payment_note;
       }
@@ -485,12 +647,7 @@ export default function AdminDashboard() {
         body: JSON.stringify(payload),
       });
 
-      if (res.status === 401 || res.status === 403) {
-        message.error("Session expired. Please login again.");
-        localStorage.removeItem("admin_token");
-        navigate("/admin/login", { replace: true });
-        return;
-      }
+      if (handleAuthError(res, "You don't have permission to create bookings")) return;
 
       const data = await res.json().catch(() => ({}));
 
@@ -530,9 +687,6 @@ export default function AdminDashboard() {
       room_id: booking.room_id || undefined,
       transport_opted: !!booking.transport_opted,
       transport_id: booking.transport_id || undefined,
-      additional_cash_paid: 0,
-      payment_reference: undefined,
-      payment_note: undefined,
       reason: undefined,
     });
     setEditBookingOpen(true);
@@ -549,8 +703,6 @@ export default function AdminDashboard() {
       const roomChanged = !values.no_accommodation && values.room_id && values.room_id !== target.room_id;
       const transportOptedChanged = !!values.transport_opted !== !!target.transport_opted;
       const transportIdChanged = !!values.transport_opted && values.transport_id && values.transport_id !== target.transport_id;
-      const cash = Number(values.additional_cash_paid || 0);
-
       if (noAccChanged) payload.no_accommodation = !!values.no_accommodation;
       if (!values.no_accommodation && roomChanged) payload.room_id = values.room_id;
       if (!values.no_accommodation) {
@@ -559,14 +711,9 @@ export default function AdminDashboard() {
           payload.transport_id = values.transport_id;
         }
       }
-      if (cash > 0) {
-        payload.additional_cash_paid = cash;
-        if (values.payment_reference) payload.payment_reference = values.payment_reference;
-        if (values.payment_note) payload.payment_note = values.payment_note;
-      }
       if (values.reason) payload.reason = values.reason;
 
-      const changeKeys = ["room_id", "transport_opted", "transport_id", "no_accommodation", "additional_cash_paid"];
+      const changeKeys = ["room_id", "transport_opted", "transport_id", "no_accommodation"];
       if (!changeKeys.some((k) => k in payload)) {
         message.warning("No changes to save");
         setEditingBooking(false);
@@ -579,12 +726,7 @@ export default function AdminDashboard() {
         body: JSON.stringify(payload),
       });
 
-      if (res.status === 401 || res.status === 403) {
-        message.error("Session expired. Please login again.");
-        localStorage.removeItem("admin_token");
-        navigate("/admin/login", { replace: true });
-        return;
-      }
+      if (handleAuthError(res, "You don't have permission to update bookings")) return;
 
       const data = await res.json().catch(() => ({}));
 
@@ -629,6 +771,7 @@ export default function AdminDashboard() {
       note: undefined,
     });
     setSettleRefundOpen(true);
+    fetchBookingAccounts();
   };
 
   const submitSettleRefund = async (values) => {
@@ -647,6 +790,7 @@ export default function AdminDashboard() {
     setSettlingRefund(true);
     try {
       const payload = { booking_id: target.id, amount };
+      if (values.account_id) payload.account_id = values.account_id;
       if (values.reference) payload.reference = values.reference;
       if (values.note) payload.note = values.note;
 
@@ -656,12 +800,7 @@ export default function AdminDashboard() {
         body: JSON.stringify(payload),
       });
 
-      if (res.status === 401 || res.status === 403) {
-        message.error("Session expired. Please login again.");
-        localStorage.removeItem("admin_token");
-        navigate("/admin/login", { replace: true });
-        return;
-      }
+      if (handleAuthError(res, "You don't have permission to settle refunds")) return;
 
       const data = await res.json().catch(() => ({}));
 
@@ -732,12 +871,7 @@ export default function AdminDashboard() {
         body: JSON.stringify(payload),
       });
 
-      if (res.status === 401 || res.status === 403) {
-        message.error("Session expired. Please login again.");
-        localStorage.removeItem("admin_token");
-        navigate("/admin/login", { replace: true });
-        return;
-      }
+      if (handleAuthError(res, "You don't have permission to cancel bookings")) return;
 
       const data = await res.json().catch(() => ({}));
 
@@ -765,6 +899,95 @@ export default function AdminDashboard() {
     } finally {
       setCancellingBooking(false);
     }
+  };
+
+  const fetchAdminUsers = useCallback(async () => {
+    setAdminUsersLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin-users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (handleAuthError(res, "You don't have permission to view admin users")) {
+        setAdminUsers([]);
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      setAdminUsers(Array.isArray(data) ? data : data.admins || data.body || []);
+    } catch {
+      message.error("Failed to fetch admin users");
+    } finally {
+      setAdminUsersLoading(false);
+    }
+  }, [token, handleAuthError]);
+
+  useEffect(() => {
+    if (activeTab === "admin-users" && isSuperAdmin) fetchAdminUsers();
+  }, [activeTab, isSuperAdmin, fetchAdminUsers]);
+
+  const submitCreateAdminUser = async (values) => {
+    setCreatingAdminUser(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin-users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          email: values.email?.trim().toLowerCase(),
+          password: values.password,
+          role: values.role,
+          name: values.name?.trim() || undefined,
+        }),
+      });
+      if (handleAuthError(res, "You don't have permission to create admins")) return;
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 409) {
+        message.warning(data.error || "An admin with that email already exists");
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || data.message || "Failed to create admin");
+      message.success("Admin created");
+      setCreateAdminUserOpen(false);
+      createAdminUserForm.resetFields();
+      fetchAdminUsers();
+    } catch (e) {
+      message.error(e.message || "Failed to create admin");
+    } finally {
+      setCreatingAdminUser(false);
+    }
+  };
+
+  const handleDeleteAdminUser = (admin) => {
+    Modal.confirm({
+      title: "Remove admin?",
+      icon: <WarningOutlined style={{ color: "#f87171" }} />,
+      content: (
+        <div>
+          <div>This will remove <strong>{admin.email}</strong> ({ROLE_LABELS[admin.role] || admin.role}).</div>
+          <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.5)" }}>They'll immediately lose access to the admin dashboard.</div>
+        </div>
+      ),
+      okText: "Remove",
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        setDeletingAdminUserId(admin.id);
+        try {
+          const res = await fetch(`${API_BASE}/admin-users?id=${encodeURIComponent(admin.id)}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (handleAuthError(res, "You don't have permission to remove admins")) return;
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || "Failed to remove admin");
+          }
+          message.success("Admin removed");
+          fetchAdminUsers();
+        } catch (e) {
+          message.error(e.message || "Failed to remove admin");
+        } finally {
+          setDeletingAdminUserId(null);
+        }
+      },
+    });
   };
 
   const columns = [
@@ -842,12 +1065,13 @@ export default function AdminDashboard() {
       render: (_, r) => {
         const due = Number(r.refund_due) || 0;
         if (r.refund_status === "pending" && due > 0) {
+          const canSettle = hasPermission("refund:create");
           return (
             <Tag
               color="red"
               icon={<WarningOutlined />}
-              onClick={(e) => { e.stopPropagation(); openSettleRefund(r); }}
-              style={{ cursor: "pointer", margin: 0 }}
+              onClick={canSettle ? (e) => { e.stopPropagation(); openSettleRefund(r); } : undefined}
+              style={{ cursor: canSettle ? "pointer" : "default", margin: 0 }}
             >
               ₹{due} DUE
             </Tag>
@@ -955,12 +1179,7 @@ export default function AdminDashboard() {
             selectedKeys={[activeTab]}
             onClick={({ key }) => setActiveTab(key)}
             style={{ background: "transparent", borderRight: 0 }}
-            items={[
-              { key: "dashboard", icon: <DashboardOutlined />, label: "Dashboard" },
-              { key: "bookings", icon: <BookOutlined />, label: "Bookings" },
-              { key: "rooms", icon: <HomeOutlined />, label: "Rooms" },
-              { key: "campaigns", icon: <NotificationOutlined />, label: "Campaigns" },
-            ]}
+            items={menuItems}
           />
         </Sider>
 
@@ -988,7 +1207,16 @@ export default function AdminDashboard() {
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
                 <Avatar size="small" icon={<UserOutlined />} style={{ backgroundColor: "#d97706" }} />
-                <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>Admin</Text>
+                <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
+                  <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 13 }}>
+                    {currentAdmin.email || currentAdmin.name || "Admin"}
+                  </Text>
+                  {currentAdmin.role && (
+                    <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>
+                      {ROLE_LABELS[currentAdmin.role] || currentAdmin.role}
+                    </Text>
+                  )}
+                </div>
               </div>
             </Dropdown>
           </Header>
@@ -1098,20 +1326,24 @@ export default function AdminDashboard() {
                   <Button icon={<ReloadOutlined />} onClick={() => resetAndFetch()} loading={loading}>
                     Refresh
                   </Button>
-                  <Button
-                    icon={<UserAddOutlined />}
-                    type="primary"
-                    onClick={openCreateBooking}
-                  >
-                    Create Booking
-                  </Button>
-                  <Button
-                    icon={<SyncOutlined />}
-                    onClick={handleSyncSheet}
-                    loading={syncing}
-                  >
-                    Sync Sheet
-                  </Button>
+                  {hasPermission("booking:create") && (
+                    <Button
+                      icon={<UserAddOutlined />}
+                      type="primary"
+                      onClick={openCreateBooking}
+                    >
+                      Create Booking
+                    </Button>
+                  )}
+                  {hasPermission("sheet:sync") && (
+                    <Button
+                      icon={<SyncOutlined />}
+                      onClick={handleSyncSheet}
+                      loading={syncing}
+                    >
+                      Sync Sheet
+                    </Button>
+                  )}
                   {lastSyncedAt && (
                     <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>
                       Last synced: {fmtDate(lastSyncedAt)}
@@ -1528,9 +1760,11 @@ export default function AdminDashboard() {
                     <Button icon={<ReloadOutlined />} onClick={() => fetchCampaigns(selectedYatraId)} loading={campaignsLoading}>
                       Refresh
                     </Button>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
-                      Create Campaign
-                    </Button>
+                    {hasPermission("campaign:create") && (
+                      <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
+                        Create Campaign
+                      </Button>
+                    )}
                   </Space>
                 </div>
 
@@ -1632,7 +1866,7 @@ export default function AdminDashboard() {
                             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
                               {c.activated_at ? `Activated ${fmtDate(c.activated_at)}` : `Created ${fmtDate(c.created_at)}`}
                             </div>
-                            {isPending && (
+                            {isPending && hasPermission("campaign:update") && (
                               <Button
                                 type="primary"
                                 size="small"
@@ -1840,11 +2074,166 @@ export default function AdminDashboard() {
                 </Modal>
               </>
             )}
+
+            {activeTab === "accounts" && (
+              <AccountsTab token={token} />
+            )}
+
+            {activeTab === "admin-users" && (
+              <>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+                  <div>
+                    <Title level={4} style={{ color: "#fff", margin: 0 }}>Admin Users</Title>
+                    <Text style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Manage admin dashboard access
+                    </Text>
+                  </div>
+                  <Space wrap>
+                    <Button icon={<ReloadOutlined />} onClick={fetchAdminUsers} loading={adminUsersLoading}>
+                      Refresh
+                    </Button>
+                    <Button
+                      type="primary"
+                      icon={<UserAddOutlined />}
+                      onClick={() => { createAdminUserForm.resetFields(); createAdminUserForm.setFieldsValue({ role: "manager" }); setCreateAdminUserOpen(true); }}
+                    >
+                      Add Admin
+                    </Button>
+                  </Space>
+                </div>
+
+                <Table
+                  dataSource={adminUsers}
+                  rowKey="id"
+                  loading={adminUsersLoading}
+                  pagination={false}
+                  size="middle"
+                  scroll={{ x: 720 }}
+                  columns={[
+                    {
+                      title: "Email",
+                      dataIndex: "email",
+                      key: "email",
+                      render: (v, r) => (
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{v}</div>
+                          {r.name && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{r.name}</div>}
+                        </div>
+                      ),
+                    },
+                    {
+                      title: "Role",
+                      dataIndex: "role",
+                      key: "role",
+                      width: 160,
+                      render: (v) => (
+                        <Tag color={ROLE_COLORS[v] || "default"}>{ROLE_LABELS[v] || v?.toUpperCase()}</Tag>
+                      ),
+                    },
+                    {
+                      title: "Created",
+                      dataIndex: "created_at",
+                      key: "created_at",
+                      width: 180,
+                      render: (v) => v ? fmtDate(v) : "-",
+                    },
+                    {
+                      title: "",
+                      key: "actions",
+                      width: 120,
+                      align: "right",
+                      render: (_, r) => {
+                        const isSelf = r.email && currentAdmin.email && r.email.toLowerCase() === String(currentAdmin.email).toLowerCase();
+                        return (
+                          <Button
+                            danger
+                            size="small"
+                            icon={<DeleteOutlined />}
+                            loading={deletingAdminUserId === r.id}
+                            disabled={isSelf}
+                            title={isSelf ? "You can't remove yourself" : undefined}
+                            onClick={() => handleDeleteAdminUser(r)}
+                          >
+                            Remove
+                          </Button>
+                        );
+                      },
+                    },
+                  ]}
+                  locale={{ emptyText: <Empty description="No admin users" /> }}
+                />
+
+                <Modal
+                  open={createAdminUserOpen}
+                  onCancel={() => { if (!creatingAdminUser) { setCreateAdminUserOpen(false); createAdminUserForm.resetFields(); } }}
+                  footer={null}
+                  width={480}
+                  destroyOnClose
+                  title={
+                    <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <SafetyCertificateOutlined />
+                      Add Admin User
+                    </span>
+                  }
+                >
+                  <Form
+                    form={createAdminUserForm}
+                    layout="vertical"
+                    onFinish={submitCreateAdminUser}
+                    style={{ marginTop: 8 }}
+                  >
+                    <Form.Item
+                      name="email"
+                      label="Email"
+                      rules={[
+                        { required: true, message: "Email is required" },
+                        { type: "email", message: "Enter a valid email" },
+                      ]}
+                    >
+                      <Input placeholder="admin@example.com" autoComplete="off" />
+                    </Form.Item>
+                    <Form.Item name="name" label="Display Name (optional)">
+                      <Input placeholder="Aakash" />
+                    </Form.Item>
+                    <Form.Item
+                      name="password"
+                      label="Password"
+                      rules={[
+                        { required: true, message: "Password is required" },
+                        { min: 8, message: "At least 8 characters" },
+                      ]}
+                    >
+                      <Input.Password placeholder="Min 8 characters" autoComplete="new-password" />
+                    </Form.Item>
+                    <Form.Item name="role" label="Role" rules={[{ required: true }]}>
+                      <Select
+                        options={[
+                          { label: "Super Admin — full access", value: "super_admin" },
+                          { label: "Admin — bookings, refunds, campaigns, settlements", value: "admin" },
+                          { label: "Manager — bookings + yatra read/sheet sync", value: "manager" },
+                          { label: "Accounts — refunds, settlements, dashboard", value: "accounts" },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
+                      <Space>
+                        <Button onClick={() => { setCreateAdminUserOpen(false); createAdminUserForm.resetFields(); }} disabled={creatingAdminUser}>
+                          Cancel
+                        </Button>
+                        <Button type="primary" htmlType="submit" loading={creatingAdminUser} icon={<UserAddOutlined />}>
+                          Create Admin
+                        </Button>
+                      </Space>
+                    </Form.Item>
+                  </Form>
+                </Modal>
+              </>
+            )}
           </Content>
         </Layout>
       </Layout>
 
-      {/* create booking (cash) modal */}
+      {/* create booking modal */}
       <Modal
         open={createBookingOpen}
         onCancel={() => { if (!creatingBooking) { setCreateBookingOpen(false); createBookingForm.resetFields(); } }}
@@ -1854,7 +2243,7 @@ export default function AdminDashboard() {
         title={
           <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <UserAddOutlined />
-            Create Booking (Cash)
+            Create Booking
           </span>
         }
       >
@@ -1871,7 +2260,7 @@ export default function AdminDashboard() {
             <Form.Item name="booking_category" label="Category" rules={[{ required: true }]}>
               <Select
                 options={[
-                  { label: "Paid — regular guest (cash collected)", value: "paid" },
+                  { label: "Paid — regular guest (payment collected)", value: "paid" },
                   { label: "Staff — no charge, beds still reserved", value: "staff" },
                   { label: "Monk — no charge, beds still reserved", value: "monk" },
                 ]}
@@ -2109,17 +2498,17 @@ export default function AdminDashboard() {
                       fontSize: 12,
                       color: "rgba(255,255,255,0.6)",
                     }}>
-                      No cash collection required for {category} bookings — beds are still reserved on the chosen room.
+                      No payment collection required for {category} bookings — beds are still reserved on the chosen room.
                     </div>
                   );
                 }
                 return (
                   <>
-                    <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Cash Payment</div>
+                    <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Payment</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                       <Form.Item
                         name="amount_paid"
-                        label="Amount Paid (cash)"
+                        label="Amount Paid"
                         rules={[
                           { required: true, message: "Enter amount" },
                           {
@@ -2133,13 +2522,18 @@ export default function AdminDashboard() {
                       >
                         <InputNumber min={0} style={{ width: "100%" }} prefix="₹" />
                       </Form.Item>
+                      <Form.Item name="account_id" label="Received In" rules={[{ required: true, message: "Select account" }]}>
+                        <Select placeholder="Select account" options={bookingAccounts.map(a => ({ label: a.name, value: a.id }))} />
+                      </Form.Item>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                       <Form.Item name="payment_reference" label="Payment Reference">
                         <Input placeholder="Receipt / reference #" />
                       </Form.Item>
+                      <Form.Item name="payment_note" label="Payment Note">
+                        <Input placeholder="Optional" />
+                      </Form.Item>
                     </div>
-                    <Form.Item name="payment_note" label="Payment Note">
-                      <Input.TextArea rows={2} placeholder="Optional" />
-                    </Form.Item>
                   </>
                 );
               }}
@@ -2385,7 +2779,6 @@ export default function AdminDashboard() {
                 const roomId = getFieldValue("room_id");
                 const transportOpted = getFieldValue("transport_opted");
                 const transportId = getFieldValue("transport_id");
-                const cash = Number(getFieldValue("additional_cash_paid") || 0);
                 const occupants = editBookingTarget.total_occupants || 1;
                 let perPerson = 0;
                 if (noAcc) {
@@ -2399,7 +2792,7 @@ export default function AdminDashboard() {
                 const oldTotal = Number(editBookingTarget.total_amount) || 0;
                 const oldPaid = Number(editBookingTarget.amount_paid) || 0;
                 const refundPaid = Number(editBookingTarget.refund_paid) || 0;
-                const netPaid = oldPaid + cash - refundPaid;
+                const netPaid = oldPaid - refundPaid;
                 const refundDue = Math.max(0, netPaid - newTotal);
                 const balance = Math.max(0, newTotal - netPaid);
                 const delta = newTotal - oldTotal;
@@ -2438,37 +2831,12 @@ export default function AdminDashboard() {
                     {refundDue > 0 && (
                       <div style={{ marginTop: 8, fontSize: 11, color: "#f87171", display: "flex", alignItems: "center", gap: 6 }}>
                         <WarningOutlined />
-                        Refund will be pending — settle via <code>POST /settle-refund</code> after handing cash back.
+                        Refund will be pending — settle via the Settle Refund button.
                       </div>
                     )}
                   </div>
                 );
               }}
-            </Form.Item>
-
-            <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Cash Top-up (optional)</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <Form.Item
-                name="additional_cash_paid"
-                label="Additional Cash Paid"
-                rules={[
-                  {
-                    validator: (_, v) => {
-                      if (v == null || v === "") return Promise.resolve();
-                      if (Number(v) < 0) return Promise.reject(new Error("Cannot be negative"));
-                      return Promise.resolve();
-                    },
-                  },
-                ]}
-              >
-                <InputNumber min={0} style={{ width: "100%" }} prefix="₹" placeholder="0" />
-              </Form.Item>
-              <Form.Item name="payment_reference" label="Payment Reference">
-                <Input placeholder="Receipt / reference #" />
-              </Form.Item>
-            </div>
-            <Form.Item name="payment_note" label="Payment Note">
-              <Input.TextArea rows={2} placeholder="Optional" />
             </Form.Item>
 
             <Form.Item name="reason" label="Reason (admin note)">
@@ -2515,9 +2883,6 @@ export default function AdminDashboard() {
               <Descriptions.Item label="Paid">
                 <span style={{ color: "#4ade80", fontWeight: 600 }}>₹{editBookingResult.amount_paid}</span>
               </Descriptions.Item>
-              <Descriptions.Item label="Cash Added">
-                ₹{editBookingResult.additional_cash_paid ?? 0}
-              </Descriptions.Item>
               <Descriptions.Item label="Refund Paid">
                 ₹{editBookingResult.refund_paid ?? 0}
               </Descriptions.Item>
@@ -2553,22 +2918,24 @@ export default function AdminDashboard() {
               }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <WarningOutlined />
-                  Refund of ₹{editBookingResult.refund_due} is pending — settle after handing cash back to the guest.
+                  Refund of ₹{editBookingResult.refund_due} is pending — settle via the Settle Refund button.
                 </span>
-                <Button
-                  danger
-                  type="primary"
-                  size="small"
-                  icon={<DollarOutlined />}
-                  onClick={() => openSettleRefund({
-                    id: editBookingResult.booking_id,
-                    refund_due: editBookingResult.refund_due,
-                    refund_paid: editBookingResult.refund_paid,
-                    refund_status: editBookingResult.refund_status,
-                  })}
-                >
-                  Settle Refund
-                </Button>
+                {hasPermission("refund:create") && (
+                  <Button
+                    danger
+                    type="primary"
+                    size="small"
+                    icon={<DollarOutlined />}
+                    onClick={() => openSettleRefund({
+                      id: editBookingResult.booking_id,
+                      refund_due: editBookingResult.refund_due,
+                      refund_paid: editBookingResult.refund_paid,
+                      refund_status: editBookingResult.refund_status,
+                    })}
+                  >
+                    Settle Refund
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -2645,12 +3012,16 @@ export default function AdminDashboard() {
               />
             </Form.Item>
 
+            <Form.Item name="account_id" label="Refund From Account" rules={[{ required: true, message: "Select account" }]}>
+              <Select placeholder="Select account" options={bookingAccounts.map(a => ({ label: `${a.name} (₹${(a.balance || 0).toLocaleString("en-IN")})`, value: a.id }))} />
+            </Form.Item>
+
             <Form.Item name="reference" label="Reference">
               <Input placeholder="UPI txn / bank ref / Razorpay refund id" />
             </Form.Item>
 
             <Form.Item name="note" label="Note">
-              <Input.TextArea rows={2} placeholder="Optional — how the refund was paid, etc." />
+              <Input placeholder="Optional" />
             </Form.Item>
 
             <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
@@ -2830,7 +3201,7 @@ export default function AdminDashboard() {
         onCancel={() => setCancelBookingResult(null)}
         footer={
           <Space>
-            {cancelBookingResult?.refund_status === "pending" && Number(cancelBookingResult?.refund_due) > 0 && (
+            {hasPermission("refund:create") && cancelBookingResult?.refund_status === "pending" && Number(cancelBookingResult?.refund_due) > 0 && (
               <Button
                 danger
                 type="primary"
@@ -2893,7 +3264,7 @@ export default function AdminDashboard() {
         footer={
           selectedBooking ? (
             <Space>
-              {selectedBooking.refund_status === "pending" && Number(selectedBooking.refund_due) > 0 && (
+              {hasPermission("refund:create") && selectedBooking.refund_status === "pending" && Number(selectedBooking.refund_due) > 0 && (
                 <Button
                   danger
                   type="primary"
@@ -2903,7 +3274,7 @@ export default function AdminDashboard() {
                   Settle Refund (₹{selectedBooking.refund_due})
                 </Button>
               )}
-              {selectedBooking.status !== "cancelled" && (
+              {hasPermission("booking:delete") && selectedBooking.status !== "cancelled" && (
                 <Button
                   danger
                   icon={<StopOutlined />}
@@ -2912,7 +3283,7 @@ export default function AdminDashboard() {
                   Cancel Booking
                 </Button>
               )}
-              {selectedBooking.status !== "cancelled" && (
+              {hasPermission("booking:update") && selectedBooking.status !== "cancelled" && (
                 <Button
                   type="primary"
                   icon={<EditOutlined />}
@@ -2996,6 +3367,29 @@ export default function AdminDashboard() {
               )}
             </Descriptions>
 
+            {/* Payment History */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, marginBottom: 12 }}>
+              <Title level={5} style={{ margin: 0 }}>
+                <DollarOutlined style={{ marginRight: 8 }} />
+                Payment History
+              </Title>
+              <Button size="small" type="primary" icon={<PlusOutlined />}
+                onClick={() => { fetchBookingAccounts(); setAddBookingPaymentOpen(true); }}>
+                Add Payment
+              </Button>
+            </div>
+            {bookingTxnsLoading ? <Spin size="small" /> :
+              bookingTxns.length === 0 ? <Empty description="No payment transactions yet" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ margin: "8px 0" }} /> :
+              <Table size="small" dataSource={bookingTxns} rowKey="id" pagination={false} style={{ marginBottom: 16 }}
+                columns={[
+                  { title: "Date", dataIndex: "date", key: "date", width: 100, render: (d) => d ? new Date(d).toLocaleDateString("en-IN", { dateStyle: "medium" }) : "-" },
+                  { title: "Amount", dataIndex: "amount", key: "amt", width: 100, render: (v) => <span style={{ color: "#4ade80", fontWeight: 600 }}>₹{(v || 0).toLocaleString("en-IN")}</span> },
+                  { title: "Account", key: "acc", width: 130, render: (_, r) => r.to_account_name || r.from_account_name || "-" },
+                  { title: "Notes", dataIndex: "notes", key: "notes", ellipsis: true, render: (v) => v || "-" },
+                ]}
+              />
+            }
+
             <Title level={5} style={{ marginTop: 16, marginBottom: 12 }}>
               <TeamOutlined style={{ marginRight: 8 }} />
               Guests ({selectedBooking.users?.length || 0})
@@ -3033,6 +3427,33 @@ export default function AdminDashboard() {
             ))}
           </div>
         )}
+      </Modal>
+
+      {/* Add Payment to Booking modal */}
+      <Modal open={addBookingPaymentOpen} onCancel={() => { setAddBookingPaymentOpen(false); addBookingPaymentForm.resetFields(); }}
+        footer={null} title="Add Payment" destroyOnClose width={440}>
+        <Form form={addBookingPaymentForm} layout="vertical" onFinish={submitBookingPayment} initialValues={{ date: undefined }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Form.Item name="amount" label="Amount (₹)" rules={[{ required: true }]}>
+              <InputNumber style={{ width: "100%" }} min={1} />
+            </Form.Item>
+            <Form.Item name="date" label="Date" rules={[{ required: true }]}>
+              <DatePicker style={{ width: "100%" }} />
+            </Form.Item>
+          </div>
+          <Form.Item name="account_id" label="Account" rules={[{ required: true, message: "Select an account" }]}>
+            <Select placeholder="Select account" options={bookingAccounts.map(a => ({ label: `${a.name} (₹${(a.balance || 0).toLocaleString("en-IN")})`, value: a.id }))} />
+          </Form.Item>
+          <Form.Item name="notes" label="Notes">
+            <Input />
+          </Form.Item>
+          <Form.Item style={{ textAlign: "right", marginBottom: 0 }}>
+            <Space>
+              <Button onClick={() => { setAddBookingPaymentOpen(false); addBookingPaymentForm.resetFields(); }}>Cancel</Button>
+              <Button type="primary" htmlType="submit" loading={savingBookingPayment}>Add Payment</Button>
+            </Space>
+          </Form.Item>
+        </Form>
       </Modal>
     </ConfigProvider>
   );
