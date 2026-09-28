@@ -25,6 +25,7 @@ import {
   Progress,
   Empty,
   Spin,
+  DatePicker,
 } from "antd";
 import {
   DashboardOutlined,
@@ -167,7 +168,7 @@ export default function AdminDashboard() {
   const [syncResult, setSyncResult] = useState(null);
   const [lastSyncedAt, setLastSyncedAt] = useState(() => localStorage.getItem("bookings_last_synced_at") || null);
 
-  // Create-booking (manual/cash) state
+  // Create-booking (manual) state
   const [createBookingOpen, setCreateBookingOpen] = useState(false);
   const [createBookingForm] = Form.useForm();
   const [creatingBooking, setCreatingBooking] = useState(false);
@@ -189,6 +190,14 @@ export default function AdminDashboard() {
   const [settleRefundTarget, setSettleRefundTarget] = useState(null);
   const [settleRefundResult, setSettleRefundResult] = useState(null);
 
+  // Booking payment history state
+  const [bookingTxns, setBookingTxns] = useState([]);
+  const [bookingTxnsLoading, setBookingTxnsLoading] = useState(false);
+  const [addBookingPaymentOpen, setAddBookingPaymentOpen] = useState(false);
+  const [addBookingPaymentForm] = Form.useForm();
+  const [savingBookingPayment, setSavingBookingPayment] = useState(false);
+  const [bookingAccounts, setBookingAccounts] = useState([]);
+
   // Cancel-booking state
   const [cancelBookingOpen, setCancelBookingOpen] = useState(false);
   const [cancelBookingForm] = Form.useForm();
@@ -203,6 +212,58 @@ export default function AdminDashboard() {
   const [createAdminUserForm] = Form.useForm();
   const [creatingAdminUser, setCreatingAdminUser] = useState(false);
   const [deletingAdminUserId, setDeletingAdminUserId] = useState(null);
+
+  const fetchBookingTxns = useCallback(async (txnIds) => {
+    if (!txnIds || txnIds.length === 0) { setBookingTxns([]); return; }
+    setBookingTxnsLoading(true);
+    try {
+      // Fetch all transactions, then filter by IDs client-side (simpler than BatchGet via API)
+      const res = await fetch(`${API_BASE}/accounts-transactions?action=get-transactions`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        const all = data.transactions || [];
+        setBookingTxns(all.filter((t) => txnIds.includes(t.id)));
+      }
+    } catch {}
+    finally { setBookingTxnsLoading(false); }
+  }, [token]);
+
+  const fetchBookingAccounts = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/accounts-manage?action=get-accounts`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) { const data = await res.json(); setBookingAccounts(data.accounts || []); }
+    } catch {}
+  }, [token]);
+
+  const submitBookingPayment = async (values) => {
+    if (!selectedBooking) return;
+    setSavingBookingPayment(true);
+    try {
+      const account = bookingAccounts.find((a) => a.id === values.account_id);
+      const res = await fetch(`${API_BASE}/accounts-transactions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add-booking-payment",
+          booking_id: selectedBooking.id,
+          amount: values.amount,
+          account_id: values.account_id,
+          date: values.date?.format?.("YYYY-MM-DD") || new Date().toISOString().split("T")[0],
+          notes: values.notes || null,
+        }),
+      });
+      if (res.status === 401 || res.status === 403) { message.error("Session expired"); return; }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      message.success("Payment recorded");
+      setAddBookingPaymentOpen(false);
+      addBookingPaymentForm.resetFields();
+      // Refresh booking and txns
+      fetchBookingTxns([ ...(selectedBooking.transaction_ids || []), data.transaction_id ]);
+      resetAndFetch();
+    } catch (e) { message.error(e.message); }
+    finally { setSavingBookingPayment(false); }
+  };
 
   const fetchDashboard = useCallback(async () => {
     setDashboardLoading(true);
@@ -228,6 +289,15 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (activeTab === "dashboard") fetchDashboard();
   }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch payment history when a booking is selected
+  useEffect(() => {
+    if (selectedBooking?.transaction_ids?.length > 0) {
+      fetchBookingTxns(selectedBooking.transaction_ids);
+    } else {
+      setBookingTxns([]);
+    }
+  }, [selectedBooking?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchYatras = useCallback(async () => {
     try {
@@ -480,6 +550,7 @@ export default function AdminDashboard() {
     });
     setCreateBookingOpen(true);
     if (!createBookingMeta.loaded) loadCreateBookingMeta();
+    fetchBookingAccounts();
   };
 
   const submitCreateBooking = async (values, { allowDuplicate = false } = {}) => {
@@ -509,6 +580,7 @@ export default function AdminDashboard() {
       };
       if (!isWaived) {
         payload.amount_paid = Number(values.amount_paid || 0);
+        if (values.account_id) payload.account_id = values.account_id;
         if (values.payment_reference) payload.payment_reference = values.payment_reference;
         if (values.payment_note) payload.payment_note = values.payment_note;
       }
@@ -669,6 +741,7 @@ export default function AdminDashboard() {
       note: undefined,
     });
     setSettleRefundOpen(true);
+    fetchBookingAccounts();
   };
 
   const submitSettleRefund = async (values) => {
@@ -687,6 +760,7 @@ export default function AdminDashboard() {
     setSettlingRefund(true);
     try {
       const payload = { booking_id: target.id, amount };
+      if (values.account_id) payload.account_id = values.account_id;
       if (values.reference) payload.reference = values.reference;
       if (values.note) payload.note = values.note;
 
@@ -2160,7 +2234,7 @@ export default function AdminDashboard() {
         </Layout>
       </Layout>
 
-      {/* create booking (cash) modal */}
+      {/* create booking modal */}
       <Modal
         open={createBookingOpen}
         onCancel={() => { if (!creatingBooking) { setCreateBookingOpen(false); createBookingForm.resetFields(); } }}
@@ -2170,7 +2244,7 @@ export default function AdminDashboard() {
         title={
           <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <UserAddOutlined />
-            Create Booking (Cash)
+            Create Booking
           </span>
         }
       >
@@ -2187,7 +2261,7 @@ export default function AdminDashboard() {
             <Form.Item name="booking_category" label="Category" rules={[{ required: true }]}>
               <Select
                 options={[
-                  { label: "Paid — regular guest (cash collected)", value: "paid" },
+                  { label: "Paid — regular guest (payment collected)", value: "paid" },
                   { label: "Staff — no charge, beds still reserved", value: "staff" },
                   { label: "Monk — no charge, beds still reserved", value: "monk" },
                 ]}
@@ -2425,17 +2499,17 @@ export default function AdminDashboard() {
                       fontSize: 12,
                       color: "rgba(255,255,255,0.6)",
                     }}>
-                      No cash collection required for {category} bookings — beds are still reserved on the chosen room.
+                      No payment collection required for {category} bookings — beds are still reserved on the chosen room.
                     </div>
                   );
                 }
                 return (
                   <>
-                    <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Cash Payment</div>
+                    <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Payment</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                       <Form.Item
                         name="amount_paid"
-                        label="Amount Paid (cash)"
+                        label="Amount Paid"
                         rules={[
                           { required: true, message: "Enter amount" },
                           {
@@ -2449,13 +2523,18 @@ export default function AdminDashboard() {
                       >
                         <InputNumber min={0} style={{ width: "100%" }} prefix="₹" />
                       </Form.Item>
+                      <Form.Item name="account_id" label="Received In" rules={[{ required: true, message: "Select account" }]}>
+                        <Select placeholder="Select account" options={bookingAccounts.map(a => ({ label: a.name, value: a.id }))} />
+                      </Form.Item>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                       <Form.Item name="payment_reference" label="Payment Reference">
                         <Input placeholder="Receipt / reference #" />
                       </Form.Item>
+                      <Form.Item name="payment_note" label="Payment Note">
+                        <Input placeholder="Optional" />
+                      </Form.Item>
                     </div>
-                    <Form.Item name="payment_note" label="Payment Note">
-                      <Input.TextArea rows={2} placeholder="Optional" />
-                    </Form.Item>
                   </>
                 );
               }}
@@ -2754,7 +2833,7 @@ export default function AdminDashboard() {
                     {refundDue > 0 && (
                       <div style={{ marginTop: 8, fontSize: 11, color: "#f87171", display: "flex", alignItems: "center", gap: 6 }}>
                         <WarningOutlined />
-                        Refund will be pending — settle via <code>POST /settle-refund</code> after handing cash back.
+                        Refund will be pending — settle via the Settle Refund button.
                       </div>
                     )}
                   </div>
@@ -2762,11 +2841,11 @@ export default function AdminDashboard() {
               }}
             </Form.Item>
 
-            <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Cash Top-up (optional)</div>
+            <div style={{ fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.75)" }}>Additional Payment (optional)</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <Form.Item
                 name="additional_cash_paid"
-                label="Additional Cash Paid"
+                label="Additional Amount Paid"
                 rules={[
                   {
                     validator: (_, v) => {
@@ -2831,7 +2910,7 @@ export default function AdminDashboard() {
               <Descriptions.Item label="Paid">
                 <span style={{ color: "#4ade80", fontWeight: 600 }}>₹{editBookingResult.amount_paid}</span>
               </Descriptions.Item>
-              <Descriptions.Item label="Cash Added">
+              <Descriptions.Item label="Amount Added">
                 ₹{editBookingResult.additional_cash_paid ?? 0}
               </Descriptions.Item>
               <Descriptions.Item label="Refund Paid">
@@ -2869,7 +2948,7 @@ export default function AdminDashboard() {
               }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <WarningOutlined />
-                  Refund of ₹{editBookingResult.refund_due} is pending — settle after handing cash back to the guest.
+                  Refund of ₹{editBookingResult.refund_due} is pending — settle via the Settle Refund button.
                 </span>
                 <Button
                   danger
@@ -2961,12 +3040,16 @@ export default function AdminDashboard() {
               />
             </Form.Item>
 
+            <Form.Item name="account_id" label="Refund From Account" rules={[{ required: true, message: "Select account" }]}>
+              <Select placeholder="Select account" options={bookingAccounts.map(a => ({ label: `${a.name} (₹${(a.balance || 0).toLocaleString("en-IN")})`, value: a.id }))} />
+            </Form.Item>
+
             <Form.Item name="reference" label="Reference">
               <Input placeholder="UPI txn / bank ref / Razorpay refund id" />
             </Form.Item>
 
             <Form.Item name="note" label="Note">
-              <Input.TextArea rows={2} placeholder="Optional — how the refund was paid, etc." />
+              <Input placeholder="Optional" />
             </Form.Item>
 
             <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
@@ -3312,6 +3395,29 @@ export default function AdminDashboard() {
               )}
             </Descriptions>
 
+            {/* Payment History */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, marginBottom: 12 }}>
+              <Title level={5} style={{ margin: 0 }}>
+                <DollarOutlined style={{ marginRight: 8 }} />
+                Payment History
+              </Title>
+              <Button size="small" type="primary" icon={<PlusOutlined />}
+                onClick={() => { fetchBookingAccounts(); setAddBookingPaymentOpen(true); }}>
+                Add Payment
+              </Button>
+            </div>
+            {bookingTxnsLoading ? <Spin size="small" /> :
+              bookingTxns.length === 0 ? <Empty description="No payment transactions yet" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ margin: "8px 0" }} /> :
+              <Table size="small" dataSource={bookingTxns} rowKey="id" pagination={false} style={{ marginBottom: 16 }}
+                columns={[
+                  { title: "Date", dataIndex: "date", key: "date", width: 100, render: (d) => d ? new Date(d).toLocaleDateString("en-IN", { dateStyle: "medium" }) : "-" },
+                  { title: "Amount", dataIndex: "amount", key: "amt", width: 100, render: (v) => <span style={{ color: "#4ade80", fontWeight: 600 }}>₹{(v || 0).toLocaleString("en-IN")}</span> },
+                  { title: "Account", key: "acc", width: 130, render: (_, r) => r.to_account_name || r.from_account_name || "-" },
+                  { title: "Notes", dataIndex: "notes", key: "notes", ellipsis: true, render: (v) => v || "-" },
+                ]}
+              />
+            }
+
             <Title level={5} style={{ marginTop: 16, marginBottom: 12 }}>
               <TeamOutlined style={{ marginRight: 8 }} />
               Guests ({selectedBooking.users?.length || 0})
@@ -3349,6 +3455,33 @@ export default function AdminDashboard() {
             ))}
           </div>
         )}
+      </Modal>
+
+      {/* Add Payment to Booking modal */}
+      <Modal open={addBookingPaymentOpen} onCancel={() => { setAddBookingPaymentOpen(false); addBookingPaymentForm.resetFields(); }}
+        footer={null} title="Add Payment" destroyOnClose width={440}>
+        <Form form={addBookingPaymentForm} layout="vertical" onFinish={submitBookingPayment} initialValues={{ date: undefined }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Form.Item name="amount" label="Amount (₹)" rules={[{ required: true }]}>
+              <InputNumber style={{ width: "100%" }} min={1} />
+            </Form.Item>
+            <Form.Item name="date" label="Date" rules={[{ required: true }]}>
+              <DatePicker style={{ width: "100%" }} />
+            </Form.Item>
+          </div>
+          <Form.Item name="account_id" label="Account" rules={[{ required: true, message: "Select an account" }]}>
+            <Select placeholder="Select account" options={bookingAccounts.map(a => ({ label: `${a.name} (₹${(a.balance || 0).toLocaleString("en-IN")})`, value: a.id }))} />
+          </Form.Item>
+          <Form.Item name="notes" label="Notes">
+            <Input />
+          </Form.Item>
+          <Form.Item style={{ textAlign: "right", marginBottom: 0 }}>
+            <Space>
+              <Button onClick={() => { setAddBookingPaymentOpen(false); addBookingPaymentForm.resetFields(); }}>Cancel</Button>
+              <Button type="primary" htmlType="submit" loading={savingBookingPayment}>Add Payment</Button>
+            </Space>
+          </Form.Item>
+        </Form>
       </Modal>
     </ConfigProvider>
   );
