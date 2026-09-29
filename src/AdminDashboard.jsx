@@ -253,6 +253,7 @@ export default function AdminDashboard() {
   const [cancellingBooking, setCancellingBooking] = useState(false);
   const [cancelBookingTarget, setCancelBookingTarget] = useState(null);
   const [cancelBookingResult, setCancelBookingResult] = useState(null);
+  const [deletingBookingId, setDeletingBookingId] = useState(null);
 
   // Admin-users state
   const [adminUsers, setAdminUsers] = useState([]);
@@ -838,6 +839,47 @@ export default function AdminDashboard() {
     } finally {
       setCancellingBooking(false);
     }
+  };
+
+  const handleDeleteBooking = (booking) => {
+    if (!booking) return;
+    Modal.confirm({
+      title: "Delete booking permanently?",
+      icon: <ExclamationCircleOutlined />,
+      content: (
+        <div>
+          <div>This will permanently delete booking <strong>{booking.id}</strong>.</div>
+          <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+            This action cannot be undone. Prefer "Cancel Booking" if you need to keep a record.
+          </div>
+        </div>
+      ),
+      okText: "Delete",
+      okButtonProps: { danger: true },
+      cancelText: "Keep",
+      onOk: async () => {
+        setDeletingBookingId(booking.id);
+        try {
+          const res = await fetch(
+            `${API_BASE}/admin-delete-booking?booking_id=${encodeURIComponent(booking.id)}`,
+            {
+              method: "DELETE",
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          if (handleAuthError(res, "You don't have permission to delete bookings")) return;
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || data.message || "Failed to delete booking");
+          message.success("Booking deleted");
+          setSelectedBooking(null);
+          resetAndFetch();
+        } catch (e) {
+          message.error(e.message || "Failed to delete booking");
+        } finally {
+          setDeletingBookingId(null);
+        }
+      },
+    });
   };
 
   const fetchAdminUsers = useCallback(async () => {
@@ -3240,6 +3282,17 @@ export default function AdminDashboard() {
                   onClick={() => openCancelBooking(selectedBooking)}
                 >
                   Cancel Booking
+                </Button>
+              )}
+              {hasPermission("booking:delete_permanent") && (
+                <Button
+                  danger
+                  type="primary"
+                  icon={<DeleteOutlined />}
+                  loading={deletingBookingId === selectedBooking.id}
+                  onClick={() => handleDeleteBooking(selectedBooking)}
+                >
+                  Delete
                 </Button>
               )}
               {hasPermission("booking:update") && selectedBooking.status !== "cancelled" && (
