@@ -394,16 +394,19 @@ export default function RoomSelection() {
                     What would you like to do?
                   </p>
                   <div className="space-y-3">
-                    <button
-                      onClick={() => setShowChoiceModal(false)}
-                      className="w-full p-4 rounded-xl text-left transition-all duration-200 hover:scale-[1.02]"
-                      style={{ border: "1px solid var(--t-border-strong)", backgroundColor: "var(--t-card-tint)" }}
+                    <div
+                      className="w-full p-4 rounded-xl"
+                      style={{
+                        border: "1px solid rgba(248,113,113,0.3)",
+                        backgroundColor: "rgba(248,113,113,0.08)",
+                      }}
                     >
-                      <p className="font-bold">Create a New Booking</p>
+                      <p className="font-bold text-sm" style={{ color: "#fca5a5" }}>New Registrations Closed</p>
                       <p className="text-xs mt-1" style={{ color: "var(--t-text-muted)" }}>
-                        Register for Vraj Yatra with a fresh booking
+                        We're no longer accepting new bookings for Vraj Yatra.
+                        For any queries, contact <strong>Surya Pr — +91 79077 37187</strong>.
                       </p>
-                    </button>
+                    </div>
                     <button
                       onClick={() => setChoiceStep("phone")}
                       className="w-full p-4 rounded-xl text-left transition-all duration-200 hover:scale-[1.02]"
@@ -1016,24 +1019,25 @@ export default function RoomSelection() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4 }}
-          className="mt-10 flex justify-center"
+          className="mt-10 flex flex-col items-center gap-4"
         >
+          <div
+            className="w-full max-w-lg p-4 rounded-2xl text-center"
+            style={{ backgroundColor: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.25)" }}
+          >
+            <p className="text-sm font-bold" style={{ color: "#fca5a5" }}>
+              New registrations are closed
+            </p>
+            <p className="text-xs mt-1" style={{ color: "var(--t-text-secondary)" }}>
+              For any queries, please contact <strong>Surya Pr — +91 79077 37187</strong>.
+            </p>
+          </div>
           <button
             onClick={handleContinue}
-            disabled={checkingExisting}
-            className="group flex items-center gap-2 px-8 py-4 rounded-full text-white font-bold text-lg transition-all duration-300 bg-gradient-to-r from-amber-500 to-orange-600 hover:shadow-2xl hover:shadow-amber-500/30 hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled
+            className="group flex items-center gap-2 px-8 py-4 rounded-full text-white font-bold text-lg bg-gradient-to-r from-amber-500 to-orange-600 opacity-50 cursor-not-allowed"
           >
-            {checkingExisting ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Checking...
-              </>
-            ) : (
-              <>
-                Continue to Checkout
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </>
-            )}
+            Registrations Closed
           </button>
         </motion.div>
       </div>
