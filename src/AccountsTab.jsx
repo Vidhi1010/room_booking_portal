@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Tabs, Table, Tag, Select, Input, InputNumber, Button, Typography,
-  message, Modal, Form, Card, Statistic, Space, Empty, Spin, Popconfirm, DatePicker, Badge, Checkbox, Divider,
+  message, Modal, Form, Card, Statistic, Space, Empty, Spin, Popconfirm, DatePicker, Badge, Checkbox, Divider, Row, Col,
 } from "antd";
 import {
   PlusOutlined, DeleteOutlined, EditOutlined, SwapOutlined, FolderOutlined,
@@ -21,8 +21,26 @@ const COLLECTION_STATUS_COLORS = { pending: "red", partially_received: "orange",
 const fmtAmount = (v) => `₹${(Number(v) || 0).toLocaleString("en-IN")}`;
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-IN", { dateStyle: "medium" }) : "-";
 
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia(`(max-width: ${breakpoint}px)`).matches : false
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint}px)`);
+    const onChange = (e) => setIsMobile(e.matches);
+    mq.addEventListener("change", onChange);
+    setIsMobile(mq.matches);
+    return () => mq.removeEventListener("change", onChange);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 export default function AccountsTab({ token }) {
   const navigate = useNavigate();
+  const isMobile = useIsMobile(768);
+  const isStacked = useIsMobile(991); // below Ant Design lg
+  const modalWidth = (desktop) => (isMobile ? "calc(100vw - 24px)" : desktop);
+  const formGrid = isMobile ? "1fr" : "1fr 1fr";
 
   const [expenseCategories, setExpenseCategories] = useState([]);
   const [collectionCategories, setCollectionCategories] = useState([]);
@@ -376,17 +394,17 @@ export default function AccountsTab({ token }) {
 
   // ── Column defs ──
   const expenseColsInSubCat = [
-    { title: "Description", dataIndex: "description", key: "desc", ellipsis: true, width: 180 },
-    { title: "Total", dataIndex: "total_amount", key: "total", width: 100, render: fmtAmount },
-    { title: "Paid", dataIndex: "paid_amount", key: "paid", width: 100, render: fmtAmount },
-    { title: "Status", dataIndex: "status", key: "status", width: 110, render: (s) => <Tag color={EXPENSE_STATUS_COLORS[s]}>{s?.replace(/_/g, " ").toUpperCase()}</Tag> },
+    { title: "Description", dataIndex: "description", key: "desc", ellipsis: true },
+    { title: "Total", dataIndex: "total_amount", key: "total", width: 130, render: fmtAmount },
+    { title: "Paid", dataIndex: "paid_amount", key: "paid", width: 130, render: fmtAmount },
+    { title: "Status", dataIndex: "status", key: "status", width: 140, render: (s) => <Tag color={EXPENSE_STATUS_COLORS[s]}>{s?.replace(/_/g, " ").toUpperCase()}</Tag> },
   ];
 
   const collectionColsInSubCat = [
-    { title: "Description", key: "desc", width: 180, render: (_, r) => <span>{r.description} {r.booking_id && <Tag color="blue" style={{ fontSize: 10, marginLeft: 4 }}>Booking</Tag>}</span> },
-    { title: "Expected", dataIndex: "total_amount", key: "total", width: 100, render: fmtAmount },
-    { title: "Received", dataIndex: "received_amount", key: "recv", width: 100, render: fmtAmount },
-    { title: "Status", dataIndex: "status", key: "status", width: 130, render: (s) => <Tag color={COLLECTION_STATUS_COLORS[s]}>{s?.replace(/_/g, " ").toUpperCase()}</Tag> },
+    { title: "Description", key: "desc", render: (_, r) => <span>{r.description} {r.booking_id && <Tag color="blue" style={{ marginLeft: 4 }}>Booking</Tag>}</span> },
+    { title: "Expected", dataIndex: "total_amount", key: "total", width: 130, render: fmtAmount },
+    { title: "Received", dataIndex: "received_amount", key: "recv", width: 130, render: fmtAmount },
+    { title: "Status", dataIndex: "status", key: "status", width: 160, render: (s) => <Tag color={COLLECTION_STATUS_COLORS[s]}>{s?.replace(/_/g, " ").toUpperCase()}</Tag> },
   ];
 
   // Group items by sub-category, returns array of { subCategory, items, total, paid/received }
@@ -429,6 +447,63 @@ export default function AccountsTab({ token }) {
   ];
 
   // ── Category card renderer with sub-category grouping ──
+  const renderCategoryItems = (items, type) => {
+    const isExpense = type === "expense";
+    if (isMobile) {
+      return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {items.map((r) => (
+            <div
+              key={r.id}
+              onClick={() => (isExpense ? openExpenseDetail(r) : openCollectionDetail(r))}
+              style={{
+                padding: "8px 10px",
+                background: "rgba(255,255,255,0.03)",
+                borderRadius: 6,
+                cursor: "pointer",
+                border: "1px solid rgba(255,255,255,0.05)",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontWeight: 500, fontSize: 13, lineHeight: 1.3, wordBreak: "break-word" }}>
+                    {r.description}
+                    {!isExpense && r.booking_id && <Tag color="blue" style={{ marginLeft: 6 }}>Booking</Tag>}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{fmtAmount(isExpense ? r.paid_amount : r.received_amount)}</div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)" }}>
+                    of {fmtAmount(r.total_amount)}
+                  </div>
+                </div>
+              </div>
+              <div style={{ marginTop: 4 }}>
+                <Tag color={isExpense ? EXPENSE_STATUS_COLORS[r.status] : COLLECTION_STATUS_COLORS[r.status]} style={{ fontSize: 11, lineHeight: "18px", margin: 0 }}>
+                  {r.status?.replace(/_/g, " ").toUpperCase()}
+                </Tag>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return (
+      <Table
+        size="middle"
+        columns={isExpense ? expenseColsInSubCat : collectionColsInSubCat}
+        dataSource={items}
+        rowKey="id"
+        pagination={false}
+        scroll={{ x: 560 }}
+        onRow={(r) => ({
+          onClick: () => (isExpense ? openExpenseDetail(r) : openCollectionDetail(r)),
+          style: { cursor: "pointer" },
+        })}
+      />
+    );
+  };
+
   const renderCategoryCard = (group, type) => {
     const { category, items, total } = group;
     const isExpense = type === "expense";
@@ -438,49 +513,67 @@ export default function AccountsTab({ token }) {
     const hasSubCategories = subGroups.length > 1 || (subGroups.length === 1 && subGroups[0].subCategory !== "(No sub-category)");
 
     return (
-      <Card key={category.id} size="small" style={{ background: "#141720" }}
-        styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
+      <Card key={category.id} style={{ background: "#141720" }}
+        styles={{
+          header: { borderBottom: "1px solid rgba(255,255,255,0.06)", minHeight: isMobile ? "auto" : 48, padding: isMobile ? "8px 10px" : "10px 14px" },
+          body: { padding: isMobile ? "8px 10px" : "12px 14px" },
+        }}
         title={
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <FolderOutlined style={{ color: isExpense ? "#d97706" : "#4ade80" }} />
-            <span style={{ fontWeight: 600 }}>{category.name}</span>
-            <Badge count={items.length} style={{ backgroundColor: "#1a1e2e", color: "rgba(255,255,255,0.6)", boxShadow: "none" }} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <FolderOutlined style={{ color: isExpense ? "#d97706" : "#4ade80", fontSize: 16, flexShrink: 0 }} />
+              <span style={{ fontWeight: 600, fontSize: isMobile ? 14 : 15, wordBreak: "break-word" }}>{category.name}</span>
+              <Badge count={items.length} style={{ backgroundColor: "#1a1e2e", color: "rgba(255,255,255,0.6)", boxShadow: "none" }} />
+            </div>
+            {isMobile && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
+                  {fmtAmount(paid)} / {fmtAmount(total)}
+                  {remaining > 0 && <span style={{ color: "#f87171", marginLeft: 6 }}>({isExpense ? "due" : "pending"}: {fmtAmount(remaining)})</span>}
+                </Text>
+                <Space size={0}>
+                  <Button size="small" type="primary" icon={<PlusOutlined />} onClick={() => isExpense ? openAddExpenseForCategory(category.id) : openAddCollectionForCategory(category.id)}>Add</Button>
+                  <Button size="small" type="link" onClick={() => openEditCategory(category, type)}><EditOutlined /></Button>
+                  <Popconfirm title="Delete this category?" onConfirm={() => deleteCategory(category.id, type)}>
+                    <Button size="small" type="link" danger><DeleteOutlined /></Button>
+                  </Popconfirm>
+                </Space>
+              </div>
+            )}
           </div>
         }
-        extra={
-          <Space>
-            <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+        extra={isMobile ? null : (
+          <Space size="middle" wrap>
+            <Text style={{ fontSize: 14, color: "rgba(255,255,255,0.55)" }}>
               {fmtAmount(paid)} / {fmtAmount(total)}
-              {remaining > 0 && <span style={{ color: "#f87171", marginLeft: 4 }}>({isExpense ? "due" : "pending"}: {fmtAmount(remaining)})</span>}
+              {remaining > 0 && <span style={{ color: "#f87171", marginLeft: 6 }}>({isExpense ? "due" : "pending"}: {fmtAmount(remaining)})</span>}
             </Text>
-            <Button size="small" type="primary" icon={<PlusOutlined />} onClick={() => isExpense ? openAddExpenseForCategory(category.id) : openAddCollectionForCategory(category.id)}>Add</Button>
-            <Button size="small" type="link" onClick={() => openEditCategory(category, type)}><EditOutlined /></Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => isExpense ? openAddExpenseForCategory(category.id) : openAddCollectionForCategory(category.id)}>Add</Button>
+            <Button type="link" onClick={() => openEditCategory(category, type)}><EditOutlined /></Button>
             <Popconfirm title="Delete this category?" onConfirm={() => deleteCategory(category.id, type)}>
-              <Button size="small" type="link" danger><DeleteOutlined /></Button>
+              <Button type="link" danger><DeleteOutlined /></Button>
             </Popconfirm>
           </Space>
-        }
+        )}
       >
         {items.length === 0 ? <Empty description={`No ${isExpense ? "expenses" : "collections"}`} image={Empty.PRESENTED_IMAGE_SIMPLE} /> :
           hasSubCategories ? (
             subGroups.map(sg => (
-              <div key={sg.subCategory} style={{ marginBottom: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", background: "rgba(255,255,255,0.03)", borderRadius: 6, marginBottom: 6 }}>
+              <div key={sg.subCategory} style={{ marginBottom: 20 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 8, marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
                   <Space>
-                    <Text style={{ fontWeight: 500, color: "rgba(255,255,255,0.8)" }}>{sg.subCategory}</Text>
-                    <Badge count={sg.items.length} style={{ backgroundColor: "#1a1e2e", color: "rgba(255,255,255,0.5)", boxShadow: "none", fontSize: 10 }} />
+                    <Text style={{ fontWeight: 500, fontSize: 14, color: "rgba(255,255,255,0.85)" }}>{sg.subCategory}</Text>
+                    <Badge count={sg.items.length} style={{ backgroundColor: "#1a1e2e", color: "rgba(255,255,255,0.5)", boxShadow: "none" }} />
                   </Space>
-                  <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>
+                  <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.5)" }}>
                     {fmtAmount(sg.secondary)} / {fmtAmount(sg.total)}
                   </Text>
                 </div>
-                <Table size="small" columns={isExpense ? expenseColsInSubCat : collectionColsInSubCat} dataSource={sg.items} rowKey="id" pagination={false} scroll={{ x: 650 }}
-                  onRow={(r) => ({ onClick: () => isExpense ? openExpenseDetail(r) : openCollectionDetail(r), style: { cursor: "pointer" } })} />
+                {renderCategoryItems(sg.items, type)}
               </div>
             ))
           ) : (
-            <Table size="small" columns={isExpense ? expenseColsInSubCat : collectionColsInSubCat} dataSource={items} rowKey="id" pagination={false} scroll={{ x: 650 }}
-              onRow={(r) => ({ onClick: () => isExpense ? openExpenseDetail(r) : openCollectionDetail(r), style: { cursor: "pointer" } })} />
+            renderCategoryItems(items, type)
           )
         }
       </Card>
@@ -501,7 +594,8 @@ export default function AccountsTab({ token }) {
 
     return (
       <Modal open={open} onCancel={() => { setOpen(false); form.resetFields(); setEditing(null); }} footer={null}
-        title={`${editing ? "Edit" : "Add"} ${isExpense ? "Expense" : "Collection"}`} destroyOnClose width={520}>
+        title={`${editing ? "Edit" : "Add"} ${isExpense ? "Expense" : "Collection"}`} destroyOnClose
+        width={modalWidth(520)} centered={!isMobile} style={isMobile ? { top: 12 } : undefined}>
         <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ date: dayjs() }}>
           <Form.Item name="category_id" label="Category" rules={[{ required: true }]}>
             <Select placeholder="Select category" options={cats.map(c => ({ label: c.name, value: c.id }))} />
@@ -513,7 +607,7 @@ export default function AccountsTab({ token }) {
             }}
           </Form.Item>
           <Form.Item name="description" label="Description" rules={[{ required: true }]}><Input.TextArea rows={2} /></Form.Item>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: formGrid, gap: 12 }}>
             <Form.Item name="total_amount" label={`${isExpense ? "Total" : "Expected"} Amount (₹)`} rules={[{ required: true }]}><InputNumber style={{ width: "100%" }} min={0} /></Form.Item>
             <Form.Item name="date" label="Date" rules={[{ required: true }]}><DatePicker style={{ width: "100%" }} /></Form.Item>
           </div>
@@ -532,7 +626,7 @@ export default function AccountsTab({ token }) {
                   if (!checked) return null;
                   return (
                     <div style={{ padding: "12px", background: "rgba(255,255,255,0.03)", borderRadius: 8 }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: formGrid, gap: 12 }}>
                         <Form.Item name={isExpense ? "payment_account_id" : "receipt_account_id"} label={isExpense ? "Paid from" : "Received in"} rules={[{ required: true, message: "Select an account" }]}>
                           <Select placeholder="Select account" options={accounts.map(a => ({ label: `${a.name} (${fmtAmount(a.balance)})`, value: a.id }))} />
                         </Form.Item>
@@ -561,9 +655,49 @@ export default function AccountsTab({ token }) {
     );
   };
 
+  const renderTotalsSidebar = (stats) => (
+    <Card
+      size="small"
+      style={{ background: "#141720" }}
+      styles={{ body: { padding: isStacked ? "8px 10px" : "12px 14px" } }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isStacked ? "repeat(3, minmax(0, 1fr))" : "1fr",
+          gap: isStacked ? 0 : 10,
+        }}
+      >
+        {stats.map((s, i) => (
+          <div
+            key={s.title}
+            style={{
+              textAlign: isStacked ? "center" : "left",
+              borderBottom: !isStacked && i < stats.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none",
+              paddingBottom: !isStacked && i < stats.length - 1 ? 10 : 0,
+              borderLeft: isStacked && i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
+              paddingLeft: isStacked && i > 0 ? 8 : 0,
+              paddingRight: isStacked && i < stats.length - 1 ? 8 : 0,
+            }}
+          >
+            <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, marginBottom: 2 }}>{s.title}</div>
+            <div style={{ color: s.color, fontWeight: 600, fontSize: isStacked ? 13 : 18, lineHeight: 1.2 }}>
+              {fmtAmount(s.value)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+
   return (
-    <div style={{ padding: "0 4px" }}>
-      <Tabs activeKey={innerTab} onChange={setInnerTab} style={{ marginBottom: 16 }}
+    <div className="accounts-tab" style={{ padding: isMobile ? "0" : "0 4px", overflowX: "hidden" }}>
+      <Tabs
+        activeKey={innerTab}
+        onChange={setInnerTab}
+        size={isMobile ? "small" : "middle"}
+        style={{ marginBottom: 16 }}
+        tabBarStyle={isMobile ? { marginBottom: 12 } : undefined}
         items={[
           { key: "overview", label: "Overview" },
           { key: "expenses", label: "Expenses" },
@@ -578,49 +712,50 @@ export default function AccountsTab({ token }) {
         <Spin spinning={summaryLoading}>
           {summary ? (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 24 }}>
+              <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? "140px" : "200px"}, 1fr))`, gap: isMobile ? 10 : 16, marginBottom: 24 }}>
                 <Card size="small" style={{ background: "#141720" }}>
-                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Collections Received</span>} value={summary.total_collections_received} prefix="₹" valueStyle={{ color: "#4ade80" }} />
+                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: isMobile ? 11 : undefined }}>Collections Received</span>} value={summary.total_collections_received} prefix="₹" valueStyle={{ color: "#4ade80", fontSize: isMobile ? 18 : undefined }} />
                 </Card>
                 <Card size="small" style={{ background: "#141720" }}>
-                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Collections Pending</span>} value={summary.total_collections_pending} prefix="₹" valueStyle={{ color: "#fbbf24" }} />
+                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: isMobile ? 11 : undefined }}>Collections Pending</span>} value={summary.total_collections_pending} prefix="₹" valueStyle={{ color: "#fbbf24", fontSize: isMobile ? 18 : undefined }} />
                 </Card>
                 <Card size="small" style={{ background: "#141720" }}>
-                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Expenses Total</span>} value={summary.total_expenses} prefix="₹" valueStyle={{ color: "#f87171" }} />
+                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: isMobile ? 11 : undefined }}>Expenses Total</span>} value={summary.total_expenses} prefix="₹" valueStyle={{ color: "#f87171", fontSize: isMobile ? 18 : undefined }} />
                 </Card>
                 <Card size="small" style={{ background: "#141720" }}>
-                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)" }}>Expenses Outstanding</span>} value={summary.outstanding} prefix="₹" valueStyle={{ color: "#f87171" }} />
+                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: isMobile ? 11 : undefined }}>Expenses Outstanding</span>} value={summary.outstanding} prefix="₹" valueStyle={{ color: "#f87171", fontSize: isMobile ? 18 : undefined }} />
                 </Card>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginBottom: 24 }}>
+              <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? "100%" : "280px"}, 1fr))`, gap: 16, marginBottom: 24 }}>
                 <Card size="small" title="Account Balances" style={{ background: "#141720" }} styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}>
                   {(summary.account_balances || []).length === 0 ? <Empty description="No accounts" /> :
                     (summary.account_balances || []).map(a => (
-                      <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                        <span>{a.name} <Tag color={ACCOUNT_TYPE_COLORS[a.type]} style={{ marginLeft: 4, fontSize: 10 }}>{a.type}</Tag></span>
-                        <span style={{ color: a.balance >= 0 ? "#4ade80" : "#f87171", fontWeight: 600 }}>{fmtAmount(a.balance)}</span>
+                      <div key={a.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                        <span style={{ minWidth: 0, wordBreak: "break-word" }}>{a.name} <Tag color={ACCOUNT_TYPE_COLORS[a.type]} style={{ marginLeft: 4, fontSize: 10 }}>{a.type}</Tag></span>
+                        <span style={{ color: a.balance >= 0 ? "#4ade80" : "#f87171", fontWeight: 600, flexShrink: 0 }}>{fmtAmount(a.balance)}</span>
                       </div>
                     ))}
                 </Card>
                 <Card size="small" title="Expense by Category" style={{ background: "#141720" }} styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}>
                   {Object.keys(summary.expense_category_breakdown || {}).length === 0 ? <Empty description="No expenses" /> :
                     Object.entries(summary.expense_category_breakdown || {}).map(([cat, v]) => (
-                      <div key={cat} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                        <span>{cat}</span><span>{fmtAmount(v.paid)} / {fmtAmount(v.total)}</span>
+                      <div key={cat} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                        <span style={{ minWidth: 0, wordBreak: "break-word" }}>{cat}</span><span style={{ flexShrink: 0 }}>{fmtAmount(v.paid)} / {fmtAmount(v.total)}</span>
                       </div>
                     ))}
                 </Card>
                 <Card size="small" title="Collection by Category" style={{ background: "#141720" }} styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}>
                   {Object.keys(summary.collection_category_breakdown || {}).length === 0 ? <Empty description="No collections" /> :
                     Object.entries(summary.collection_category_breakdown || {}).map(([cat, v]) => (
-                      <div key={cat} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                        <span>{cat}</span><span>{fmtAmount(v.received)} / {fmtAmount(v.total)}</span>
+                      <div key={cat} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                        <span style={{ minWidth: 0, wordBreak: "break-word" }}>{cat}</span><span style={{ flexShrink: 0 }}>{fmtAmount(v.received)} / {fmtAmount(v.total)}</span>
                       </div>
                     ))}
                 </Card>
               </div>
               <Card size="small" title="Recent Transactions" style={{ background: "#141720" }} styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}>
                 <Table size="small" dataSource={summary.recent_transactions || []} rowKey="id" pagination={false}
+                  scroll={{ x: isMobile ? 520 : undefined }}
                   columns={[
                     { title: "Date", dataIndex: "date", key: "date", width: 100, render: fmtDate },
                     { title: "Type", dataIndex: "type", key: "type", width: 140, render: (t) => <Tag color={TXN_TYPE_COLORS[t]}>{TXN_TYPE_LABELS[t]}</Tag> },
@@ -646,25 +781,38 @@ export default function AccountsTab({ token }) {
           {(() => {
             const total = expenses.reduce((s, e) => s + (e.total_amount || 0), 0);
             const paid = expenses.reduce((s, e) => s + (e.paid_amount || 0), 0);
+            const totals = renderTotalsSidebar([
+              { title: "Total", value: total, color: "#f87171" },
+              { title: "Paid", value: paid, color: "#4ade80" },
+              { title: "Outstanding", value: total - paid, color: "#fbbf24" },
+            ]);
+            const cards = (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                  <Title level={5} style={{ margin: 0 }}>Expenses by Category</Title>
+                  <Space wrap size="small">
+                    <Button size={isMobile ? "small" : "middle"} icon={<PlusOutlined />} onClick={() => { setCategoryType("expense"); setEditingCategory(null); setCategoryModalOpen(true); }}>Add Category</Button>
+                    <Button size={isMobile ? "small" : "middle"} type="primary" icon={<PlusOutlined />} onClick={() => { setEditingExpense(null); setExpenseModalOpen(true); }}>Add Expense</Button>
+                  </Space>
+                </div>
+                {expensesByCategory.length === 0 ? <Empty description="No expense categories. Add one to get started." /> :
+                  <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? 12 : 16 }}>
+                    {expensesByCategory.map(g => renderCategoryCard(g, "expense"))}
+                  </div>}
+              </>
+            );
             return (
-              <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
-                <Card size="small" style={{ background: "#141720", flex: 1 }}><Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>Total</span>} value={total} prefix="₹" valueStyle={{ fontSize: 18, color: "#f87171" }} /></Card>
-                <Card size="small" style={{ background: "#141720", flex: 1 }}><Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>Paid</span>} value={paid} prefix="₹" valueStyle={{ fontSize: 18, color: "#4ade80" }} /></Card>
-                <Card size="small" style={{ background: "#141720", flex: 1 }}><Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>Outstanding</span>} value={total - paid} prefix="₹" valueStyle={{ fontSize: 18, color: "#fbbf24" }} /></Card>
-              </div>
+              <Row gutter={[16, 12]} align="top">
+                {/* Totals first in DOM; order keeps them top on small screens, right on lg+ */}
+                <Col xs={24} lg={8} xl={7} order={{ xs: 0, lg: 2 }} style={{ position: "sticky", top: 16, alignSelf: "flex-start", zIndex: 1 }}>
+                  {totals}
+                </Col>
+                <Col xs={24} lg={16} xl={17} order={{ xs: 1, lg: 1 }}>
+                  {cards}
+                </Col>
+              </Row>
             );
           })()}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <Title level={5} style={{ margin: 0 }}>Expenses by Category</Title>
-            <Space>
-              <Button icon={<PlusOutlined />} onClick={() => { setCategoryType("expense"); setEditingCategory(null); setCategoryModalOpen(true); }}>Add Category</Button>
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditingExpense(null); setExpenseModalOpen(true); }}>Add Expense</Button>
-            </Space>
-          </div>
-          {expensesByCategory.length === 0 ? <Empty description="No expense categories. Add one to get started." /> :
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))", gap: 16, alignItems: "start" }}>
-              {expensesByCategory.map(g => renderCategoryCard(g, "expense"))}
-            </div>}
         </Spin>
       )}
 
@@ -674,47 +822,59 @@ export default function AccountsTab({ token }) {
           {(() => {
             const total = collections.reduce((s, c) => s + (c.total_amount || 0), 0);
             const received = collections.reduce((s, c) => s + (c.received_amount || 0), 0);
+            const totals = renderTotalsSidebar([
+              { title: "Expected", value: total, color: "#60a5fa" },
+              { title: "Received", value: received, color: "#4ade80" },
+              { title: "Pending", value: total - received, color: "#fbbf24" },
+            ]);
+            const cards = (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                  <Title level={5} style={{ margin: 0 }}>Collections by Category</Title>
+                  <Space wrap size="small">
+                    <Button size={isMobile ? "small" : "middle"} icon={<PlusOutlined />} onClick={() => { setCategoryType("collection"); setEditingCategory(null); setCategoryModalOpen(true); }}>Add Category</Button>
+                    <Button size={isMobile ? "small" : "middle"} type="primary" icon={<PlusOutlined />} onClick={() => { setEditingCollection(null); setCollectionModalOpen(true); }}>Add Collection</Button>
+                  </Space>
+                </div>
+                {collectionsByCategory.length === 0 ? <Empty description="No collection categories. Add one to get started." /> :
+                  <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? 12 : 16 }}>
+                    {collectionsByCategory.map(g => renderCategoryCard(g, "collection"))}
+                  </div>}
+              </>
+            );
             return (
-              <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
-                <Card size="small" style={{ background: "#141720", flex: 1 }}><Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>Expected</span>} value={total} prefix="₹" valueStyle={{ fontSize: 18, color: "#60a5fa" }} /></Card>
-                <Card size="small" style={{ background: "#141720", flex: 1 }}><Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>Received</span>} value={received} prefix="₹" valueStyle={{ fontSize: 18, color: "#4ade80" }} /></Card>
-                <Card size="small" style={{ background: "#141720", flex: 1 }}><Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>Pending</span>} value={total - received} prefix="₹" valueStyle={{ fontSize: 18, color: "#fbbf24" }} /></Card>
-              </div>
+              <Row gutter={[16, 12]} align="top">
+                <Col xs={24} lg={8} xl={7} order={{ xs: 0, lg: 2 }} style={{ position: "sticky", top: 16, alignSelf: "flex-start", zIndex: 1 }}>
+                  {totals}
+                </Col>
+                <Col xs={24} lg={16} xl={17} order={{ xs: 1, lg: 1 }}>
+                  {cards}
+                </Col>
+              </Row>
             );
           })()}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <Title level={5} style={{ margin: 0 }}>Collections by Category</Title>
-            <Space>
-              <Button icon={<PlusOutlined />} onClick={() => { setCategoryType("collection"); setEditingCategory(null); setCategoryModalOpen(true); }}>Add Category</Button>
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditingCollection(null); setCollectionModalOpen(true); }}>Add Collection</Button>
-            </Space>
-          </div>
-          {collectionsByCategory.length === 0 ? <Empty description="No collection categories. Add one to get started." /> :
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))", gap: 16, alignItems: "start" }}>
-              {collectionsByCategory.map(g => renderCategoryCard(g, "collection"))}
-            </div>}
         </Spin>
       )}
 
       {/* ── Transfers ── */}
       {innerTab === "transfers" && (
         <>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
             <Title level={5} style={{ margin: 0 }}>Transfers</Title>
             <Button type="primary" icon={<SwapOutlined />} onClick={() => setAddTransferOpen(true)}>Record Transfer</Button>
           </div>
-          <Table columns={transferCols} dataSource={transactions} rowKey="id" loading={txnsLoading} size="middle" scroll={{ x: 700 }} />
+          <Table columns={transferCols} dataSource={transactions} rowKey="id" loading={txnsLoading} size={isMobile ? "small" : "middle"} scroll={{ x: 700 }} />
         </>
       )}
 
       {/* ── Accounts ── */}
       {innerTab === "accounts" && (
         <>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
             <Title level={5} style={{ margin: 0 }}>Accounts</Title>
             <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditingAccount(null); setAccountModalOpen(true); }}>Add Account</Button>
           </div>
-          <Table columns={accountCols} dataSource={accounts} rowKey="id" loading={accountsLoading} size="middle" scroll={{ x: 700 }} />
+          <Table columns={accountCols} dataSource={accounts} rowKey="id" loading={accountsLoading} size={isMobile ? "small" : "middle"} scroll={{ x: 700 }} />
         </>
       )}
 
@@ -723,9 +883,12 @@ export default function AccountsTab({ token }) {
       {renderItemFormModal("expense")}
       {renderItemFormModal("collection")}
 
+
       {/* Expense Detail */}
       <Modal open={expenseDetailOpen} onCancel={() => { setExpenseDetailOpen(false); setSelectedExpense(null); }}
-        title={selectedExpense?.description || "Expense Detail"} width={640} destroyOnClose
+        title={selectedExpense?.description || "Expense Detail"} width={modalWidth(640)} destroyOnClose
+        centered={!isMobile} style={isMobile ? { top: 12 } : undefined}
+        styles={{ body: { maxHeight: isMobile ? "70vh" : undefined, overflowY: isMobile ? "auto" : undefined } }}
         footer={selectedExpense ? (
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <Popconfirm title="Delete this expense?" onConfirm={() => { deleteExpense(selectedExpense.id); setExpenseDetailOpen(false); setSelectedExpense(null); }}>
@@ -736,21 +899,22 @@ export default function AccountsTab({ token }) {
         ) : null}>
         {selectedExpense && (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 16 }}>
-              <Statistic title="Total" value={selectedExpense.total_amount} prefix="₹" />
-              <Statistic title="Paid" value={selectedExpense.paid_amount} prefix="₹" />
-              <Statistic title="Status" value={selectedExpense.status?.replace(/_/g, " ").toUpperCase()} valueStyle={{ color: EXPENSE_STATUS_COLORS[selectedExpense.status] === "green" ? "#4ade80" : EXPENSE_STATUS_COLORS[selectedExpense.status] === "orange" ? "#fbbf24" : "#f87171" }} />
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: 12, marginBottom: 16 }}>
+              <Statistic title="Total" value={selectedExpense.total_amount} prefix="₹" valueStyle={{ fontSize: isMobile ? 18 : undefined }} />
+              <Statistic title="Paid" value={selectedExpense.paid_amount} prefix="₹" valueStyle={{ fontSize: isMobile ? 18 : undefined }} />
+              <Statistic title="Status" value={selectedExpense.status?.replace(/_/g, " ").toUpperCase()} valueStyle={{ fontSize: isMobile ? 16 : undefined, color: EXPENSE_STATUS_COLORS[selectedExpense.status] === "green" ? "#4ade80" : EXPENSE_STATUS_COLORS[selectedExpense.status] === "orange" ? "#fbbf24" : "#f87171" }} />
             </div>
             <div style={{ marginBottom: 8 }}>
               <Text type="secondary">Category: </Text>{selectedExpense.category_name}{selectedExpense.sub_category && ` / ${selectedExpense.sub_category}`}
               <br /><Text type="secondary">Date: </Text>{fmtDate(selectedExpense.date)}
               {selectedExpense.notes && <><br /><Text type="secondary">Notes: </Text>{selectedExpense.notes}</>}
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "16px 0 8px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "16px 0 8px", gap: 8, flexWrap: "wrap" }}>
               <Title level={5} style={{ margin: 0 }}>Payments</Title>
               <Button size="small" type="primary" icon={<PlusOutlined />} onClick={() => setAddPaymentOpen(true)}>Add Payment</Button>
             </div>
             <Table size="small" dataSource={expensePayments} rowKey="id" loading={expensePaymentsLoading} pagination={false}
+              scroll={{ x: isMobile ? 420 : undefined }}
               columns={[
                 { title: "Date", dataIndex: "date", key: "date", width: 100, render: fmtDate },
                 { title: "Amount", dataIndex: "amount", key: "amount", width: 110, render: fmtAmount },
@@ -767,7 +931,9 @@ export default function AccountsTab({ token }) {
 
       {/* Collection Detail */}
       <Modal open={collectionDetailOpen} onCancel={() => { setCollectionDetailOpen(false); setSelectedCollection(null); }}
-        title={selectedCollection?.description || "Collection Detail"} width={640} destroyOnClose
+        title={selectedCollection?.description || "Collection Detail"} width={modalWidth(640)} destroyOnClose
+        centered={!isMobile} style={isMobile ? { top: 12 } : undefined}
+        styles={{ body: { maxHeight: isMobile ? "70vh" : undefined, overflowY: isMobile ? "auto" : undefined } }}
         footer={selectedCollection ? (
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <Popconfirm title="Delete this collection?" onConfirm={() => { deleteCollectionItem(selectedCollection.id); setCollectionDetailOpen(false); setSelectedCollection(null); }}>
@@ -778,10 +944,10 @@ export default function AccountsTab({ token }) {
         ) : null}>
         {selectedCollection && (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 16 }}>
-              <Statistic title="Expected" value={selectedCollection.total_amount} prefix="₹" />
-              <Statistic title="Received" value={selectedCollection.received_amount} prefix="₹" />
-              <Statistic title="Status" value={selectedCollection.status?.replace(/_/g, " ").toUpperCase()} valueStyle={{ color: COLLECTION_STATUS_COLORS[selectedCollection.status] === "green" ? "#4ade80" : COLLECTION_STATUS_COLORS[selectedCollection.status] === "orange" ? "#fbbf24" : "#f87171" }} />
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: 12, marginBottom: 16 }}>
+              <Statistic title="Expected" value={selectedCollection.total_amount} prefix="₹" valueStyle={{ fontSize: isMobile ? 18 : undefined }} />
+              <Statistic title="Received" value={selectedCollection.received_amount} prefix="₹" valueStyle={{ fontSize: isMobile ? 18 : undefined }} />
+              <Statistic title="Status" value={selectedCollection.status?.replace(/_/g, " ").toUpperCase()} valueStyle={{ fontSize: isMobile ? 16 : undefined, color: COLLECTION_STATUS_COLORS[selectedCollection.status] === "green" ? "#4ade80" : COLLECTION_STATUS_COLORS[selectedCollection.status] === "orange" ? "#fbbf24" : "#f87171" }} />
             </div>
             <div style={{ marginBottom: 8 }}>
               <Text type="secondary">Category: </Text>{selectedCollection.category_name}{selectedCollection.sub_category && ` / ${selectedCollection.sub_category}`}
@@ -789,11 +955,12 @@ export default function AccountsTab({ token }) {
               {selectedCollection.booking_id && <><br /><Text type="secondary">Booking: </Text><Tag color="blue">Linked to booking</Tag></>}
               {selectedCollection.notes && <><br /><Text type="secondary">Notes: </Text>{selectedCollection.notes}</>}
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "16px 0 8px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "16px 0 8px", gap: 8, flexWrap: "wrap" }}>
               <Title level={5} style={{ margin: 0 }}>Receipts</Title>
               <Button size="small" type="primary" icon={<PlusOutlined />} onClick={() => setAddReceiptOpen(true)}>Add Receipt</Button>
             </div>
             <Table size="small" dataSource={collectionReceipts} rowKey="id" loading={collectionReceiptsLoading} pagination={false}
+              scroll={{ x: isMobile ? 420 : undefined }}
               columns={[
                 { title: "Date", dataIndex: "date", key: "date", width: 100, render: fmtDate },
                 { title: "Amount", dataIndex: "amount", key: "amount", width: 110, render: fmtAmount },
@@ -809,9 +976,10 @@ export default function AccountsTab({ token }) {
       </Modal>
 
       {/* Add Payment to Expense */}
-      <Modal open={addPaymentOpen} onCancel={() => { setAddPaymentOpen(false); addPaymentForm.resetFields(); }} footer={null} title="Add Payment" destroyOnClose width={440}>
+      <Modal open={addPaymentOpen} onCancel={() => { setAddPaymentOpen(false); addPaymentForm.resetFields(); }} footer={null} title="Add Payment" destroyOnClose
+        width={modalWidth(440)} centered={!isMobile} style={isMobile ? { top: 12 } : undefined}>
         <Form form={addPaymentForm} layout="vertical" onFinish={submitPayment} initialValues={{ date: dayjs() }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: formGrid, gap: 12 }}>
             <Form.Item name="amount" label="Amount (₹)" rules={[{ required: true }]}><InputNumber style={{ width: "100%" }} min={1} /></Form.Item>
             <Form.Item name="date" label="Date" rules={[{ required: true }]}><DatePicker style={{ width: "100%" }} /></Form.Item>
           </div>
@@ -826,9 +994,10 @@ export default function AccountsTab({ token }) {
       </Modal>
 
       {/* Add Receipt to Collection */}
-      <Modal open={addReceiptOpen} onCancel={() => { setAddReceiptOpen(false); addReceiptForm.resetFields(); }} footer={null} title="Add Receipt" destroyOnClose width={440}>
+      <Modal open={addReceiptOpen} onCancel={() => { setAddReceiptOpen(false); addReceiptForm.resetFields(); }} footer={null} title="Add Receipt" destroyOnClose
+        width={modalWidth(440)} centered={!isMobile} style={isMobile ? { top: 12 } : undefined}>
         <Form form={addReceiptForm} layout="vertical" onFinish={submitReceipt} initialValues={{ date: dayjs() }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: formGrid, gap: 12 }}>
             <Form.Item name="amount" label="Amount (₹)" rules={[{ required: true }]}><InputNumber style={{ width: "100%" }} min={1} /></Form.Item>
             <Form.Item name="date" label="Date" rules={[{ required: true }]}><DatePicker style={{ width: "100%" }} /></Form.Item>
           </div>
@@ -843,13 +1012,14 @@ export default function AccountsTab({ token }) {
       </Modal>
 
       {/* Transfer */}
-      <Modal open={addTransferOpen} onCancel={() => { setAddTransferOpen(false); addTransferForm.resetFields(); }} footer={null} title="Record Transfer" destroyOnClose width={480}>
+      <Modal open={addTransferOpen} onCancel={() => { setAddTransferOpen(false); addTransferForm.resetFields(); }} footer={null} title="Record Transfer" destroyOnClose
+        width={modalWidth(480)} centered={!isMobile} style={isMobile ? { top: 12 } : undefined}>
         <Form form={addTransferForm} layout="vertical" onFinish={submitTransfer} initialValues={{ date: dayjs() }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: formGrid, gap: 12 }}>
             <Form.Item name="from_account_id" label="From" rules={[{ required: true }]}><Select placeholder="Source" options={accounts.map(a => ({ label: `${a.name} (${fmtAmount(a.balance)})`, value: a.id }))} /></Form.Item>
             <Form.Item name="to_account_id" label="To" rules={[{ required: true }]}><Select placeholder="Destination" options={accounts.map(a => ({ label: a.name, value: a.id }))} /></Form.Item>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: formGrid, gap: 12 }}>
             <Form.Item name="amount" label="Amount (₹)" rules={[{ required: true }]}><InputNumber style={{ width: "100%" }} min={1} /></Form.Item>
             <Form.Item name="date" label="Date" rules={[{ required: true }]}><DatePicker style={{ width: "100%" }} /></Form.Item>
           </div>
@@ -862,7 +1032,8 @@ export default function AccountsTab({ token }) {
 
       {/* Account */}
       <Modal open={accountModalOpen} onCancel={() => { setAccountModalOpen(false); accountForm.resetFields(); setEditingAccount(null); }} footer={null}
-        title={`${editingAccount ? "Edit" : "Add"} Account`} destroyOnClose width={440}>
+        title={`${editingAccount ? "Edit" : "Add"} Account`} destroyOnClose width={modalWidth(440)}
+        centered={!isMobile} style={isMobile ? { top: 12 } : undefined}>
         <Form form={accountForm} layout="vertical" onFinish={submitAccount}>
           <Form.Item name="name" label="Name" rules={[{ required: true }]}><Input placeholder="e.g. HDFC Bank, Cash, Person A" /></Form.Item>
           <Form.Item name="type" label="Type" rules={[{ required: true }]}>
@@ -880,7 +1051,8 @@ export default function AccountsTab({ token }) {
 
       {/* Category */}
       <Modal open={categoryModalOpen} onCancel={() => { setCategoryModalOpen(false); categoryForm.resetFields(); setEditingCategory(null); }} footer={null}
-        title={`${editingCategory ? "Edit" : "Add"} ${categoryType === "expense" ? "Expense" : "Collection"} Category`} destroyOnClose width={440}>
+        title={`${editingCategory ? "Edit" : "Add"} ${categoryType === "expense" ? "Expense" : "Collection"} Category`} destroyOnClose
+        width={modalWidth(440)} centered={!isMobile} style={isMobile ? { top: 12 } : undefined}>
         <Form form={categoryForm} layout="vertical" onFinish={submitCategory}>
           <Form.Item name="name" label="Category Name" rules={[{ required: true }]}><Input placeholder="e.g. Travel, Donation" /></Form.Item>
           <Form.Item name="sub_categories" label="Sub-categories (comma separated)"><Input placeholder="e.g. Bus, Taxi, Fuel" /></Form.Item>
