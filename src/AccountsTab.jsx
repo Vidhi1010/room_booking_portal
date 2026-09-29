@@ -5,7 +5,7 @@ import {
   message, Modal, Form, Card, Statistic, Space, Empty, Spin, Popconfirm, DatePicker, Badge, Checkbox, Divider, Row, Col,
 } from "antd";
 import {
-  PlusOutlined, DeleteOutlined, EditOutlined, SwapOutlined, FolderOutlined,
+  PlusOutlined, DeleteOutlined, EditOutlined, SwapOutlined, FolderOutlined, EyeOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { API_BASE } from "./config";
@@ -49,12 +49,15 @@ export default function AccountsTab({ token }) {
   const [collections, setCollections] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [summary, setSummary] = useState(null);
+  const [settlements, setSettlements] = useState([]);
+  const [settlementTotals, setSettlementTotals] = useState(null);
 
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [expensesLoading, setExpensesLoading] = useState(false);
   const [collectionsLoading, setCollectionsLoading] = useState(false);
   const [txnsLoading, setTxnsLoading] = useState(false);
   const [accountsLoading, setAccountsLoading] = useState(false);
+  const [settlementsLoading, setSettlementsLoading] = useState(false);
 
   const [innerTab, setInnerTab] = useState("overview");
 
@@ -105,6 +108,11 @@ export default function AccountsTab({ token }) {
   const [savingCategory, setSavingCategory] = useState(false);
   const [categoryType, setCategoryType] = useState("expense");
   const [editingCategory, setEditingCategory] = useState(null);
+
+  // Settlement detail
+  const [settlementDetailOpen, setSettlementDetailOpen] = useState(false);
+  const [settlementDetail, setSettlementDetail] = useState(null);
+  const [settlementDetailLoading, setSettlementDetailLoading] = useState(false);
 
   const authHeaders = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
@@ -157,6 +165,31 @@ export default function AccountsTab({ token }) {
     catch { message.error("Failed to fetch transactions"); } finally { setTxnsLoading(false); }
   }, [token]);
 
+  const fetchSettlements = useCallback(async () => {
+    setSettlementsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/accounts-settlements?action=get-settlements`, { headers: authHeaders });
+      if (handleAuthError(res)) return;
+      const data = await res.json();
+      setSettlements(data.settlements || []);
+      setSettlementTotals(data.totals || null);
+    } catch { message.error("Failed to fetch settlements"); }
+    finally { setSettlementsLoading(false); }
+  }, [token]);
+
+  const openSettlementDetail = useCallback(async (settlementId) => {
+    setSettlementDetailOpen(true);
+    setSettlementDetail(null);
+    setSettlementDetailLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/accounts-settlements?action=get-settlement&settlement_id=${encodeURIComponent(settlementId)}`, { headers: authHeaders });
+      if (handleAuthError(res)) return;
+      if (!res.ok) { message.error("Failed to load settlement"); return; }
+      setSettlementDetail(await res.json());
+    } catch { message.error("Failed to load settlement"); }
+    finally { setSettlementDetailLoading(false); }
+  }, [token]);
+
   const fetchExpensePayments = useCallback(async (id) => {
     setExpensePaymentsLoading(true);
     try { const res = await fetch(`${API_BASE}/accounts-transactions?action=get-transactions&expense_id=${id}`, { headers: authHeaders }); if (handleAuthError(res)) return; setExpensePayments((await res.json()).transactions || []); } catch {}
@@ -176,6 +209,7 @@ export default function AccountsTab({ token }) {
     if (innerTab === "collections") fetchCollections();
     if (innerTab === "transfers") fetchTransactions("transfer");
     if (innerTab === "accounts") fetchAccounts();
+    if (innerTab === "settlements") fetchSettlements();
   }, [innerTab]);
 
   // ── Groupings ──
@@ -446,6 +480,55 @@ export default function AccountsTab({ token }) {
     )},
   ];
 
+  const settlementCols = [
+    {
+      title: "Settled", dataIndex: "settled_at", key: "settled_at", width: 110,
+      render: (v, r) => fmtDate(v || r.applied_at),
+    },
+    {
+      title: "Settlement ID", dataIndex: "settlement_id", key: "settlement_id", width: 200, ellipsis: true,
+      render: (v) => <Text copyable={{ text: v }} style={{ fontSize: 12 }}>{v}</Text>,
+    },
+    { title: "Net Amount", dataIndex: "amount", key: "amount", width: 120, render: fmtAmount },
+    { title: "Fee", dataIndex: "fee", key: "fee", width: 90, render: fmtAmount },
+    { title: "Tax", dataIndex: "tax", key: "tax", width: 90, render: fmtAmount },
+    {
+      title: "Orders", key: "orders", width: 110,
+      render: (_, r) => (
+        <span>
+          {r.orders_updated || 0}
+          {r.orders_missing_count > 0 && (
+            <Tag color="orange" style={{ marginLeft: 4 }}>{r.orders_missing_count} miss</Tag>
+          )}
+        </span>
+      ),
+    },
+    {
+      title: "Accounts", key: "accounts", width: 150,
+      render: (_, r) => (
+        <Space size={4} wrap>
+          <Tag color={r.accounts?.transfer_posted ? "green" : "default"}>
+            {r.accounts?.transfer_posted ? "Transfer" : "No xfer"}
+          </Tag>
+          <Tag color={r.accounts?.fee_posted ? "green" : "default"}>
+            {r.accounts?.fee_posted ? "Fee" : "No fee"}
+          </Tag>
+        </Space>
+      ),
+    },
+    {
+      title: "", key: "actions", width: 60, fixed: "right",
+      render: (_, r) => (
+        <Button
+          size="small"
+          type="link"
+          icon={<EyeOutlined />}
+          onClick={(e) => { e.stopPropagation(); openSettlementDetail(r.settlement_id); }}
+        />
+      ),
+    },
+  ];
+
   // ── Category card renderer with sub-category grouping ──
   const renderCategoryItems = (items, type) => {
     const isExpense = type === "expense";
@@ -703,6 +786,7 @@ export default function AccountsTab({ token }) {
           { key: "expenses", label: "Expenses" },
           { key: "collections", label: "Collections" },
           { key: "transfers", label: "Transfers" },
+          { key: "settlements", label: "Settlements" },
           { key: "accounts", label: "Accounts" },
         ]}
       />
@@ -865,6 +949,68 @@ export default function AccountsTab({ token }) {
           </div>
           <Table columns={transferCols} dataSource={transactions} rowKey="id" loading={txnsLoading} size={isMobile ? "small" : "middle"} scroll={{ x: 700 }} />
         </>
+      )}
+
+      {/* ── Settlements ── */}
+      {innerTab === "settlements" && (
+        <Spin spinning={settlementsLoading}>
+          {(() => {
+            const stored = settlementTotals?.stored || {};
+            const t = settlementTotals || {};
+            const totals = renderTotalsSidebar([
+              { title: "Net Settled", value: stored.total_amount || 0, color: "#4ade80" },
+              { title: "Fees", value: stored.total_fee || 0, color: "#f87171" },
+              { title: "Tax", value: stored.total_tax || 0, color: "#fbbf24" },
+            ]);
+            const content = (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                  <Title level={5} style={{ margin: 0 }}>Razorpay Settlements</Title>
+                  <Button size={isMobile ? "small" : "middle"} onClick={fetchSettlements}>Refresh</Button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? "120px" : "140px"}, 1fr))`, gap: 10, marginBottom: 16 }}>
+                  <Card size="small" style={{ background: "#141720" }}>
+                    <Statistic title={<span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Settlements</span>} value={stored.count || settlements.length} valueStyle={{ color: "#fff", fontSize: 18 }} />
+                  </Card>
+                  <Card size="small" style={{ background: "#141720" }}>
+                    <Statistic title={<span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Orders Linked</span>} value={t.orders_linked || 0} valueStyle={{ color: "#60a5fa", fontSize: 18 }} />
+                  </Card>
+                  <Card size="small" style={{ background: "#141720" }}>
+                    <Statistic title={<span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Missing Payments</span>} value={t.missing_payment_ids || 0} valueStyle={{ color: (t.missing_payment_ids || 0) > 0 ? "#fbbf24" : "#4ade80", fontSize: 18 }} />
+                  </Card>
+                  <Card size="small" style={{ background: "#141720" }}>
+                    <Statistic title={<span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Transfers Posted</span>} value={t.transfers_posted || 0} suffix={`/ ${settlements.length}`} valueStyle={{ color: "#4ade80", fontSize: 18 }} />
+                  </Card>
+                  <Card size="small" style={{ background: "#141720" }}>
+                    <Statistic title={<span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Fees Posted</span>} value={t.fees_posted || 0} suffix={`/ ${settlements.length}`} valueStyle={{ color: "#4ade80", fontSize: 18 }} />
+                  </Card>
+                  <Card size="small" style={{ background: "#141720" }}>
+                    <Statistic title={<span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Accounts Transfer Σ</span>} value={t.accounts_transfer_sum || 0} prefix="₹" valueStyle={{ color: "#60a5fa", fontSize: 18 }} />
+                  </Card>
+                </div>
+                <Table
+                  columns={settlementCols}
+                  dataSource={settlements}
+                  rowKey="settlement_id"
+                  size={isMobile ? "small" : "middle"}
+                  scroll={{ x: 1000 }}
+                  pagination={{ pageSize: 20, showSizeChanger: true }}
+                  onRow={(r) => ({ onClick: () => openSettlementDetail(r.settlement_id), style: { cursor: "pointer" } })}
+                />
+              </>
+            );
+            return (
+              <Row gutter={[16, 12]} align="top">
+                <Col xs={24} lg={8} xl={7} order={{ xs: 0, lg: 2 }} style={{ position: "sticky", top: 16, alignSelf: "flex-start", zIndex: 1 }}>
+                  {totals}
+                </Col>
+                <Col xs={24} lg={16} xl={17} order={{ xs: 1, lg: 1 }}>
+                  {content}
+                </Col>
+              </Row>
+            );
+          })()}
+        </Spin>
       )}
 
       {/* ── Accounts ── */}
@@ -1060,6 +1206,125 @@ export default function AccountsTab({ token }) {
             <Space><Button onClick={() => { setCategoryModalOpen(false); categoryForm.resetFields(); setEditingCategory(null); }}>Cancel</Button><Button type="primary" htmlType="submit" loading={savingCategory}>{editingCategory ? "Update" : "Save"}</Button></Space>
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Settlement Detail */}
+      <Modal
+        open={settlementDetailOpen}
+        onCancel={() => { setSettlementDetailOpen(false); setSettlementDetail(null); }}
+        title={settlementDetail?.settlement?.settlement_id ? `Settlement ${settlementDetail.settlement.settlement_id}` : "Settlement Detail"}
+        width={modalWidth(860)}
+        destroyOnClose
+        centered={!isMobile}
+        style={isMobile ? { top: 12 } : undefined}
+        footer={<Button onClick={() => { setSettlementDetailOpen(false); setSettlementDetail(null); }}>Close</Button>}
+      >
+        <Spin spinning={settlementDetailLoading}>
+          {settlementDetail?.settlement ? (() => {
+            const s = settlementDetail.settlement;
+            const summary = settlementDetail.linked_orders_summary || {};
+            const missing = settlementDetail.missing_payment_ids || [];
+            return (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 16 }}>
+                  <Card size="small" style={{ background: "#141720" }}>
+                    <Statistic title={<span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Net Amount</span>} value={s.amount || 0} prefix="₹" valueStyle={{ color: "#4ade80", fontSize: 18 }} />
+                  </Card>
+                  <Card size="small" style={{ background: "#141720" }}>
+                    <Statistic title={<span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Fee</span>} value={s.fee || 0} prefix="₹" valueStyle={{ color: "#f87171", fontSize: 18 }} />
+                  </Card>
+                  <Card size="small" style={{ background: "#141720" }}>
+                    <Statistic title={<span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Tax</span>} value={s.tax || 0} prefix="₹" valueStyle={{ color: "#fbbf24", fontSize: 18 }} />
+                  </Card>
+                  <Card size="small" style={{ background: "#141720" }}>
+                    <Statistic title={<span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Gross</span>} value={s.gross_before_fees || 0} prefix="₹" valueStyle={{ color: "#60a5fa", fontSize: 18 }} />
+                  </Card>
+                </div>
+                <Text type="secondary">Settled: </Text>{fmtDate(s.settled_at || s.applied_at)}
+                <br /><Text type="secondary">Applied: </Text>{fmtDate(s.applied_at)}
+                <br /><Text type="secondary">Orders updated: </Text>{s.orders_updated || 0}
+                <br /><Text type="secondary">Missing payments: </Text>
+                {missing.length === 0 ? <Tag color="green">None</Tag> : <Tag color="orange">{missing.length}</Tag>}
+                <Divider style={{ margin: "12px 0" }} />
+                <Title level={5} style={{ marginTop: 0 }}>Accounts linkage</Title>
+                <div style={{ marginBottom: 12 }}>
+                  <Space wrap>
+                    <Tag color={s.accounts?.transfer_posted ? "green" : "red"}>
+                      Transfer {s.accounts?.transfer_posted ? "posted" : "missing"}
+                      {s.accounts?.transfer_amount != null ? ` · ${fmtAmount(s.accounts.transfer_amount)}` : ""}
+                    </Tag>
+                    <Tag color={s.accounts?.fee_posted ? "green" : "red"}>
+                      Fee {s.accounts?.fee_posted ? "posted" : "missing"}
+                      {s.accounts?.fee_amount != null ? ` · ${fmtAmount(s.accounts.fee_amount)}` : ""}
+                    </Tag>
+                  </Space>
+                </div>
+                {s.accounts?.transfer && (
+                  <Card size="small" title="Transfer transaction" style={{ background: "#141720", marginBottom: 12 }} styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}>
+                    <Text type="secondary">Date: </Text>{fmtDate(s.accounts.transfer.date)}
+                    <br /><Text type="secondary">From → To: </Text>{s.accounts.transfer.from_account_name} → {s.accounts.transfer.to_account_name}
+                    <br /><Text type="secondary">Amount: </Text>{fmtAmount(s.accounts.transfer.amount)}
+                    <br /><Text type="secondary">Notes: </Text>{s.accounts.transfer.notes || "-"}
+                  </Card>
+                )}
+                {(s.accounts?.fee_expense || s.accounts?.fee_payment) && (
+                  <Card size="small" title="Gateway fee" style={{ background: "#141720", marginBottom: 12 }} styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}>
+                    {s.accounts.fee_expense && (
+                      <>
+                        <Text type="secondary">Expense: </Text>{s.accounts.fee_expense.description || s.accounts.fee_expense.id}
+                        <br /><Text type="secondary">Total: </Text>{fmtAmount(s.accounts.fee_expense.total_amount)}
+                        <br /><Text type="secondary">Paid: </Text>{fmtAmount(s.accounts.fee_expense.paid_amount)}
+                        <br />
+                      </>
+                    )}
+                    {s.accounts.fee_payment && (
+                      <>
+                        <Text type="secondary">Payment date: </Text>{fmtDate(s.accounts.fee_payment.date)}
+                        <br /><Text type="secondary">Payment amount: </Text>{fmtAmount(s.accounts.fee_payment.amount)}
+                        <br /><Text type="secondary">From: </Text>{s.accounts.fee_payment.from_account_name || "-"}
+                      </>
+                    )}
+                  </Card>
+                )}
+                <Divider style={{ margin: "12px 0" }} />
+                <Title level={5} style={{ marginTop: 0 }}>
+                  Linked orders ({summary.count || 0})
+                  <Text type="secondary" style={{ fontSize: 13, fontWeight: 400, marginLeft: 8 }}>
+                    amount {fmtAmount(summary.amount_sum)} · net {fmtAmount(summary.settlement_net_sum)} · fee+tax {fmtAmount(summary.fee_tax_sum)}
+                  </Text>
+                </Title>
+                <Table
+                  size="small"
+                  dataSource={settlementDetail.linked_orders || []}
+                  rowKey="order_id"
+                  pagination={{ pageSize: 10 }}
+                  scroll={{ x: 720 }}
+                  columns={[
+                    { title: "Paid", dataIndex: "paid_at", key: "paid_at", width: 100, render: fmtDate },
+                    { title: "Payment ID", dataIndex: "payment_id", key: "payment_id", width: 160, ellipsis: true, render: (v) => v || "-" },
+                    { title: "Booking", dataIndex: "booking_id", key: "booking_id", width: 120, ellipsis: true, render: (v) => v || "-" },
+                    { title: "Amount", dataIndex: "amount", key: "amount", width: 100, render: fmtAmount },
+                    { title: "Settled Net", dataIndex: "settlement_amount", key: "settlement_amount", width: 100, render: fmtAmount },
+                    { title: "Fee", dataIndex: "settlement_fee", key: "settlement_fee", width: 80, render: fmtAmount },
+                    { title: "Tax", dataIndex: "settlement_tax", key: "settlement_tax", width: 80, render: fmtAmount },
+                    { title: "Status", dataIndex: "status", key: "status", width: 90 },
+                  ]}
+                />
+                {missing.length > 0 && (
+                  <>
+                    <Divider style={{ margin: "12px 0" }} />
+                    <Title level={5} style={{ marginTop: 0 }}>Missing payment IDs</Title>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {missing.map((pid) => (
+                        <Tag key={pid} color="orange"><Text copyable={{ text: pid }} style={{ fontSize: 12 }}>{pid}</Text></Tag>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            );
+          })() : !settlementDetailLoading ? <Empty description="Settlement not found" /> : null}
+        </Spin>
       </Modal>
     </div>
   );
