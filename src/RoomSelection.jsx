@@ -394,7 +394,7 @@ export default function RoomSelection() {
                     What would you like to do?
                   </p>
                   <div className="space-y-3">
-                    <button
+                    {/* <button
                       onClick={() => setShowChoiceModal(false)}
                       className="w-full p-4 rounded-xl text-left transition-all duration-200 hover:scale-[1.02]"
                       style={{ border: "1px solid var(--t-border-strong)", backgroundColor: "var(--t-card-tint)" }}
@@ -403,7 +403,7 @@ export default function RoomSelection() {
                       <p className="text-xs mt-1" style={{ color: "var(--t-text-muted)" }}>
                         Register for Vraj Yatra with a fresh booking
                       </p>
-                    </button>
+                    </button> */}
                     <button
                       onClick={() => setChoiceStep("phone")}
                       className="w-full p-4 rounded-xl text-left transition-all duration-200 hover:scale-[1.02]"
