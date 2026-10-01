@@ -18,7 +18,8 @@ const TXN_TYPE_LABELS = { expense_payment: "Expense Payment", collection: "Colle
 const EXPENSE_STATUS_COLORS = { unpaid: "red", partially_paid: "orange", fully_paid: "green" };
 const COLLECTION_STATUS_COLORS = { pending: "red", partially_received: "orange", fully_received: "green" };
 
-const fmtAmount = (v) => `₹${(Number(v) || 0).toLocaleString("en-IN")}`;
+const fmtAmount = (v) =>
+  `₹${(Number(v) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-IN", { dateStyle: "medium" }) : "-";
 
 function useIsMobile(breakpoint = 768) {
@@ -798,16 +799,16 @@ export default function AccountsTab({ token }) {
             <>
               <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? "140px" : "200px"}, 1fr))`, gap: isMobile ? 10 : 16, marginBottom: 24 }}>
                 <Card size="small" style={{ background: "#141720" }}>
-                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: isMobile ? 11 : undefined }}>Collections Received</span>} value={summary.total_collections_received} prefix="₹" valueStyle={{ color: "#4ade80", fontSize: isMobile ? 18 : undefined }} />
+                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: isMobile ? 11 : undefined }}>Collections Received</span>} value={summary.total_collections_received} prefix="₹" precision={2} valueStyle={{ color: "#4ade80", fontSize: isMobile ? 18 : undefined }} />
                 </Card>
                 <Card size="small" style={{ background: "#141720" }}>
-                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: isMobile ? 11 : undefined }}>Collections Pending</span>} value={summary.total_collections_pending} prefix="₹" valueStyle={{ color: "#fbbf24", fontSize: isMobile ? 18 : undefined }} />
+                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: isMobile ? 11 : undefined }}>Collections Pending</span>} value={summary.total_collections_pending} prefix="₹" precision={2} valueStyle={{ color: "#fbbf24", fontSize: isMobile ? 18 : undefined }} />
                 </Card>
                 <Card size="small" style={{ background: "#141720" }}>
-                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: isMobile ? 11 : undefined }}>Expenses Total</span>} value={summary.total_expenses} prefix="₹" valueStyle={{ color: "#f87171", fontSize: isMobile ? 18 : undefined }} />
+                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: isMobile ? 11 : undefined }}>Expenses Total</span>} value={summary.total_expenses} prefix="₹" precision={2} valueStyle={{ color: "#f87171", fontSize: isMobile ? 18 : undefined }} />
                 </Card>
                 <Card size="small" style={{ background: "#141720" }}>
-                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: isMobile ? 11 : undefined }}>Expenses Outstanding</span>} value={summary.outstanding} prefix="₹" valueStyle={{ color: "#f87171", fontSize: isMobile ? 18 : undefined }} />
+                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: isMobile ? 11 : undefined }}>Expenses Outstanding</span>} value={summary.outstanding} prefix="₹" precision={2} valueStyle={{ color: "#f87171", fontSize: isMobile ? 18 : undefined }} />
                 </Card>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? "100%" : "280px"}, 1fr))`, gap: 16, marginBottom: 24 }}>
