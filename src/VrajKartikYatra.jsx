@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { defaultTheme } from "./themes";
 import { yatraSchedule, yatraDateRange } from "./yatraSchedule";
+import { REGISTRATION_CLOSED } from "./config";
 
 /* ───────────────────────── helpers ───────────────────────── */
 function Section({ children, className = "", id }) {
@@ -508,30 +509,44 @@ export default function VrajKartikYatra() {
       {/* ═══════════════════ COUNTDOWN TIMER ═══════════════════ */}
       <div className="relative py-8 px-6" style={{ backgroundColor: "var(--t-bg-alt)", borderBottom: "1px solid var(--t-border)" }}>
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-5 sm:gap-8">
-          <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5" style={{ color: "var(--t-accent-from)" }} />
-            <span className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--t-accent-from)" }}>Registration closes in</span>
-          </div>
-          <div className="flex items-center gap-3">
-            {[
-              [countdown.days, "Days"],
-              [countdown.hours, "Hrs"],
-              [countdown.minutes, "Min"],
-              [countdown.seconds, "Sec"],
-            ].map(([value, label]) => (
-              <div key={label} className="flex items-center gap-1">
-                <span
-                  className="inline-flex items-center justify-center w-12 h-12 rounded-xl text-xl font-black tabular-nums"
-                  style={{ backgroundColor: "var(--t-card-tint)", border: "1px solid var(--t-border)", color: "var(--t-text)" }}
-                >
-                  {String(value).padStart(2, "0")}
-                </span>
-                <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--t-text-muted)" }}>{label}</span>
-                {label !== "Sec" && <span className="text-lg font-bold mx-1" style={{ color: "var(--t-text-faint)" }}>:</span>}
+          {REGISTRATION_CLOSED ? (
+            <div className="flex flex-col sm:flex-row items-center gap-3 text-center sm:text-left">
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5" style={{ color: "var(--t-accent-from)" }} />
+                <span className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--t-accent-from)" }}>Booking is over</span>
               </div>
-            ))}
-          </div>
-          <span className="text-xs" style={{ color: "var(--t-text-faint)" }}>Last date: 20 Sept 2026</span>
+              <span className="text-sm" style={{ color: "var(--t-text-muted)" }}>
+                New registrations are closed. Own travel &amp; stay required if joining separately.
+              </span>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5" style={{ color: "var(--t-accent-from)" }} />
+                <span className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--t-accent-from)" }}>Registration closes in</span>
+              </div>
+              <div className="flex items-center gap-3">
+                {[
+                  [countdown.days, "Days"],
+                  [countdown.hours, "Hrs"],
+                  [countdown.minutes, "Min"],
+                  [countdown.seconds, "Sec"],
+                ].map(([value, label]) => (
+                  <div key={label} className="flex items-center gap-1">
+                    <span
+                      className="inline-flex items-center justify-center w-12 h-12 rounded-xl text-xl font-black tabular-nums"
+                      style={{ backgroundColor: "var(--t-card-tint)", border: "1px solid var(--t-border)", color: "var(--t-text)" }}
+                    >
+                      {String(value).padStart(2, "0")}
+                    </span>
+                    <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--t-text-muted)" }}>{label}</span>
+                    {label !== "Sec" && <span className="text-lg font-bold mx-1" style={{ color: "var(--t-text-faint)" }}>:</span>}
+                  </div>
+                ))}
+              </div>
+              <span className="text-xs" style={{ color: "var(--t-text-faint)" }}>Last date: 20 Sept 2026</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -951,7 +966,6 @@ export default function VrajKartikYatra() {
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
-            {/* <p className="mt-6 text-sm" style={{ color: "var(--t-text-faint)" }}>Registration opens soon • Stay tuned for updates</p> */}
           </motion.div>
         </div>
       </Section>
