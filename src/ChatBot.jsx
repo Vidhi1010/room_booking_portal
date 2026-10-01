@@ -6,19 +6,19 @@ const QUICK_QUESTIONS = [
   { label: "📋 Booking Status", action: "booking_status" },
   { 
     label: "🏠 Room Options",
-    answer: "🏠 Available Room Types:\n\n🛏️ Twin Bed Room (2 bed)\n🛏️ 2+1 Bed Room (3 bed)\n👨‍👩‍👧‍👦 Family Room (4 bed)\n🏢 Dormitory (6 bed)\n\n💡 Price: ₹3,500 – ₹5,500 per person\n✅ All include Accommodation, Prasadam & Internal Travel"
+    answer: "🏠 Booking is over.\n\nNew registrations are closed. If you still wish to join, please arrange for your own accommodations and travel. Rest other charges would be communicated to you.\n\n💡 Already booked? Use Booking Status to pay remaining amount."
   },
   {
     label: "📅 Yatra Dates",
-    answer: "📅 ISKCON Vrindavan Dham Yatra 2026\n\n📍 Dates: 2nd Oct (9 AM) → 4th Oct (5 PM)\n⏳ Duration: 3 Days\n🔒 Registration Deadline: 15th Sept 2026\n\n⚡ Seats are limited — register early!"
+    answer: "📅 ISKCON Vrindavan Dham Yatra 2026\n\n📍 Dates: 2nd Oct (9 AM) → 4th Oct (5 PM)\n⏳ Duration: 3 Days\n🔒 Booking is over — new registrations are closed.\n\nIf you still wish to join, please arrange for your own accommodations and travel. Rest other charges would be communicated to you."
   },
   {
     label: "💰 Pricing",
-    answer: "💰 Yatra Pricing (per person):\n\n🏢 Dormitory — ₹3,500\n👨‍👩‍👧‍👦 Family / 2+1 Bed — ₹4,500\n🛏️ Twin Bed — ₹5,500\n\n✅ Includes: Accommodation + Prasadam + Internal Travel\n🚌 Delhi ↔ Vraj Transport: ₹800 extra\n\n💡 Book with just ₹2,000 advance!"
+    answer: "💰 Booking is over.\n\nNew registrations are closed. If you still wish to join, please arrange for your own accommodations and travel. Rest other charges would be communicated to you.\n\n💡 Already booked? Ask about Booking Status to complete remaining payment."
   },
   {
     label: "🚌 Transport",
-    answer: "🚌 Transport Details:\n\n✅ Delhi ↔ Vraj round-trip AC bus\n💰 Cost: ₹700 per person\n📍 Internal travel within Vraj is included in all packages\n\n🗺️ Covers: Vrindavan, Mathura, Govardhan & Barsana"
+    answer: "🚌 Booking is over.\n\nOrganised accommodation and travel bookings are closed. If you still wish to join, please arrange for your own accommodations and travel. Rest other charges would be communicated to you."
   },
 ];
 

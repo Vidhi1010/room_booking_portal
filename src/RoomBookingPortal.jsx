@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { CheckCircle, Users, Crown, X, Check } from "lucide-react";
+import { REGISTRATION_CLOSED } from "./config";
 
 const RoomBookingPortal = () => {
   const [formData, setFormData] = useState({
@@ -34,6 +35,30 @@ const RoomBookingPortal = () => {
     return () => clearInterval(interval);
   }, [sliderImages.length]);
 
+  if (REGISTRATION_CLOSED) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-red-50 flex items-center justify-center px-6">
+        <div className="bg-white rounded-3xl shadow-2xl p-10 text-center border-2 border-red-200 max-w-lg">
+          <h2 className="text-4xl font-bold text-red-600 mb-4">
+            Booking is Over
+          </h2>
+          <p className="text-gray-700 text-lg mb-3">
+            New registrations for <b>Kartik Vraj Yatra 2026</b> are now closed.
+          </p>
+          <p className="text-gray-600 text-base">
+            If you still wish to join, please arrange for your own accommodations and travel.
+            Rest other charges would be communicated to you.
+          </p>
+          <a
+            href="/register"
+            className="inline-block mt-8 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg"
+          >
+            Pay Remaining Amount
+          </a>
+        </div>
+      </div>
+    );
+  }
   // QR codes for different room types (placeholder images)
   const qrCodes = {
     semi: "./images/qrCode.jpg", // replace with real QR

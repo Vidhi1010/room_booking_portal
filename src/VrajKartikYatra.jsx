@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { defaultTheme } from "./themes";
 import { yatraSchedule, yatraDateRange } from "./yatraSchedule";
+import { REGISTRATION_CLOSED } from "./config";
 
 /* ───────────────────────── helpers ───────────────────────── */
 function Section({ children, className = "", id }) {
@@ -360,7 +361,7 @@ export default function VrajKartikYatra() {
               onClick={() => { trackEvent('Registration', 'click_register', 'navbar'); nav("/register"); }}
               className="ml-2 px-5 py-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-amber-500/25 transition-all duration-300 hover:scale-105"
             >
-              Register Now
+              {REGISTRATION_CLOSED ? "Booking Closed" : "Register Now"}
             </button>
           </div>
         </div>
@@ -458,7 +459,7 @@ export default function VrajKartikYatra() {
               onClick={() => { trackEvent('Registration', 'click_register', 'hero'); nav("/register"); }}
               className="group px-8 py-4 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-lg hover:shadow-2xl hover:shadow-amber-500/30 transition-all duration-300 hover:scale-105 flex items-center gap-2"
             >
-              Join the Yatra
+              {REGISTRATION_CLOSED ? "Booking Closed" : "Join the Yatra"}
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
             <button
@@ -508,30 +509,44 @@ export default function VrajKartikYatra() {
       {/* ═══════════════════ COUNTDOWN TIMER ═══════════════════ */}
       <div className="relative py-8 px-6" style={{ backgroundColor: "var(--t-bg-alt)", borderBottom: "1px solid var(--t-border)" }}>
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-5 sm:gap-8">
-          <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5" style={{ color: "var(--t-accent-from)" }} />
-            <span className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--t-accent-from)" }}>Registration closes in</span>
-          </div>
-          <div className="flex items-center gap-3">
-            {[
-              [countdown.days, "Days"],
-              [countdown.hours, "Hrs"],
-              [countdown.minutes, "Min"],
-              [countdown.seconds, "Sec"],
-            ].map(([value, label]) => (
-              <div key={label} className="flex items-center gap-1">
-                <span
-                  className="inline-flex items-center justify-center w-12 h-12 rounded-xl text-xl font-black tabular-nums"
-                  style={{ backgroundColor: "var(--t-card-tint)", border: "1px solid var(--t-border)", color: "var(--t-text)" }}
-                >
-                  {String(value).padStart(2, "0")}
-                </span>
-                <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--t-text-muted)" }}>{label}</span>
-                {label !== "Sec" && <span className="text-lg font-bold mx-1" style={{ color: "var(--t-text-faint)" }}>:</span>}
+          {REGISTRATION_CLOSED ? (
+            <div className="flex flex-col sm:flex-row items-center gap-3 text-center sm:text-left">
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5" style={{ color: "var(--t-accent-from)" }} />
+                <span className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--t-accent-from)" }}>Booking is over</span>
               </div>
-            ))}
-          </div>
-          <span className="text-xs" style={{ color: "var(--t-text-faint)" }}>Last date: 20 Sept 2026</span>
+              <span className="text-sm" style={{ color: "var(--t-text-muted)" }}>
+                New registrations are closed. Own travel &amp; stay required if joining separately.
+              </span>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5" style={{ color: "var(--t-accent-from)" }} />
+                <span className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--t-accent-from)" }}>Registration closes in</span>
+              </div>
+              <div className="flex items-center gap-3">
+                {[
+                  [countdown.days, "Days"],
+                  [countdown.hours, "Hrs"],
+                  [countdown.minutes, "Min"],
+                  [countdown.seconds, "Sec"],
+                ].map(([value, label]) => (
+                  <div key={label} className="flex items-center gap-1">
+                    <span
+                      className="inline-flex items-center justify-center w-12 h-12 rounded-xl text-xl font-black tabular-nums"
+                      style={{ backgroundColor: "var(--t-card-tint)", border: "1px solid var(--t-border)", color: "var(--t-text)" }}
+                    >
+                      {String(value).padStart(2, "0")}
+                    </span>
+                    <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--t-text-muted)" }}>{label}</span>
+                    {label !== "Sec" && <span className="text-lg font-bold mx-1" style={{ color: "var(--t-text-faint)" }}>:</span>}
+                  </div>
+                ))}
+              </div>
+              <span className="text-xs" style={{ color: "var(--t-text-faint)" }}>Last date: 20 Sept 2026</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -938,20 +953,39 @@ export default function VrajKartikYatra() {
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-amber-500/20">
               <Heart className="w-10 h-10 text-white" />
             </div>
-            <h2 className="text-4xl sm:text-6xl font-black leading-tight">
-              Ready to Begin Your{" "}
-              <span style={{ background: `linear-gradient(to right, var(--t-accent-from), var(--t-accent-to), #e11d48)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Spiritual Journey?</span>
-            </h2>
-            <p className="mt-6 text-lg max-w-xl mx-auto leading-relaxed" style={{ color: "var(--t-text-muted)" }}>
-              Limited seats available. Register now to secure your spot on this transformative pilgrimage to the sacred land of Vraj.
-            </p>
-            <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button onClick={() => { trackEvent('Registration', 'click_register', 'cta_section'); nav("/register"); }} className="group px-10 py-5 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white font-bold text-lg hover:shadow-2xl hover:shadow-amber-500/30 transition-all duration-300 hover:scale-105 flex items-center gap-3">
-                Register for Yatra
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </button>
-            </div>
-            {/* <p className="mt-6 text-sm" style={{ color: "var(--t-text-faint)" }}>Registration opens soon • Stay tuned for updates</p> */}
+            {REGISTRATION_CLOSED ? (
+              <>
+                <h2 className="text-4xl sm:text-6xl font-black leading-tight">
+                  Booking is{" "}
+                  <span style={{ background: `linear-gradient(to right, var(--t-accent-from), var(--t-accent-to), #e11d48)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Over</span>
+                </h2>
+                <p className="mt-6 text-lg max-w-xl mx-auto leading-relaxed" style={{ color: "var(--t-text-muted)" }}>
+                  New registrations are closed. If you still wish to join, please arrange for your own accommodations and travel. Rest other charges would be communicated to you.
+                </p>
+                <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+                  <button onClick={() => { trackEvent('Registration', 'click_register', 'cta_section'); nav("/register"); }} className="group px-10 py-5 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white font-bold text-lg hover:shadow-2xl hover:shadow-amber-500/30 transition-all duration-300 hover:scale-105 flex items-center gap-3">
+                    Pay Remaining / Details
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="text-4xl sm:text-6xl font-black leading-tight">
+                  Ready to Begin Your{" "}
+                  <span style={{ background: `linear-gradient(to right, var(--t-accent-from), var(--t-accent-to), #e11d48)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Spiritual Journey?</span>
+                </h2>
+                <p className="mt-6 text-lg max-w-xl mx-auto leading-relaxed" style={{ color: "var(--t-text-muted)" }}>
+                  Limited seats available. Register now to secure your spot on this transformative pilgrimage to the sacred land of Vraj.
+                </p>
+                <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+                  <button onClick={() => { trackEvent('Registration', 'click_register', 'cta_section'); nav("/register"); }} className="group px-10 py-5 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white font-bold text-lg hover:shadow-2xl hover:shadow-amber-500/30 transition-all duration-300 hover:scale-105 flex items-center gap-3">
+                    Register for Yatra
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </button>
+                </div>
+              </>
+            )}
           </motion.div>
         </div>
       </Section>
