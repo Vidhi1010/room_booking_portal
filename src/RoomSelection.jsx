@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Users, ArrowRight, ArrowLeft, Loader2, UserPlus, Trash2, Bus, Phone, X, AlertCircle } from "lucide-react";
 import { defaultTheme } from "./themes";
-import { API_BASE } from "./config";
+import { API_BASE, REGISTRATION_CLOSED } from "./config";
 
 const GENDER_OPTIONS = ["Male", "Female"];
 
@@ -365,6 +365,99 @@ export default function RoomSelection() {
       },
     });
   };
+
+  if (REGISTRATION_CLOSED) {
+    return (
+      <div
+        className="min-h-screen relative flex items-center justify-center px-4 py-16"
+        style={{ ...theme.cssVars, backgroundColor: "var(--t-bg)", color: "var(--t-text)" }}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-lg rounded-3xl p-8 sm:p-10 shadow-2xl text-center"
+          style={{ backgroundColor: "var(--t-card-tint)", border: "1px solid var(--t-border-strong)" }}
+        >
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-black mb-4">Booking is Over</h1>
+          <p className="text-base leading-relaxed mb-3" style={{ color: "var(--t-text-muted)" }}>
+            New registrations for <strong style={{ color: "var(--t-text)" }}>Kartik Vraj Yatra 2026</strong> are now closed.
+          </p>
+          <p className="text-sm leading-relaxed mb-8" style={{ color: "var(--t-text-muted)" }}>
+            If you still wish to join, please arrange for your own accommodations and travel.
+            Rest other charges would be communicated to you.
+          </p>
+
+          {choiceStep === "phone" ? (
+            <div className="text-left">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold">Pay Remaining Amount</h2>
+                <button
+                  onClick={() => { setChoiceStep("choose"); setPhoneLookupError(""); setPhoneInput(""); }}
+                  className="p-1.5 rounded-lg transition-colors hover:bg-white/10"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-sm mb-4" style={{ color: "var(--t-text-muted)" }}>
+                Enter the primary contact number used during booking.
+              </p>
+              <div className="relative mb-4">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--t-text-muted)" }} />
+                <input
+                  type="tel"
+                  value={phoneInput}
+                  onChange={(e) => { setPhoneInput(e.target.value); setPhoneLookupError(""); }}
+                  placeholder="Enter 10-digit phone number"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-all duration-200 focus:ring-2 focus:ring-amber-500/30"
+                  style={{ backgroundColor: "var(--t-bg)", border: "1px solid var(--t-border-strong)", color: "var(--t-text)" }}
+                  maxLength={10}
+                />
+              </div>
+              {phoneLookupError && (
+                <div className="flex items-center gap-2 mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                  <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                  <p className="text-sm text-red-500">{phoneLookupError}</p>
+                </div>
+              )}
+              <button
+                onClick={handlePayRemaining}
+                disabled={phoneLookupLoading}
+                className="w-full py-3 rounded-xl text-white font-semibold text-sm transition-all duration-200 bg-gradient-to-r from-amber-500 to-orange-600 hover:shadow-lg hover:shadow-amber-500/20 disabled:opacity-60"
+              >
+                {phoneLookupLoading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Looking up booking...
+                  </span>
+                ) : (
+                  "Find My Booking"
+                )}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <button
+                onClick={() => setChoiceStep("phone")}
+                className="w-full py-3.5 rounded-xl text-white font-semibold transition-all duration-200 bg-gradient-to-r from-amber-500 to-orange-600 hover:shadow-lg hover:shadow-amber-500/20"
+              >
+                Pay Remaining Amount
+              </button>
+              <button
+                onClick={() => navigate("/")}
+                className="w-full py-3.5 rounded-xl font-semibold transition-all duration-200"
+                style={{ border: "1px solid var(--t-border-strong)", color: "var(--t-text-muted)" }}
+              >
+                Back to Home
+              </button>
+            </div>
+          )}
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div

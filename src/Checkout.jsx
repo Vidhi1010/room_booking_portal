@@ -17,7 +17,7 @@ import {
   IndianRupee,
 } from "lucide-react";
 import { defaultTheme } from "./themes";
-import { API_BASE } from "./config";
+import { API_BASE, REGISTRATION_CLOSED } from "./config";
 import { trackEvent } from "./analytics";
 
 export default function Checkout() {
@@ -273,6 +273,29 @@ export default function Checkout() {
             className="px-6 py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold"
           >
             Go to Registration
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Block new bookings when registration is closed (existing pay-remaining still allowed)
+  if (REGISTRATION_CLOSED && !payRemaining) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center px-4"
+        style={{ ...theme.cssVars, backgroundColor: "var(--t-bg)", color: "var(--t-text)" }}
+      >
+        <div className="max-w-md text-center">
+          <h1 className="text-3xl font-black mb-4">Booking is Over</h1>
+          <p className="text-base mb-3" style={{ color: "var(--t-text-muted)" }}>
+            New registrations are closed. If you still wish to join, please arrange for your own accommodations and travel. Rest other charges would be communicated to you.
+          </p>
+          <button
+            onClick={() => navigate("/register")}
+            className="mt-4 px-6 py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold"
+          >
+            Pay Remaining Amount
           </button>
         </div>
       </div>
