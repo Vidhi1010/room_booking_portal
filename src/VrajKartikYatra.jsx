@@ -361,7 +361,7 @@ export default function VrajKartikYatra() {
               onClick={() => { trackEvent('Registration', 'click_register', 'navbar'); nav("/register"); }}
               className="ml-2 px-5 py-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-amber-500/25 transition-all duration-300 hover:scale-105"
             >
-              {REGISTRATION_CLOSED ? "Booking Closed" : "Register Now"}
+              Register Now
             </button>
           </div>
         </div>
@@ -459,7 +459,7 @@ export default function VrajKartikYatra() {
               onClick={() => { trackEvent('Registration', 'click_register', 'hero'); nav("/register"); }}
               className="group px-8 py-4 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-lg hover:shadow-2xl hover:shadow-amber-500/30 transition-all duration-300 hover:scale-105 flex items-center gap-2"
             >
-              {REGISTRATION_CLOSED ? "Booking Closed" : "Join the Yatra"}
+              Join the Yatra
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
             <button
@@ -953,39 +953,19 @@ export default function VrajKartikYatra() {
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-amber-500/20">
               <Heart className="w-10 h-10 text-white" />
             </div>
-            {REGISTRATION_CLOSED ? (
-              <>
-                <h2 className="text-4xl sm:text-6xl font-black leading-tight">
-                  Booking is{" "}
-                  <span style={{ background: `linear-gradient(to right, var(--t-accent-from), var(--t-accent-to), #e11d48)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Over</span>
-                </h2>
-                <p className="mt-6 text-lg max-w-xl mx-auto leading-relaxed" style={{ color: "var(--t-text-muted)" }}>
-                  New registrations are closed. If you still wish to join, please arrange for your own accommodations and travel. Rest other charges would be communicated to you.
-                </p>
-                <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-                  <button onClick={() => { trackEvent('Registration', 'click_register', 'cta_section'); nav("/register"); }} className="group px-10 py-5 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white font-bold text-lg hover:shadow-2xl hover:shadow-amber-500/30 transition-all duration-300 hover:scale-105 flex items-center gap-3">
-                    Pay Remaining / Details
-                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <h2 className="text-4xl sm:text-6xl font-black leading-tight">
-                  Ready to Begin Your{" "}
-                  <span style={{ background: `linear-gradient(to right, var(--t-accent-from), var(--t-accent-to), #e11d48)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Spiritual Journey?</span>
-                </h2>
-                <p className="mt-6 text-lg max-w-xl mx-auto leading-relaxed" style={{ color: "var(--t-text-muted)" }}>
-                  Limited seats available. Register now to secure your spot on this transformative pilgrimage to the sacred land of Vraj.
-                </p>
-                <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-                  <button onClick={() => { trackEvent('Registration', 'click_register', 'cta_section'); nav("/register"); }} className="group px-10 py-5 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white font-bold text-lg hover:shadow-2xl hover:shadow-amber-500/30 transition-all duration-300 hover:scale-105 flex items-center gap-3">
-                    Register for Yatra
-                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  </button>
-                </div>
-              </>
-            )}
+            <h2 className="text-4xl sm:text-6xl font-black leading-tight">
+              Ready to Begin Your{" "}
+              <span style={{ background: `linear-gradient(to right, var(--t-accent-from), var(--t-accent-to), #e11d48)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Spiritual Journey?</span>
+            </h2>
+            <p className="mt-6 text-lg max-w-xl mx-auto leading-relaxed" style={{ color: "var(--t-text-muted)" }}>
+              Limited seats available. Register now to secure your spot on this transformative pilgrimage to the sacred land of Vraj.
+            </p>
+            <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+              <button onClick={() => { trackEvent('Registration', 'click_register', 'cta_section'); nav("/register"); }} className="group px-10 py-5 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white font-bold text-lg hover:shadow-2xl hover:shadow-amber-500/30 transition-all duration-300 hover:scale-105 flex items-center gap-3">
+                Register for Yatra
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
           </motion.div>
         </div>
       </Section>
