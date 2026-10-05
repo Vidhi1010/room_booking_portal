@@ -407,13 +407,13 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
               .map(([id, val]) => (
                 <div key={id}>
                   <Text strong style={{ display: "block", marginBottom: 6 }}>{labelFor(viewing, id)}</Text>
-                  {typeFor(viewing, id) === "rating" ? (
-                    <div style={{ border: "1px solid #d9d9d9", borderRadius: 6, padding: "4px 11px", background: "#fafafa" }}>
+                  <div style={{ border: "1px solid rgba(128,128,128,0.35)", borderRadius: 6, padding: "6px 11px" }}>
+                    {typeFor(viewing, id) === "rating" ? (
                       <Rate disabled value={Number(val)} />
-                    </div>
-                  ) : (
-                    <Input.TextArea readOnly autoSize value={String(val)} style={{ background: "#fafafa", cursor: "text" }} />
-                  )}
+                    ) : (
+                      <Text style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{String(val)}</Text>
+                    )}
+                  </div>
                 </div>
               ))}
           </Space>
