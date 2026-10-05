@@ -9,6 +9,7 @@ const Checkout = lazy(() => import('./Checkout'));
 const AdminLogin = lazy(() => import('./AdminLogin'));
 const AdminDashboard = lazy(() => import('./AdminDashboard'));
 const SchedulePage = lazy(() => import('./SchedulePage'));
+const FeedbackPage = lazy(() => import('./FeedbackPage'));
 
 function PageTracker() {
   const location = useLocation();
@@ -32,6 +33,7 @@ function App() {
         <Routes>
           <Route path="/" element={<VrajKartikYatra />} />
           <Route path="/schedule" element={<SchedulePage />} />
+          <Route path="/feedback" element={<FeedbackPage />} />
           <Route path="/register" element={<RoomSelection />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/room-booking" element={<RoomBookingPortal />} />

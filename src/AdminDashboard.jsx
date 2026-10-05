@@ -56,9 +56,11 @@ import {
   WarningOutlined,
   StopOutlined,
   SafetyCertificateOutlined,
+  CommentOutlined,
 } from "@ant-design/icons";
 import { API_BASE } from "./config";
 import AccountsTab from "./AccountsTab";
+import FeedbackTab from "./FeedbackTab";
 
 const { Sider, Content, Header } = Layout;
 const { Title, Text } = Typography;
@@ -172,6 +174,7 @@ export default function AdminDashboard() {
     if (hasPermission("booking:read")) items.push({ key: "rooms", icon: <HomeOutlined />, label: "Rooms" });
     if (hasPermission("campaign:read")) items.push({ key: "campaigns", icon: <NotificationOutlined />, label: "Campaigns" });
     if (hasPermission("accounts:read")) items.push({ key: "accounts", icon: <DollarOutlined />, label: "Accounts" });
+    if (hasPermission("yatra:update") || hasPermission("dashboard:read")) items.push({ key: "feedback", icon: <CommentOutlined />, label: "Feedback" });
     if (isSuperAdmin) items.push({ key: "admin-users", icon: <SafetyCertificateOutlined />, label: "Admin Users" });
     return items;
   }, [hasPermission, isSuperAdmin]);
@@ -459,6 +462,10 @@ export default function AdminDashboard() {
       fetchCampaigns(selectedYatraId);
     }
   }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (activeTab === "feedback" && yatras.length === 0) fetchYatras();
+  }, [activeTab, yatras.length, fetchYatras]);
 
   const buildBookingsParams = useCallback((cursor) => {
     const params = new URLSearchParams();
@@ -2155,6 +2162,15 @@ export default function AdminDashboard() {
 
             {activeTab === "accounts" && (
               <AccountsTab token={token} />
+            )}
+
+            {activeTab === "feedback" && (
+              <FeedbackTab
+                token={token}
+                yatras={yatras}
+                canUpdate={hasPermission("yatra:update")}
+                canRead={hasPermission("dashboard:read")}
+              />
             )}
 
             {activeTab === "admin-users" && (
