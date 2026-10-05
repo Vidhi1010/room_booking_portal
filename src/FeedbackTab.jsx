@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Button, Card, Input, Select, Switch, Table, Tabs, Typography, message, Space, Empty, Popconfirm, Rate } from "antd";
+import { Button, Card, Input, Select, Switch, Table, Tabs, Typography, message, Space, Empty, Popconfirm, Rate, Modal } from "antd";
 import { PlusOutlined, DeleteOutlined, ReloadOutlined, SaveOutlined, HolderOutlined, LeftOutlined, RightOutlined } from "@ant-design/icons";
 import { API_BASE } from "./config";
 
@@ -34,6 +34,7 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
   const [cursors, setCursors] = useState([null]);
   const [pageSize, setPageSize] = useState(50);
   const [loadingR, setLoadingR] = useState(false);
+  const [viewing, setViewing] = useState(null);
 
   const [dragIdx, setDragIdx] = useState(null);
   const [overIdx, setOverIdx] = useState(null);
@@ -186,29 +187,45 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
   const labelFor = (fb, id) =>
     (fb.questions || questions).find((q) => q.id === id)?.label || id;
 
+  const typeFor = (fb, id) => (fb.questions || questions).find((x) => x.id === id)?.type;
+
   const renderAnswer = (fb, id, val) => {
-    const q = (fb.questions || questions).find((x) => x.id === id);
-    if (q?.type === "rating") return <Rate disabled value={Number(val)} />;
+    if (typeFor(fb, id) === "rating") return <Rate disabled value={Number(val)} />;
     return <span style={{ whiteSpace: "pre-wrap" }}>{String(val)}</span>;
+  };
+
+  const clamp2 = { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-wrap" };
+
+  const renderPreview = (answers, fb) => {
+    const entries = Object.entries(answers || {});
+    if (!entries.length) return <Text type="secondary">-</Text>;
+    const ratings = entries.filter(([id]) => typeFor(fb, id) === "rating").slice(0, 2);
+    const shown = ratings.length ? ratings : entries.slice(0, 1);
+    const hidden = entries.length - shown.length;
+    return (
+      <div style={{ cursor: "pointer" }}>
+        {shown.map(([id, val]) =>
+          typeFor(fb, id) === "rating" ? (
+            <div key={id} style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <Text type="secondary" ellipsis style={{ maxWidth: 260 }}>{labelFor(fb, id)}:</Text>
+              <Rate disabled value={Number(val)} style={{ fontSize: 14, whiteSpace: "nowrap" }} />
+            </div>
+          ) : (
+            <div key={id} style={clamp2}>
+              <Text type="secondary">{labelFor(fb, id)}: </Text>
+              {String(val)}
+            </div>
+          )
+        )}
+        {hidden > 0 && <Text type="secondary" style={{ fontSize: 12, color: "#1677ff" }}>View all {entries.length} answers</Text>}
+      </div>
+    );
   };
 
   const columns = [
     { title: "Name", dataIndex: "respondent_name", width: 160, render: (v) => v || "-" },
     { title: "Submitted", dataIndex: "submitted_at", width: 170, render: fmtDate },
-    {
-      title: "Answers",
-      dataIndex: "answers",
-      render: (answers, fb) => (
-        <Space direction="vertical" size={4}>
-          {Object.entries(answers || {}).map(([id, val]) => (
-            <div key={id}>
-              <Text type="secondary">{labelFor(fb, id)}: </Text>
-              {renderAnswer(fb, id, val)}
-            </div>
-          ))}
-        </Space>
-      ),
-    },
+    { title: "Answers", dataIndex: "answers", render: renderPreview },
   ];
 
   const questionsPane = (
@@ -306,6 +323,7 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
         dataSource={feedbacks}
         pagination={false}
         scroll={{ x: true }}
+        onRow={(fb) => ({ onClick: () => setViewing(fb), style: { cursor: "pointer" } })}
       />
       <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <Select
@@ -344,6 +362,24 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
         </Space>
       </div>
       <Tabs items={items} />
+      <Modal
+        open={!!viewing}
+        onCancel={() => setViewing(null)}
+        footer={null}
+        title={viewing ? `${viewing.respondent_name || "Anonymous"} · ${fmtDate(viewing.submitted_at)}` : ""}
+        width={640}
+      >
+        {viewing && (
+          <Space direction="vertical" size={12} style={{ width: "100%" }}>
+            {Object.entries(viewing.answers || {}).map(([id, val]) => (
+              <div key={id}>
+                <Text strong style={{ display: "block" }}>{labelFor(viewing, id)}</Text>
+                {renderAnswer(viewing, id, val)}
+              </div>
+            ))}
+          </Space>
+        )}
+      </Modal>
     </>
   );
 }
