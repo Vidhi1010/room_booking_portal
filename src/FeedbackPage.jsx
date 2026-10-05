@@ -34,7 +34,7 @@ export default function FeedbackPage() {
         if (!res.ok) throw new Error(data.error || data.message || "Failed to load feedback form");
         if (cancelled) return;
         setYatraName(data.yatra_name || "");
-        setQuestions(data.questions || []);
+        setQuestions(data.feedback_enabled === false ? [] : data.questions || []);
       } catch (e) {
         if (!cancelled) setError(e.message);
       } finally {
@@ -85,7 +85,7 @@ export default function FeedbackPage() {
         ) : done ? (
           <Result status="success" title="Thank you!" subTitle="Your feedback has been submitted. Hare Krishna!" />
         ) : !questions.length ? (
-          <Result status="info" title="Feedback is not open yet" />
+          <Result status="info" title="Feedback is not active yet" subTitle="Please check back later." />
         ) : (
           <>
             <Title level={3} style={{ marginTop: 0 }}>Feedback{yatraName ? ` – ${yatraName}` : ""}</Title>
