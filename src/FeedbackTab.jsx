@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button, Card, Input, Select, Switch, Table, Tabs, Typography, message, Space, Empty, Popconfirm, Rate } from "antd";
-import { PlusOutlined, DeleteOutlined, ReloadOutlined, SaveOutlined } from "@ant-design/icons";
+import { PlusOutlined, DeleteOutlined, ReloadOutlined, SaveOutlined, HolderOutlined, LeftOutlined, RightOutlined } from "@ant-design/icons";
 import { API_BASE } from "./config";
 
 const { Title, Text } = Typography;
@@ -10,6 +10,11 @@ const TYPE_OPTIONS = [
   { label: "Long text", value: "textarea" },
   { label: "Rating (1-5)", value: "rating" },
 ];
+
+const PAGE_SIZE_OPTIONS = [20, 50, 100].map((n) => ({ label: `${n} / page`, value: n }));
+
+const sortByOrder = (qs) =>
+  [...qs].sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER));
 
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "-";
@@ -22,7 +27,15 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
 
   const [feedbacks, setFeedbacks] = useState([]);
   const [nextKey, setNextKey] = useState(null);
+  // cursors[i] is the next_key used to fetch page i+1 (null for the first page)
+  const [cursors, setCursors] = useState([null]);
+  const [pageSize, setPageSize] = useState(50);
   const [loadingR, setLoadingR] = useState(false);
+
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
+  const cardRefs = useRef([]);
+  const tempKey = useRef(0);
 
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
@@ -37,7 +50,7 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
       const res = await fetch(`${API_BASE}/yatra-feedback?yatra_id=${encodeURIComponent(yatraId)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || data.message || "Failed to load questions");
-      setQuestions(data.questions || []);
+      setQuestions(sortByOrder(data.questions || []));
     } catch (e) {
       message.error(e.message);
     } finally {
@@ -46,36 +59,76 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
   }, [yatraId]);
 
   const fetchResponses = useCallback(async (cursor) => {
-    if (!yatraId || !canRead) return;
+    if (!yatraId || !canRead) return false;
     setLoadingR(true);
     try {
-      const params = new URLSearchParams({ yatra_id: yatraId, view: "submissions", limit: "50" });
+      const params = new URLSearchParams({ yatra_id: yatraId, view: "submissions", limit: String(pageSize) });
       if (cursor) params.set("next_key", cursor);
       const res = await fetch(`${API_BASE}/yatra-feedback?${params}`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || data.message || "Failed to load responses");
-      setFeedbacks((prev) => (cursor ? [...prev, ...(data.feedbacks || [])] : data.feedbacks || []));
-      setNextKey(data.next_key || null);
+      setFeedbacks(data.feedbacks || []);
+      setNextKey(data.next_key ?? null);
+      return true;
     } catch (e) {
       message.error(e.message);
+      return false;
     } finally {
       setLoadingR(false);
     }
-  }, [yatraId, token, canRead]);
+  }, [yatraId, token, canRead, pageSize]);
+
+  const loadFirstPage = useCallback(() => {
+    setCursors([null]);
+    return fetchResponses(null);
+  }, [fetchResponses]);
+
+  const goNext = async () => {
+    if (!nextKey) return;
+    const cursor = nextKey;
+    if (await fetchResponses(cursor)) setCursors((c) => [...c, cursor]);
+  };
+
+  const goPrev = async () => {
+    if (cursors.length < 2) return;
+    const prev = cursors.slice(0, -1);
+    if (await fetchResponses(prev[prev.length - 1])) setCursors(prev);
+  };
 
   useEffect(() => {
     setQuestions([]);
+    fetchQuestions();
+  }, [fetchQuestions]);
+
+  useEffect(() => {
     setFeedbacks([]);
     setNextKey(null);
-    fetchQuestions();
-    fetchResponses();
-  }, [fetchQuestions, fetchResponses]);
+    loadFirstPage();
+  }, [loadFirstPage]);
 
   const updateQ = (idx, patch) =>
     setQuestions((qs) => qs.map((q, i) => (i === idx ? { ...q, ...patch } : q)));
 
   const addQ = () =>
-    setQuestions((qs) => [...qs, { label: "", type: "text", required: false }]);
+    setQuestions((qs) => [
+      ...qs,
+      { _key: `new-${++tempKey.current}`, label: "", type: "text", required: false, order: qs.length + 1 },
+    ]);
+
+  const moveQ = (from, to) => {
+    if (from === null || to === null || from === to) return;
+    setQuestions((qs) => {
+      const next = [...qs];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next.map((q, i) => ({ ...q, order: i + 1 }));
+    });
+  };
+
+  const endDrag = () => {
+    setDragIdx(null);
+    setOverIdx(null);
+  };
 
   const save = async () => {
     if (questions.some((q) => !q.label.trim())) {
@@ -84,8 +137,8 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
     }
     setSaving(true);
     try {
-      const payload = questions.map((q) => {
-        const item = { label: q.label.trim(), type: q.type, required: !!q.required };
+      const payload = questions.map((q, idx) => {
+        const item = { label: q.label.trim(), type: q.type, required: !!q.required, order: idx + 1 };
         if (q.id) item.id = q.id;
         return item;
       });
@@ -97,7 +150,7 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || data.message || "Failed to save");
       message.success("Questions saved");
-      if (Array.isArray(data.questions)) setQuestions(data.questions);
+      if (Array.isArray(data.questions)) setQuestions(sortByOrder(data.questions));
       else fetchQuestions();
     } catch (e) {
       message.error(e.message);
@@ -136,10 +189,59 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
 
   const questionsPane = (
     <Space direction="vertical" size={12} style={{ width: "100%" }}>
+      {canUpdate && (
+        <Space>
+          <Button icon={<PlusOutlined />} onClick={addQ}>Add question</Button>
+          <Popconfirm
+            title="Save questions?"
+            description={questions.length ? "This replaces the existing question list." : "Feedback will be disabled for this yatra."}
+            onConfirm={save}
+          >
+            <Button type="primary" icon={<SaveOutlined />} loading={saving}>Save</Button>
+          </Popconfirm>
+          {questions.length > 1 && <Text type="secondary">Drag the handle to reorder questions</Text>}
+        </Space>
+      )}
       {!questions.length && !loadingQ && <Empty description="No questions configured (feedback disabled)" />}
       {questions.map((q, idx) => (
-        <Card key={q.id || `new-${idx}`} size="small" loading={loadingQ}>
+        <div
+          key={q.id || q._key}
+          ref={(el) => (cardRefs.current[idx] = el)}
+          onDragOver={(e) => {
+            if (dragIdx === null) return;
+            e.preventDefault();
+            if (overIdx !== idx) setOverIdx(idx);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            moveQ(dragIdx, idx);
+            endDrag();
+          }}
+          style={{
+            opacity: dragIdx === idx ? 0.4 : 1,
+            borderTop: overIdx === idx && dragIdx !== null && dragIdx > idx ? "2px solid #1677ff" : "2px solid transparent",
+            borderBottom: overIdx === idx && dragIdx !== null && dragIdx < idx ? "2px solid #1677ff" : "2px solid transparent",
+          }}
+        >
+        <Card size="small" loading={loadingQ}>
           <Space wrap align="start" style={{ width: "100%" }}>
+            {canUpdate && (
+              <span
+                draggable
+                title="Drag to reorder"
+                onDragStart={(e) => {
+                  setDragIdx(idx);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", String(idx));
+                  if (cardRefs.current[idx]) e.dataTransfer.setDragImage(cardRefs.current[idx], 20, 20);
+                }}
+                onDragEnd={endDrag}
+                style={{ cursor: "grab", padding: "5px 4px", display: "inline-flex" }}
+              >
+                <HolderOutlined />
+              </span>
+            )}
+            <Text type="secondary" style={{ lineHeight: "32px", minWidth: 24 }}>#{idx + 1}</Text>
             <Input
               style={{ width: 340, maxWidth: "100%" }}
               placeholder="Question label"
@@ -164,19 +266,8 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
             )}
           </Space>
         </Card>
+        </div>
       ))}
-      {canUpdate && (
-        <Space>
-          <Button icon={<PlusOutlined />} onClick={addQ}>Add question</Button>
-          <Popconfirm
-            title="Save questions?"
-            description={questions.length ? "This replaces the existing question list." : "Feedback will be disabled for this yatra."}
-            onConfirm={save}
-          >
-            <Button type="primary" icon={<SaveOutlined />} loading={saving}>Save</Button>
-          </Popconfirm>
-        </Space>
-      )}
     </Space>
   );
 
@@ -191,12 +282,23 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
         pagination={false}
         scroll={{ x: true }}
       />
-      {nextKey && <Button onClick={() => fetchResponses(nextKey)} loading={loadingR}>Load more</Button>}
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <Select
+          style={{ width: 120 }}
+          options={PAGE_SIZE_OPTIONS}
+          value={pageSize}
+          onChange={setPageSize}
+          disabled={loadingR}
+        />
+        <Button icon={<LeftOutlined />} onClick={goPrev} disabled={loadingR || cursors.length < 2} />
+        <Text type="secondary">Page {cursors.length}</Text>
+        <Button icon={<RightOutlined />} onClick={goNext} disabled={loadingR || !nextKey} />
+      </div>
     </Space>
   );
 
   const items = [{ key: "questions", label: "Questions", children: questionsPane }];
-  if (canRead) items.push({ key: "responses", label: `Responses${feedbacks.length ? ` (${feedbacks.length}${nextKey ? "+" : ""})` : ""}`, children: responsesPane });
+  if (canRead) items.push({ key: "responses", label: "Responses", children: responsesPane });
 
   return (
     <>
@@ -213,7 +315,7 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
             onChange={setYatraId}
             options={yatras.map((y) => ({ label: y.name, value: y.id }))}
           />
-          <Button icon={<ReloadOutlined />} onClick={() => { fetchQuestions(); fetchResponses(); }}>Refresh</Button>
+          <Button icon={<ReloadOutlined />} onClick={() => { fetchQuestions(); loadFirstPage(); }}>Refresh</Button>
         </Space>
       </div>
       <Tabs items={items} />
