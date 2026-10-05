@@ -27,6 +27,8 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
   const [questions, setQuestions] = useState([]);
   const [loadingQ, setLoadingQ] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [feedbackEnabled, setFeedbackEnabled] = useState(false);
+  const [toggling, setToggling] = useState(false);
 
   const [feedbacks, setFeedbacks] = useState([]);
   const [nextKey, setNextKey] = useState(null);
@@ -74,6 +76,7 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || data.message || "Failed to load questions");
       loadQuestions(data.questions || []);
+      setFeedbackEnabled(data.feedback_enabled !== false);
     } catch (e) {
       message.error(e.message);
     } finally {
@@ -184,15 +187,29 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
     }
   };
 
+  const toggleEnabled = async (enabled) => {
+    setToggling(true);
+    try {
+      const res = await fetch(`${API_BASE}/yatra-feedback`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({ yatra_id: yatraId, enabled }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || data.message || "Failed to update feedback status");
+      setFeedbackEnabled(typeof data.feedback_enabled === "boolean" ? data.feedback_enabled : enabled);
+      message.success(enabled ? "Feedback enabled" : "Feedback disabled");
+    } catch (e) {
+      message.error(e.message);
+    } finally {
+      setToggling(false);
+    }
+  };
+
   const labelFor = (fb, id) =>
     (fb.questions || questions).find((q) => q.id === id)?.label || id;
 
   const typeFor = (fb, id) => (fb.questions || questions).find((x) => x.id === id)?.type;
-
-  const renderAnswer = (fb, id, val) => {
-    if (typeFor(fb, id) === "rating") return <Rate disabled value={Number(val)} />;
-    return <span style={{ whiteSpace: "pre-wrap" }}>{String(val)}</span>;
-  };
 
   const clamp2 = { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-wrap" };
 
@@ -230,12 +247,26 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
 
   const questionsPane = (
     <Space direction="vertical" size={12} style={{ width: "100%" }}>
+      <Card size="small">
+        <Space wrap>
+          <Switch
+            checked={feedbackEnabled}
+            loading={toggling}
+            disabled={!canUpdate || loadingQ}
+            onChange={toggleEnabled}
+          />
+          <Text strong>{feedbackEnabled ? "Feedback is active" : "Feedback is not active"}</Text>
+          <Text type="secondary">
+            {feedbackEnabled ? "Users can submit feedback for this yatra." : "Users will see “Feedback is not active yet”."}
+          </Text>
+        </Space>
+      </Card>
       {canUpdate && (
         <Space>
           <Button icon={<PlusOutlined />} onClick={addQ}>Add question</Button>
           <Popconfirm
             title="Save questions?"
-            description={questions.length ? "This replaces the existing question list." : "Feedback will be disabled for this yatra."}
+            description={questions.length ? "This replaces the existing question list." : "This removes all questions for this yatra."}
             onConfirm={save}
             disabled={!isDirty || saving}
           >
@@ -244,7 +275,7 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
           {questions.length > 1 && <Text type="secondary">Drag the handle to reorder questions</Text>}
         </Space>
       )}
-      {!questions.length && !loadingQ && <Empty description="No questions configured (feedback disabled)" />}
+      {!questions.length && !loadingQ && <Empty description="No questions configured" />}
       {questions.map((q, idx) => (
         <div
           key={q.id || q._key}
@@ -370,13 +401,21 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
         width={640}
       >
         {viewing && (
-          <Space direction="vertical" size={12} style={{ width: "100%" }}>
-            {Object.entries(viewing.answers || {}).map(([id, val]) => (
-              <div key={id}>
-                <Text strong style={{ display: "block" }}>{labelFor(viewing, id)}</Text>
-                {renderAnswer(viewing, id, val)}
-              </div>
-            ))}
+          <Space direction="vertical" size={16} style={{ width: "100%" }}>
+            {Object.entries(viewing.answers || {})
+              .filter(([id]) => String(labelFor(viewing, id)).trim().toLowerCase() !== "name")
+              .map(([id, val]) => (
+                <div key={id}>
+                  <Text strong style={{ display: "block", marginBottom: 6 }}>{labelFor(viewing, id)}</Text>
+                  <div style={{ border: "1px solid rgba(128,128,128,0.35)", borderRadius: 6, padding: "6px 11px" }}>
+                    {typeFor(viewing, id) === "rating" ? (
+                      <Rate disabled value={Number(val)} />
+                    ) : (
+                      <Text style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{String(val)}</Text>
+                    )}
+                  </div>
+                </div>
+              ))}
           </Space>
         )}
       </Modal>
