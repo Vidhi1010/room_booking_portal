@@ -16,6 +16,9 @@ const PAGE_SIZE_OPTIONS = [20, 50, 100].map((n) => ({ label: `${n} / page`, valu
 const sortByOrder = (qs) =>
   [...qs].sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER));
 
+const snapshot = (qs) =>
+  JSON.stringify(qs.map((q) => [q.id || q._key, q.label, q.type, !!q.required]));
+
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "-";
 
@@ -39,6 +42,25 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
 
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
+  const [savedSnapshot, setSavedSnapshot] = useState(snapshot([]));
+  const isDirty = snapshot(questions) !== savedSnapshot;
+  const scrollToNew = useRef(false);
+
+  const loadQuestions = (qs) => {
+    const sorted = sortByOrder(qs);
+    setQuestions(sorted);
+    setSavedSnapshot(snapshot(sorted));
+  };
+
+  useEffect(() => {
+    if (!scrollToNew.current) return;
+    scrollToNew.current = false;
+    const el = cardRefs.current[questions.length - 1];
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.querySelector("input")?.focus({ preventScroll: true });
+  }, [questions.length]);
+
   useEffect(() => {
     if (!yatraId && yatras.length) setYatraId(yatras[0].id);
   }, [yatras, yatraId]);
@@ -50,7 +72,7 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
       const res = await fetch(`${API_BASE}/yatra-feedback?yatra_id=${encodeURIComponent(yatraId)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || data.message || "Failed to load questions");
-      setQuestions(sortByOrder(data.questions || []));
+      loadQuestions(data.questions || []);
     } catch (e) {
       message.error(e.message);
     } finally {
@@ -96,7 +118,7 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
   };
 
   useEffect(() => {
-    setQuestions([]);
+    loadQuestions([]);
     fetchQuestions();
   }, [fetchQuestions]);
 
@@ -109,11 +131,13 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
   const updateQ = (idx, patch) =>
     setQuestions((qs) => qs.map((q, i) => (i === idx ? { ...q, ...patch } : q)));
 
-  const addQ = () =>
+  const addQ = () => {
+    scrollToNew.current = true;
     setQuestions((qs) => [
       ...qs,
       { _key: `new-${++tempKey.current}`, label: "", type: "text", required: false, order: qs.length + 1 },
     ]);
+  };
 
   const moveQ = (from, to) => {
     if (from === null || to === null || from === to) return;
@@ -150,7 +174,7 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || data.message || "Failed to save");
       message.success("Questions saved");
-      if (Array.isArray(data.questions)) setQuestions(sortByOrder(data.questions));
+      if (Array.isArray(data.questions)) loadQuestions(data.questions);
       else fetchQuestions();
     } catch (e) {
       message.error(e.message);
@@ -196,8 +220,9 @@ export default function FeedbackTab({ token, yatras, canUpdate, canRead }) {
             title="Save questions?"
             description={questions.length ? "This replaces the existing question list." : "Feedback will be disabled for this yatra."}
             onConfirm={save}
+            disabled={!isDirty || saving}
           >
-            <Button type="primary" icon={<SaveOutlined />} loading={saving}>Save</Button>
+            <Button type="primary" icon={<SaveOutlined />} loading={saving} disabled={!isDirty}>Save</Button>
           </Popconfirm>
           {questions.length > 1 && <Text type="secondary">Drag the handle to reorder questions</Text>}
         </Space>
