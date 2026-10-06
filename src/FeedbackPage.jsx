@@ -50,9 +50,8 @@ export default function FeedbackPage() {
     scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Quick rating questions first to make starting easy; stable sort keeps admin order otherwise.
   const orderedQuestions = useMemo(
-    () => [...questions].sort((a, b) => (b.type === "rating") - (a.type === "rating")),
+    () => [...questions].sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER)),
     [questions]
   );
   const answeredCount = questions.filter((q) => isAnswered(answers[q.id])).length;
