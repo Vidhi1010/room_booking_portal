@@ -18,7 +18,7 @@ const MOCK_FEEDBACK = {
   ],
 };
 
-const HERO_IMAGE = "/banner/IMG_8072.jpg";
+const HERO_IMAGE = "/images/yatra_2026_pic.jpeg";
 
 const RATINGS = [
   { value: 1, emoji: "😞", label: "Poor" },

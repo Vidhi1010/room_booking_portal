@@ -84,12 +84,14 @@ const TEMPLATE_LABELS = {
   yatra_invitation: "Yatra Invitation",
   yatra_regist_payment_pending: "Yatra Registration Payment Pending",
   vraj_orientation_meet: "Vraj Orientation Meet",
+  yatra_feedback: "Yatra Feedback",
 };
 
 const TEMPLATE_TYPE_MAP = {
   pending_yatra_payment: "utility",
   yatra_invitation: "marketing",
   vraj_orientation_meet: "utility",
+  yatra_feedback: "utility",
 };
 
 const ROLE_LABELS = {
@@ -412,6 +414,9 @@ export default function AdminDashboard() {
         if (zoomSuffix) payload.button_url_suffix = zoomSuffix;
         delete payload.orientation_time;
         delete payload.zoom_suffix;
+      }
+      if (values.template_name === "yatra_feedback") {
+        payload.audience = "all_bookings";
       }
       const res = await fetch(`${API_BASE}/create-campaign`, {
         method: "POST",
@@ -1983,6 +1988,7 @@ export default function AdminDashboard() {
                           { label: "Pending Yatra Payment", value: "pending_yatra_payment" },
                           { label: "Yatra Invitation", value: "yatra_invitation" },
                           { label: "Vraj Orientation Meet", value: "vraj_orientation_meet" },
+                          { label: "Yatra Feedback", value: "yatra_feedback" },
                         ]}
                       />
                     </Form.Item>
@@ -2006,6 +2012,24 @@ export default function AdminDashboard() {
                             <Form.Item name="zoom_suffix" label="Zoom Link Suffix" style={{ marginBottom: 0 }}>
                               <Input placeholder="84071287006?pwd=DZ6BMa1iRqqFY4CU4qeNeBUMRzvJRy.1" />
                             </Form.Item>
+                          </div>
+                        )
+                      }
+                    </Form.Item>
+
+                    <Form.Item noStyle shouldUpdate={(prev, cur) => prev.template_name !== cur.template_name}>
+                      {({ getFieldValue }) =>
+                        getFieldValue("template_name") === "yatra_feedback" && (
+                          <div style={{
+                            background: "rgba(96,165,250,0.06)",
+                            border: "1px solid rgba(96,165,250,0.2)",
+                            borderRadius: 8,
+                            padding: 12,
+                            marginBottom: 16,
+                            fontSize: 12,
+                            color: "rgba(255,255,255,0.6)",
+                          }}>
+                            Sends the feedback form link to <strong>all active bookings</strong> of the selected yatra. Make sure feedback is enabled for this yatra first.
                           </div>
                         )
                       }
