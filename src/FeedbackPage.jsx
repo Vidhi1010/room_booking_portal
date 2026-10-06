@@ -309,19 +309,12 @@ function ThankYou() {
       </div>
       <h2 className="text-xl font-semibold mt-5 mb-1">Your feedback has been submitted</h2>
       <p className="text-[#6B5744] mb-8">Thank you for helping us make every yatra better. Hare Krishna! 🙏</p>
-      <div className="flex flex-col sm:flex-row gap-3 justify-center">
-        <a
-          href="https://wa.me/message/SDBBRJT5ZRASI1"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="px-5 py-3 rounded-xl bg-[#25D366] text-white font-medium"
-        >
-          Chat on WhatsApp
-        </a>
-        <Link to="/" className="px-5 py-3 rounded-xl border border-[rgba(45,24,16,0.15)] text-[#2D1810] font-medium">
-          Explore upcoming yatras
-        </Link>
-      </div>
+      <Link
+        to="/"
+        className="inline-block px-6 py-3 rounded-xl bg-[#2D1810] text-white font-medium hover:bg-[#3d2216] transition-colors"
+      >
+        Go to Home
+      </Link>
     </div>
   );
 }
