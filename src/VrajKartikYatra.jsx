@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { trackEvent } from "./analytics";
 import {
   motion,
@@ -980,10 +980,11 @@ export default function VrajKartikYatra() {
             </div>
             <span className="font-semibold" style={{ color: "var(--t-text-secondary)" }}>Kartik Vraj Yatra 2026</span>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
             {["About", "Highlights", "Itinerary", "Gallery", "Contact"].map((item) => (
               <button key={item} onClick={() => scrollTo(item.toLowerCase())} className="transition-colors" onMouseEnter={(e) => e.currentTarget.style.color = "var(--t-accent-hover)"} onMouseLeave={(e) => e.currentTarget.style.color = ""}>{item}</button>
             ))}
+            <Link to="/admin" className="transition-colors" onMouseEnter={(e) => e.currentTarget.style.color = "var(--t-accent-hover)"} onMouseLeave={(e) => e.currentTarget.style.color = ""}>Admin</Link>
           </div>
           <p>Hare Krishna · All rights reserved</p>
         </div>
