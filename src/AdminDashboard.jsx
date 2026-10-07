@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import {
   Layout,
   Menu,
+  Drawer,
+  Grid,
   Table,
   Tag,
   Select,
@@ -193,6 +195,9 @@ export default function AdminDashboard() {
   }, [token, navigate]);
 
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.lg;
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
@@ -1225,12 +1230,27 @@ export default function AdminDashboard() {
       }}
     >
       <Layout style={{ minHeight: "100vh" }}>
+        <Drawer
+          title="Yatra Admin"
+          placement="left"
+          size={280}
+          open={isMobile && mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+          styles={{ body: { padding: 0 }, header: { background: "#0f1117" }, section: { background: "#0f1117" } }}
+        >
+          <Menu
+            mode="inline"
+            selectedKeys={[activeTab]}
+            onClick={({ key }) => { setActiveTab(key); setMobileMenuOpen(false); }}
+            style={{ background: "transparent", borderRight: 0 }}
+            items={menuItems}
+          />
+        </Drawer>
+        {!isMobile && (
         <Sider
           trigger={null}
           collapsible
           collapsed={collapsed}
-          breakpoint="lg"
-          onBreakpoint={(broken) => setCollapsed(broken)}
           style={{ background: "#0f1117", minHeight: "100vh" }}
         >
           <div className="flex items-center gap-2 px-4 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
@@ -1247,14 +1267,15 @@ export default function AdminDashboard() {
             items={menuItems}
           />
         </Sider>
+        )}
 
-        <Layout style={{ background: "#0d0f14" }}>
+        <Layout style={{ background: "#0d0f14", minWidth: 0 }}>
           <Header
             style={{
               background: "#141720",
               borderBottom: "1px solid rgba(255,255,255,0.06)",
               height: 64,
-              padding: "0 24px",
+              padding: isMobile ? "0 12px" : "0 24px",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
@@ -1262,8 +1283,9 @@ export default function AdminDashboard() {
           >
             <Button
               type="text"
-              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-              onClick={() => setCollapsed(!collapsed)}
+              aria-label={isMobile ? "Open navigation" : collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              icon={isMobile || collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => isMobile ? setMobileMenuOpen(true) : setCollapsed(!collapsed)}
               style={{ color: "rgba(255,255,255,0.6)" }}
             />
             <Dropdown
@@ -1286,7 +1308,7 @@ export default function AdminDashboard() {
             </Dropdown>
           </Header>
 
-          <Content style={{ padding: 24, background: "#0d0f14", minHeight: "calc(100vh - 64px)" }}>
+          <Content style={{ padding: isMobile ? 12 : 24, background: "#0d0f14", minHeight: "calc(100vh - 64px)" }}>
             {activeTab === "bookings" && (
               <>
                 <div style={{ marginBottom: 20 }}>
