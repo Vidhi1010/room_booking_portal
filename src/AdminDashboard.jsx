@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import {
   Layout,
   Menu,
+  Drawer,
+  Grid,
   Table,
   Tag,
   Select,
@@ -56,9 +58,11 @@ import {
   WarningOutlined,
   StopOutlined,
   SafetyCertificateOutlined,
+  CommentOutlined,
 } from "@ant-design/icons";
 import { API_BASE } from "./config";
 import AccountsTab from "./AccountsTab";
+import FeedbackTab from "./FeedbackTab";
 
 const { Sider, Content, Header } = Layout;
 const { Title, Text } = Typography;
@@ -81,11 +85,15 @@ const fmtDate = (d) =>
 const TEMPLATE_LABELS = {
   yatra_invitation: "Yatra Invitation",
   yatra_regist_payment_pending: "Yatra Registration Payment Pending",
+  vraj_orientation_meet: "Vraj Orientation Meet",
+  yatra_feedback: "Yatra Feedback",
 };
 
 const TEMPLATE_TYPE_MAP = {
   pending_yatra_payment: "utility",
   yatra_invitation: "marketing",
+  vraj_orientation_meet: "utility",
+  yatra_feedback: "utility",
 };
 
 const ROLE_LABELS = {
@@ -170,6 +178,7 @@ export default function AdminDashboard() {
     if (hasPermission("booking:read")) items.push({ key: "rooms", icon: <HomeOutlined />, label: "Rooms" });
     if (hasPermission("campaign:read")) items.push({ key: "campaigns", icon: <NotificationOutlined />, label: "Campaigns" });
     if (hasPermission("accounts:read")) items.push({ key: "accounts", icon: <DollarOutlined />, label: "Accounts" });
+    if (hasPermission("yatra:update") || hasPermission("dashboard:read")) items.push({ key: "feedback", icon: <CommentOutlined />, label: "Feedback" });
     if (isSuperAdmin) items.push({ key: "admin-users", icon: <SafetyCertificateOutlined />, label: "Admin Users" });
     return items;
   }, [hasPermission, isSuperAdmin]);
@@ -186,6 +195,9 @@ export default function AdminDashboard() {
   }, [token, navigate]);
 
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.lg;
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
@@ -262,6 +274,7 @@ export default function AdminDashboard() {
   const [cancellingBooking, setCancellingBooking] = useState(false);
   const [cancelBookingTarget, setCancelBookingTarget] = useState(null);
   const [cancelBookingResult, setCancelBookingResult] = useState(null);
+  const [deletingBookingId, setDeletingBookingId] = useState(null);
 
   // Admin-users state
   const [adminUsers, setAdminUsers] = useState([]);
@@ -398,6 +411,18 @@ export default function AdminDashboard() {
     setCreating(true);
     try {
       const payload = { ...values, type: TEMPLATE_TYPE_MAP[values.template_name] };
+      if (values.template_name === "vraj_orientation_meet") {
+        payload.audience = "all_bookings";
+        const timeSlot = values.orientation_time?.trim();
+        if (timeSlot) payload.body_params_extra = [timeSlot];
+        const zoomSuffix = values.zoom_suffix?.trim();
+        if (zoomSuffix) payload.button_url_suffix = zoomSuffix;
+        delete payload.orientation_time;
+        delete payload.zoom_suffix;
+      }
+      if (values.template_name === "yatra_feedback") {
+        payload.audience = "all_bookings";
+      }
       const res = await fetch(`${API_BASE}/create-campaign`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -447,6 +472,10 @@ export default function AdminDashboard() {
       fetchCampaigns(selectedYatraId);
     }
   }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (activeTab === "feedback" && yatras.length === 0) fetchYatras();
+  }, [activeTab, yatras.length, fetchYatras]);
 
   const buildBookingsParams = useCallback((cursor) => {
     const params = new URLSearchParams();
@@ -901,6 +930,47 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDeleteBooking = (booking) => {
+    if (!booking) return;
+    Modal.confirm({
+      title: "Delete booking permanently?",
+      icon: <ExclamationCircleOutlined />,
+      content: (
+        <div>
+          <div>This will permanently delete booking <strong>{booking.id}</strong>.</div>
+          <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+            This action cannot be undone. Prefer "Cancel Booking" if you need to keep a record.
+          </div>
+        </div>
+      ),
+      okText: "Delete",
+      okButtonProps: { danger: true },
+      cancelText: "Keep",
+      onOk: async () => {
+        setDeletingBookingId(booking.id);
+        try {
+          const res = await fetch(
+            `${API_BASE}/admin-delete-booking?booking_id=${encodeURIComponent(booking.id)}`,
+            {
+              method: "DELETE",
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          if (handleAuthError(res, "You don't have permission to delete bookings")) return;
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || data.message || "Failed to delete booking");
+          message.success("Booking deleted");
+          setSelectedBooking(null);
+          resetAndFetch();
+        } catch (e) {
+          message.error(e.message || "Failed to delete booking");
+        } finally {
+          setDeletingBookingId(null);
+        }
+      },
+    });
+  };
+
   const fetchAdminUsers = useCallback(async () => {
     setAdminUsersLoading(true);
     try {
@@ -1160,12 +1230,27 @@ export default function AdminDashboard() {
       }}
     >
       <Layout style={{ minHeight: "100vh" }}>
+        <Drawer
+          title="Yatra Admin"
+          placement="left"
+          size={280}
+          open={isMobile && mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+          styles={{ body: { padding: 0 }, header: { background: "#0f1117" }, section: { background: "#0f1117" } }}
+        >
+          <Menu
+            mode="inline"
+            selectedKeys={[activeTab]}
+            onClick={({ key }) => { setActiveTab(key); setMobileMenuOpen(false); }}
+            style={{ background: "transparent", borderRight: 0 }}
+            items={menuItems}
+          />
+        </Drawer>
+        {!isMobile && (
         <Sider
           trigger={null}
           collapsible
           collapsed={collapsed}
-          breakpoint="lg"
-          onBreakpoint={(broken) => setCollapsed(broken)}
           style={{ background: "#0f1117", minHeight: "100vh" }}
         >
           <div className="flex items-center gap-2 px-4 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
@@ -1182,14 +1267,15 @@ export default function AdminDashboard() {
             items={menuItems}
           />
         </Sider>
+        )}
 
-        <Layout style={{ background: "#0d0f14" }}>
+        <Layout style={{ background: "#0d0f14", minWidth: 0 }}>
           <Header
             style={{
               background: "#141720",
               borderBottom: "1px solid rgba(255,255,255,0.06)",
               height: 64,
-              padding: "0 24px",
+              padding: isMobile ? "0 12px" : "0 24px",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
@@ -1197,8 +1283,9 @@ export default function AdminDashboard() {
           >
             <Button
               type="text"
-              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-              onClick={() => setCollapsed(!collapsed)}
+              aria-label={isMobile ? "Open navigation" : collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              icon={isMobile || collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => isMobile ? setMobileMenuOpen(true) : setCollapsed(!collapsed)}
               style={{ color: "rgba(255,255,255,0.6)" }}
             />
             <Dropdown
@@ -1221,7 +1308,7 @@ export default function AdminDashboard() {
             </Dropdown>
           </Header>
 
-          <Content style={{ padding: 24, background: "#0d0f14", minHeight: "calc(100vh - 64px)" }}>
+          <Content style={{ padding: isMobile ? 12 : 24, background: "#0d0f14", minHeight: "calc(100vh - 64px)" }}>
             {activeTab === "bookings" && (
               <>
                 <div style={{ marginBottom: 20 }}>
@@ -1922,8 +2009,52 @@ export default function AdminDashboard() {
                         options={[
                           { label: "Pending Yatra Payment", value: "pending_yatra_payment" },
                           { label: "Yatra Invitation", value: "yatra_invitation" },
+                          { label: "Vraj Orientation Meet", value: "vraj_orientation_meet" },
+                          { label: "Yatra Feedback", value: "yatra_feedback" },
                         ]}
                       />
+                    </Form.Item>
+
+                    <Form.Item noStyle shouldUpdate={(prev, cur) => prev.template_name !== cur.template_name}>
+                      {({ getFieldValue }) =>
+                        getFieldValue("template_name") === "vraj_orientation_meet" && (
+                          <div style={{
+                            background: "rgba(96,165,250,0.06)",
+                            border: "1px solid rgba(96,165,250,0.2)",
+                            borderRadius: 8,
+                            padding: 12,
+                            marginBottom: 16,
+                          }}>
+                            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginBottom: 12 }}>
+                              Sends the orientation Zoom invite to <strong>all active bookings</strong>. Leave fields blank to use backend defaults.
+                            </div>
+                            <Form.Item name="orientation_time" label="Orientation Time" style={{ marginBottom: 8 }}>
+                              <Input placeholder="Today 9 PM" />
+                            </Form.Item>
+                            <Form.Item name="zoom_suffix" label="Zoom Link Suffix" style={{ marginBottom: 0 }}>
+                              <Input placeholder="84071287006?pwd=DZ6BMa1iRqqFY4CU4qeNeBUMRzvJRy.1" />
+                            </Form.Item>
+                          </div>
+                        )
+                      }
+                    </Form.Item>
+
+                    <Form.Item noStyle shouldUpdate={(prev, cur) => prev.template_name !== cur.template_name}>
+                      {({ getFieldValue }) =>
+                        getFieldValue("template_name") === "yatra_feedback" && (
+                          <div style={{
+                            background: "rgba(96,165,250,0.06)",
+                            border: "1px solid rgba(96,165,250,0.2)",
+                            borderRadius: 8,
+                            padding: 12,
+                            marginBottom: 16,
+                            fontSize: 12,
+                            color: "rgba(255,255,255,0.6)",
+                          }}>
+                            Sends the feedback form link to <strong>all active bookings</strong> of the selected yatra. Make sure feedback is enabled for this yatra first.
+                          </div>
+                        )
+                      }
                     </Form.Item>
 
                     <Form.Item noStyle shouldUpdate={(prev, cur) => prev.template_name !== cur.template_name}>
@@ -2077,6 +2208,15 @@ export default function AdminDashboard() {
 
             {activeTab === "accounts" && (
               <AccountsTab token={token} />
+            )}
+
+            {activeTab === "feedback" && (
+              <FeedbackTab
+                token={token}
+                yatras={yatras}
+                canUpdate={hasPermission("yatra:update")}
+                canRead={hasPermission("dashboard:read")}
+              />
             )}
 
             {activeTab === "admin-users" && (
@@ -3281,6 +3421,17 @@ export default function AdminDashboard() {
                   onClick={() => openCancelBooking(selectedBooking)}
                 >
                   Cancel Booking
+                </Button>
+              )}
+              {hasPermission("booking:delete_permanent") && (
+                <Button
+                  danger
+                  type="primary"
+                  icon={<DeleteOutlined />}
+                  loading={deletingBookingId === selectedBooking.id}
+                  onClick={() => handleDeleteBooking(selectedBooking)}
+                >
+                  Delete
                 </Button>
               )}
               {hasPermission("booking:update") && selectedBooking.status !== "cancelled" && (
