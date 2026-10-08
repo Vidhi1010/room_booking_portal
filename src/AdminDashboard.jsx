@@ -59,6 +59,7 @@ import {
   StopOutlined,
   SafetyCertificateOutlined,
   CommentOutlined,
+  PercentageOutlined,
 } from "@ant-design/icons";
 import { API_BASE } from "./config";
 import AccountsTab from "./AccountsTab";
@@ -268,6 +269,12 @@ export default function AdminDashboard() {
   const [savingBookingPayment, setSavingBookingPayment] = useState(false);
   const [bookingAccounts, setBookingAccounts] = useState([]);
 
+  // Apply discount state
+  const [applyDiscountOpen, setApplyDiscountOpen] = useState(false);
+  const [applyDiscountForm] = Form.useForm();
+  const [savingDiscount, setSavingDiscount] = useState(false);
+  const discountNewTotalWatch = Form.useWatch("new_total_amount", applyDiscountForm);
+
   // Cancel-booking state
   const [cancelBookingOpen, setCancelBookingOpen] = useState(false);
   const [cancelBookingForm] = Form.useForm();
@@ -346,6 +353,52 @@ export default function AdminDashboard() {
       resetAndFetch();
     } catch (e) { message.error(e.message); }
     finally { setSavingBookingPayment(false); }
+  };
+
+  const openApplyDiscount = (booking) => {
+    applyDiscountForm.resetFields();
+    applyDiscountForm.setFieldsValue({
+      new_total_amount: Math.max(0, Number(booking.total_amount) || 0),
+      reason: undefined,
+    });
+    setApplyDiscountOpen(true);
+  };
+
+  const submitApplyDiscount = async (values) => {
+    if (!selectedBooking) return;
+    setSavingDiscount(true);
+    try {
+      const res = await fetch(`${API_BASE}/apply-booking-discount`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          booking_id: selectedBooking.id,
+          new_total_amount: values.new_total_amount,
+          reason: values.reason,
+        }),
+      });
+      if (res.status === 401 || res.status === 403) { message.error("Session expired"); return; }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to apply discount");
+      message.success(
+        data.refund_due > 0
+          ? `Discount applied. Refund due ₹${Number(data.refund_due).toLocaleString("en-IN")}`
+          : `Discount applied. New total ₹${Number(data.new_total_amount).toLocaleString("en-IN")}`
+      );
+      setApplyDiscountOpen(false);
+      applyDiscountForm.resetFields();
+      setSelectedBooking((prev) => prev ? {
+        ...prev,
+        total_amount: data.new_total_amount,
+        original_total_amount: data.original_total_amount,
+        discount_amount: data.discount_amount,
+        status: data.status,
+        refund_due: data.refund_due,
+        refund_status: data.refund_status,
+      } : prev);
+      resetAndFetch();
+    } catch (e) { message.error(e.message); }
+    finally { setSavingDiscount(false); }
   };
 
   const fetchDashboard = useCallback(async () => {
@@ -3436,6 +3489,14 @@ export default function AdminDashboard() {
               )}
               {hasPermission("booking:update") && selectedBooking.status !== "cancelled" && (
                 <Button
+                  icon={<PercentageOutlined />}
+                  onClick={() => openApplyDiscount(selectedBooking)}
+                >
+                  Apply Discount
+                </Button>
+              )}
+              {hasPermission("booking:update") && selectedBooking.status !== "cancelled" && (
+                <Button
                   type="primary"
                   icon={<EditOutlined />}
                   onClick={() => openEditBooking(selectedBooking)}
@@ -3472,6 +3533,14 @@ export default function AdminDashboard() {
               <Descriptions.Item label="Total Occupants">{selectedBooking.total_occupants}</Descriptions.Item>
               <Descriptions.Item label="Total Amount">
                 <span style={{ fontWeight: 700 }}>₹{selectedBooking.total_amount}</span>
+                {Number(selectedBooking.discount_amount) > 0 && (
+                  <span style={{ marginLeft: 8, fontSize: 12, color: "rgba(255,255,255,0.45)" }}>
+                    <span style={{ textDecoration: "line-through", marginRight: 6 }}>
+                      ₹{selectedBooking.original_total_amount ?? (Number(selectedBooking.total_amount) + Number(selectedBooking.discount_amount))}
+                    </span>
+                    <Tag color="gold" style={{ margin: 0 }}>−₹{Number(selectedBooking.discount_amount).toLocaleString("en-IN")} discount</Tag>
+                  </span>
+                )}
               </Descriptions.Item>
               <Descriptions.Item label="Amount Paid">
                 <span style={{ fontWeight: 700, color: "#4ade80" }}>₹{selectedBooking.amount_paid}</span>
@@ -3605,6 +3674,105 @@ export default function AdminDashboard() {
             </Space>
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Apply discount modal */}
+      <Modal
+        open={applyDiscountOpen}
+        onCancel={() => { setApplyDiscountOpen(false); applyDiscountForm.resetFields(); }}
+        footer={null}
+        title={<span><PercentageOutlined style={{ marginRight: 8 }} />Apply Discount</span>}
+        destroyOnClose
+        width={460}
+      >
+        {selectedBooking && (() => {
+          const oldTotal = Number(selectedBooking.total_amount) || 0;
+          const amountPaid = Number(selectedBooking.amount_paid) || 0;
+          const refundPaid = Number(selectedBooking.refund_paid) || 0;
+          const netPaid = Math.max(0, amountPaid - refundPaid);
+          const newTotal = Number(discountNewTotalWatch);
+          const validNew = Number.isFinite(newTotal) && newTotal >= 0 && newTotal < oldTotal;
+          const discount = validNew ? oldTotal - newTotal : 0;
+          const newBalance = validNew ? Math.max(0, newTotal - netPaid) : Math.max(0, oldTotal - netPaid);
+          const refundDue = validNew ? Math.max(0, netPaid - newTotal) : 0;
+          return (
+            <Form form={applyDiscountForm} layout="vertical" onFinish={submitApplyDiscount}>
+              <div style={{
+                display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16,
+                padding: 12, borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+              }}>
+                <div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)" }}>Current total</div>
+                  <div style={{ fontWeight: 600 }}>₹{oldTotal.toLocaleString("en-IN")}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)" }}>Paid (net)</div>
+                  <div style={{ fontWeight: 600, color: "#4ade80" }}>₹{netPaid.toLocaleString("en-IN")}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)" }}>Balance</div>
+                  <div style={{ fontWeight: 600, color: oldTotal - netPaid > 0 ? "#f87171" : "#4ade80" }}>
+                    ₹{Math.max(0, oldTotal - netPaid).toLocaleString("en-IN")}
+                  </div>
+                </div>
+              </div>
+              <Form.Item
+                name="new_total_amount"
+                label="New total (₹)"
+                rules={[
+                  { required: true, message: "Enter the discounted total" },
+                  {
+                    validator: (_, v) => {
+                      const n = Number(v);
+                      if (!Number.isFinite(n) || n < 0) return Promise.reject(new Error("Must be a non-negative number"));
+                      if (n >= oldTotal) return Promise.reject(new Error("Must be lower than the current total"));
+                      return Promise.resolve();
+                    },
+                  },
+                ]}
+              >
+                <InputNumber style={{ width: "100%" }} min={0} max={Math.max(0, oldTotal - 1)} precision={2} />
+              </Form.Item>
+              <Form.Item name="reason" label="Reason" rules={[{ required: true, message: "Reason is required" }]}>
+                <Input.TextArea rows={2} placeholder="e.g. Special concession for devotee family" />
+              </Form.Item>
+              {validNew && (
+                <div style={{
+                  marginBottom: 16, padding: 12, borderRadius: 8,
+                  background: "rgba(251, 191, 36, 0.08)", border: "1px solid rgba(251, 191, 36, 0.25)",
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 13 }}>
+                    <span style={{ color: "rgba(255,255,255,0.55)" }}>Discount</span>
+                    <span style={{ color: "#fbbf24", fontWeight: 600 }}>−₹{discount.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 13 }}>
+                    <span style={{ color: "rgba(255,255,255,0.55)" }}>New balance</span>
+                    <span style={{ color: newBalance > 0 ? "#f87171" : "#4ade80", fontWeight: 600 }}>
+                      ₹{newBalance.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  {refundDue > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span style={{ color: "rgba(255,255,255,0.55)" }}>Refund due</span>
+                      <span style={{ color: "#f87171", fontWeight: 600 }}>₹{refundDue.toLocaleString("en-IN")}</span>
+                    </div>
+                  )}
+                  <div style={{ marginTop: 8, fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+                    Lowers booking and Booking Payment expected. No cash movement.
+                  </div>
+                </div>
+              )}
+              <Form.Item style={{ textAlign: "right", marginBottom: 0 }}>
+                <Space>
+                  <Button onClick={() => { setApplyDiscountOpen(false); applyDiscountForm.resetFields(); }}>Cancel</Button>
+                  <Button type="primary" htmlType="submit" loading={savingDiscount} icon={<PercentageOutlined />}>
+                    Apply Discount
+                  </Button>
+                </Space>
+              </Form.Item>
+            </Form>
+          );
+        })()}
       </Modal>
     </ConfigProvider>
   );
