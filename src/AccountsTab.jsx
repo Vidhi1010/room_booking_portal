@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Tabs, Table, Tag, Select, Input, InputNumber, Button, Typography,
-  message, Modal, Form, Card, Statistic, Space, Empty, Spin, Popconfirm, DatePicker, Badge, Checkbox, Divider, Row, Col,
+  message, Modal, Form, Card, Statistic, Space, Empty, Spin, Popconfirm, DatePicker, Badge, Checkbox, Divider, Row, Col, Progress,
 } from "antd";
 import {
   PlusOutlined, DeleteOutlined, EditOutlined, SwapOutlined, FolderOutlined, EyeOutlined,
+  WalletOutlined, AlertOutlined, ArrowUpOutlined, ArrowDownOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { API_BASE } from "./config";
@@ -205,7 +206,11 @@ export default function AccountsTab({ token }) {
 
   useEffect(() => { fetchExpenseCategories(); fetchCollectionCategories(); fetchAccounts(); }, []);
   useEffect(() => {
-    if (innerTab === "overview") fetchSummary();
+    if (innerTab === "overview") {
+      fetchSummary();
+      fetchExpenses();
+      fetchCollections();
+    }
     if (innerTab === "expenses") fetchExpenses();
     if (innerTab === "collections") fetchCollections();
     if (innerTab === "transfers") fetchTransactions("transfer");
@@ -237,6 +242,38 @@ export default function AccountsTab({ token }) {
     }
     return Object.values(map);
   }, [collections, collectionCategories]);
+
+  const attentionExpenses = useMemo(() =>
+    [...expenses]
+      .filter((e) => e.status === "unpaid" || e.status === "partially_paid")
+      .sort((a, b) => ((b.total_amount || 0) - (b.paid_amount || 0)) - ((a.total_amount || 0) - (a.paid_amount || 0)))
+      .slice(0, 6),
+  [expenses]);
+
+  const attentionCollections = useMemo(() =>
+    [...collections]
+      .filter((c) => c.status === "pending" || c.status === "partially_received")
+      .sort((a, b) => ((b.total_amount || 0) - (b.received_amount || 0)) - ((a.total_amount || 0) - (a.received_amount || 0)))
+      .slice(0, 6),
+  [collections]);
+
+  const overviewStats = useMemo(() => {
+    if (!summary) return null;
+    const balances = summary.account_balances || [];
+    const totalCash = balances.reduce((s, a) => s + (Number(a.balance) || 0), 0);
+    const received = Number(summary.total_collections_received) || 0;
+    const pending = Number(summary.total_collections_pending) || 0;
+    const expected = Number(summary.total_collections_expected) || received + pending;
+    const expensesTotal = Number(summary.total_expenses) || 0;
+    const paid = Number(summary.total_paid) || 0;
+    const outstanding = Number(summary.outstanding) || 0;
+    const net = received - paid;
+    const collectionPct = expected > 0 ? Math.round((received / expected) * 100) : 0;
+    const expensePct = expensesTotal > 0 ? Math.round((paid / expensesTotal) * 100) : 0;
+    const unpaidCount = expenses.filter((e) => e.status === "unpaid" || e.status === "partially_paid").length;
+    const pendingCount = collections.filter((c) => c.status === "pending" || c.status === "partially_received").length;
+    return { totalCash, received, pending, expected, expensesTotal, paid, outstanding, net, collectionPct, expensePct, unpaidCount, pendingCount, accountCount: balances.length };
+  }, [summary, expenses, collections]);
 
   // ── API Actions ──
   const apiPost = async (url, action, body) => {
@@ -794,66 +831,242 @@ export default function AccountsTab({ token }) {
 
       {/* ── Overview ── */}
       {innerTab === "overview" && (
-        <Spin spinning={summaryLoading}>
-          {summary ? (
+        <Spin spinning={summaryLoading || expensesLoading || collectionsLoading}>
+          {summary && overviewStats ? (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? "140px" : "200px"}, 1fr))`, gap: isMobile ? 10 : 16, marginBottom: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+                <div>
+                  <Title level={5} style={{ margin: 0 }}>Financial snapshot</Title>
+                  <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 13 }}>
+                    Cash on hand, what you&apos;re owed, what you owe, and what needs action.
+                  </Text>
+                </div>
+                <Space wrap size="small">
+                  <Button size="small" icon={<PlusOutlined />} onClick={() => { setEditingExpense(null); setExpenseModalOpen(true); }}>Expense</Button>
+                  <Button size="small" icon={<PlusOutlined />} onClick={() => { setEditingCollection(null); setCollectionModalOpen(true); }}>Collection</Button>
+                  <Button size="small" icon={<SwapOutlined />} onClick={() => setAddTransferOpen(true)}>Transfer</Button>
+                </Space>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? "150px" : "180px"}, 1fr))`, gap: isMobile ? 10 : 14, marginBottom: 16 }}>
                 <Card size="small" style={{ background: "#141720" }}>
-                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: isMobile ? 11 : undefined }}>Collections Received</span>} value={summary.total_collections_received} prefix="₹" precision={2} valueStyle={{ color: "#4ade80", fontSize: isMobile ? 18 : undefined }} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <WalletOutlined style={{ color: "#60a5fa" }} />
+                    <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>Cash on hand</span>
+                  </div>
+                  <div style={{ color: overviewStats.totalCash >= 0 ? "#60a5fa" : "#f87171", fontWeight: 700, fontSize: isMobile ? 18 : 22 }}>
+                    {fmtAmount(overviewStats.totalCash)}
+                  </div>
+                  <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 4 }}>
+                    Across {overviewStats.accountCount} account{overviewStats.accountCount === 1 ? "" : "s"}
+                    <Button type="link" size="small" style={{ padding: "0 0 0 6px", height: "auto", fontSize: 11 }} onClick={() => setInnerTab("accounts")}>
+                      Manage
+                    </Button>
+                  </div>
                 </Card>
                 <Card size="small" style={{ background: "#141720" }}>
-                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: isMobile ? 11 : undefined }}>Collections Pending</span>} value={summary.total_collections_pending} prefix="₹" precision={2} valueStyle={{ color: "#fbbf24", fontSize: isMobile ? 18 : undefined }} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    {overviewStats.net >= 0 ? <ArrowUpOutlined style={{ color: "#4ade80" }} /> : <ArrowDownOutlined style={{ color: "#f87171" }} />}
+                    <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>Net cashflow</span>
+                  </div>
+                  <div style={{ color: overviewStats.net >= 0 ? "#4ade80" : "#f87171", fontWeight: 700, fontSize: isMobile ? 18 : 22 }}>
+                    {fmtAmount(overviewStats.net)}
+                  </div>
+                  <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 4 }}>
+                    Received {fmtAmount(overviewStats.received)} − paid {fmtAmount(overviewStats.paid)}
+                  </div>
                 </Card>
-                <Card size="small" style={{ background: "#141720" }}>
-                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: isMobile ? 11 : undefined }}>Expenses Total</span>} value={summary.total_expenses} prefix="₹" precision={2} valueStyle={{ color: "#f87171", fontSize: isMobile ? 18 : undefined }} />
+                <Card size="small" style={{ background: "#141720", cursor: "pointer" }} onClick={() => setInnerTab("collections")}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <ArrowUpOutlined style={{ color: "#fbbf24" }} />
+                    <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>You are owed</span>
+                  </div>
+                  <div style={{ color: "#fbbf24", fontWeight: 700, fontSize: isMobile ? 18 : 22 }}>
+                    {fmtAmount(overviewStats.pending)}
+                  </div>
+                  <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 4 }}>
+                    {overviewStats.pendingCount} open collection{overviewStats.pendingCount === 1 ? "" : "s"}
+                  </div>
                 </Card>
-                <Card size="small" style={{ background: "#141720" }}>
-                  <Statistic title={<span style={{ color: "rgba(255,255,255,0.5)", fontSize: isMobile ? 11 : undefined }}>Expenses Outstanding</span>} value={summary.outstanding} prefix="₹" precision={2} valueStyle={{ color: "#f87171", fontSize: isMobile ? 18 : undefined }} />
+                <Card size="small" style={{ background: "#141720", cursor: "pointer" }} onClick={() => setInnerTab("expenses")}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <ArrowDownOutlined style={{ color: "#f87171" }} />
+                    <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>You owe</span>
+                  </div>
+                  <div style={{ color: "#f87171", fontWeight: 700, fontSize: isMobile ? 18 : 22 }}>
+                    {fmtAmount(overviewStats.outstanding)}
+                  </div>
+                  <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 4 }}>
+                    {overviewStats.unpaidCount} unpaid expense{overviewStats.unpaidCount === 1 ? "" : "s"}
+                  </div>
                 </Card>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? "100%" : "280px"}, 1fr))`, gap: 16, marginBottom: 24 }}>
-                <Card size="small" title="Account Balances" style={{ background: "#141720" }} styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}>
-                  {(summary.account_balances || []).length === 0 ? <Empty description="No accounts" /> :
-                    (summary.account_balances || []).map(a => (
-                      <div key={a.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                        <span style={{ minWidth: 0, wordBreak: "break-word" }}>{a.name} <Tag color={ACCOUNT_TYPE_COLORS[a.type]} style={{ marginLeft: 4, fontSize: 10 }}>{a.type}</Tag></span>
-                        <span style={{ color: a.balance >= 0 ? "#4ade80" : "#f87171", fontWeight: 600, flexShrink: 0 }}>{fmtAmount(a.balance)}</span>
-                      </div>
-                    ))}
+
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14, marginBottom: 16 }}>
+                <Card size="small" title="Collections progress" style={{ background: "#141720" }} styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)", minHeight: 40 } }}
+                  extra={<Button type="link" size="small" onClick={() => setInnerTab("collections")}>View all</Button>}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 12 }}>
+                    <span style={{ color: "rgba(255,255,255,0.45)" }}>Received of expected</span>
+                    <span style={{ color: "#4ade80", fontWeight: 600 }}>{overviewStats.collectionPct}%</span>
+                  </div>
+                  <Progress percent={overviewStats.collectionPct} showInfo={false} strokeColor="#4ade80" trailColor="rgba(255,255,255,0.08)" size="small" />
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
+                    <span>{fmtAmount(overviewStats.received)} in</span>
+                    <span>{fmtAmount(overviewStats.expected)} expected</span>
+                  </div>
                 </Card>
-                <Card size="small" title="Expense by Category" style={{ background: "#141720" }} styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}>
-                  {Object.keys(summary.expense_category_breakdown || {}).length === 0 ? <Empty description="No expenses" /> :
-                    Object.entries(summary.expense_category_breakdown || {}).map(([cat, v]) => (
-                      <div key={cat} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                        <span style={{ minWidth: 0, wordBreak: "break-word" }}>{cat}</span><span style={{ flexShrink: 0 }}>{fmtAmount(v.paid)} / {fmtAmount(v.total)}</span>
-                      </div>
-                    ))}
+                <Card size="small" title="Expenses progress" style={{ background: "#141720" }} styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)", minHeight: 40 } }}
+                  extra={<Button type="link" size="small" onClick={() => setInnerTab("expenses")}>View all</Button>}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 12 }}>
+                    <span style={{ color: "rgba(255,255,255,0.45)" }}>Paid of total</span>
+                    <span style={{ color: "#60a5fa", fontWeight: 600 }}>{overviewStats.expensePct}%</span>
+                  </div>
+                  <Progress percent={overviewStats.expensePct} showInfo={false} strokeColor="#60a5fa" trailColor="rgba(255,255,255,0.08)" size="small" />
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
+                    <span>{fmtAmount(overviewStats.paid)} paid</span>
+                    <span>{fmtAmount(overviewStats.expensesTotal)} total</span>
+                  </div>
                 </Card>
-                <Card size="small" title="Collection by Category" style={{ background: "#141720" }} styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}>
+              </div>
+
+              <Card
+                size="small"
+                title={<span><AlertOutlined style={{ marginRight: 8, color: (attentionCollections.length + attentionExpenses.length) > 0 ? "#fbbf24" : "#4ade80" }} />Needs attention</span>}
+                style={{ background: "#141720", marginBottom: 16 }}
+                styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
+              >
+                {attentionCollections.length === 0 && attentionExpenses.length === 0 ? (
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Nothing pending — collections and expenses are clear." />
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <Text strong style={{ fontSize: 13 }}>Open collections</Text>
+                        <Tag color="gold">{overviewStats.pendingCount}</Tag>
+                      </div>
+                      {attentionCollections.length === 0 ? (
+                        <Text type="secondary" style={{ fontSize: 12 }}>No open collections</Text>
+                      ) : attentionCollections.map((c) => {
+                        const due = (c.total_amount || 0) - (c.received_amount || 0);
+                        return (
+                          <div
+                            key={c.id}
+                            onClick={() => openCollectionDetail(c)}
+                            style={{
+                              display: "flex", justifyContent: "space-between", gap: 10, padding: "8px 0",
+                              borderBottom: "1px solid rgba(255,255,255,0.04)", cursor: "pointer",
+                            }}
+                          >
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 500, wordBreak: "break-word" }}>{c.description || "Collection"}</div>
+                              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{c.category_name || "Uncategorized"}</div>
+                            </div>
+                            <div style={{ textAlign: "right", flexShrink: 0 }}>
+                              <div style={{ color: "#fbbf24", fontWeight: 600, fontSize: 13 }}>{fmtAmount(due)}</div>
+                              <Tag color={COLLECTION_STATUS_COLORS[c.status]} style={{ fontSize: 10, margin: "2px 0 0", lineHeight: "16px" }}>
+                                {c.status?.replace(/_/g, " ")}
+                              </Tag>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <Text strong style={{ fontSize: 13 }}>Unpaid expenses</Text>
+                        <Tag color="red">{overviewStats.unpaidCount}</Tag>
+                      </div>
+                      {attentionExpenses.length === 0 ? (
+                        <Text type="secondary" style={{ fontSize: 12 }}>No unpaid expenses</Text>
+                      ) : attentionExpenses.map((e) => {
+                        const due = (e.total_amount || 0) - (e.paid_amount || 0);
+                        return (
+                          <div
+                            key={e.id}
+                            onClick={() => openExpenseDetail(e)}
+                            style={{
+                              display: "flex", justifyContent: "space-between", gap: 10, padding: "8px 0",
+                              borderBottom: "1px solid rgba(255,255,255,0.04)", cursor: "pointer",
+                            }}
+                          >
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 500, wordBreak: "break-word" }}>{e.description || "Expense"}</div>
+                              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{e.category_name || "Uncategorized"}</div>
+                            </div>
+                            <div style={{ textAlign: "right", flexShrink: 0 }}>
+                              <div style={{ color: "#f87171", fontWeight: 600, fontSize: 13 }}>{fmtAmount(due)}</div>
+                              <Tag color={EXPENSE_STATUS_COLORS[e.status]} style={{ fontSize: 10, margin: "2px 0 0", lineHeight: "16px" }}>
+                                {e.status?.replace(/_/g, " ")}
+                              </Tag>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </Card>
+
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14, marginBottom: 16 }}>
+                <Card size="small" title="Collections by category" style={{ background: "#141720" }} styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}>
                   {Object.keys(summary.collection_category_breakdown || {}).length === 0 ? <Empty description="No collections" /> :
-                    Object.entries(summary.collection_category_breakdown || {}).map(([cat, v]) => (
-                      <div key={cat} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                        <span style={{ minWidth: 0, wordBreak: "break-word" }}>{cat}</span><span style={{ flexShrink: 0 }}>{fmtAmount(v.received)} / {fmtAmount(v.total)}</span>
-                      </div>
-                    ))}
+                    Object.entries(summary.collection_category_breakdown || {}).map(([cat, v]) => {
+                      const pct = v.total > 0 ? Math.round((v.received / v.total) * 100) : 0;
+                      return (
+                        <div key={cat} style={{ padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+                            <span style={{ minWidth: 0, wordBreak: "break-word", fontSize: 13 }}>{cat}</span>
+                            <span style={{ flexShrink: 0, fontSize: 12, color: "rgba(255,255,255,0.55)" }}>{fmtAmount(v.received)} / {fmtAmount(v.total)}</span>
+                          </div>
+                          <Progress percent={pct} showInfo={false} strokeColor="#4ade80" trailColor="rgba(255,255,255,0.08)" size="small" />
+                        </div>
+                      );
+                    })}
+                </Card>
+                <Card size="small" title="Expenses by category" style={{ background: "#141720" }} styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}>
+                  {Object.keys(summary.expense_category_breakdown || {}).length === 0 ? <Empty description="No expenses" /> :
+                    Object.entries(summary.expense_category_breakdown || {}).map(([cat, v]) => {
+                      const pct = v.total > 0 ? Math.round((v.paid / v.total) * 100) : 0;
+                      return (
+                        <div key={cat} style={{ padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+                            <span style={{ minWidth: 0, wordBreak: "break-word", fontSize: 13 }}>{cat}</span>
+                            <span style={{ flexShrink: 0, fontSize: 12, color: "rgba(255,255,255,0.55)" }}>{fmtAmount(v.paid)} / {fmtAmount(v.total)}</span>
+                          </div>
+                          <Progress percent={pct} showInfo={false} strokeColor="#f87171" trailColor="rgba(255,255,255,0.08)" size="small" />
+                        </div>
+                      );
+                    })}
                 </Card>
               </div>
-              <Card size="small" title="Recent Transactions" style={{ background: "#141720" }} styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}>
-                <Table size="small" dataSource={summary.recent_transactions || []} rowKey="id" pagination={false}
-                  scroll={{ x: isMobile ? 520 : undefined }}
-                  columns={[
-                    { title: "Date", dataIndex: "date", key: "date", width: 100, render: fmtDate },
-                    { title: "Type", dataIndex: "type", key: "type", width: 140, render: (t) => <Tag color={TXN_TYPE_COLORS[t]}>{TXN_TYPE_LABELS[t]}</Tag> },
-                    { title: "Amount", dataIndex: "amount", key: "amount", width: 120, render: fmtAmount },
-                    { title: "Details", key: "details", render: (_, r) => {
-                      if (r.type === "collection") return `→ ${r.to_account_name}`;
-                      if (r.type === "expense_payment") return `${r.from_account_name} →`;
-                      if (r.type === "transfer") return `${r.from_account_name} → ${r.to_account_name}`;
-                      return "-";
-                    }},
-                    { title: "Notes", dataIndex: "notes", key: "notes", ellipsis: true, render: (v) => v || "-" },
-                  ]}
-                />
+
+              <Card size="small" title="Recent activity" style={{ background: "#141720" }} styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}>
+                {(summary.recent_transactions || []).length === 0 ? (
+                  <Empty description="No recent transactions" />
+                ) : (
+                  <Table size="small" dataSource={summary.recent_transactions || []} rowKey="id" pagination={false}
+                    scroll={{ x: isMobile ? 520 : undefined }}
+                    columns={[
+                      { title: "Date", dataIndex: "date", key: "date", width: 100, render: fmtDate },
+                      { title: "Type", dataIndex: "type", key: "type", width: 140, render: (t) => <Tag color={TXN_TYPE_COLORS[t]}>{TXN_TYPE_LABELS[t]}</Tag> },
+                      {
+                        title: "Amount", dataIndex: "amount", key: "amount", width: 120,
+                        render: (v, r) => (
+                          <span style={{ color: r.type === "collection" ? "#4ade80" : r.type === "expense_payment" ? "#f87171" : "#60a5fa", fontWeight: 600 }}>
+                            {r.type === "collection" ? "+" : r.type === "expense_payment" ? "−" : ""}{fmtAmount(v)}
+                          </span>
+                        ),
+                      },
+                      { title: "Details", key: "details", render: (_, r) => {
+                        if (r.type === "collection") return `→ ${r.to_account_name}`;
+                        if (r.type === "expense_payment") return `${r.from_account_name} →`;
+                        if (r.type === "transfer") return `${r.from_account_name} → ${r.to_account_name}`;
+                        return "-";
+                      }},
+                      { title: "Notes", dataIndex: "notes", key: "notes", ellipsis: true, render: (v) => v || "-" },
+                    ]}
+                  />
+                )}
               </Card>
             </>
           ) : <Empty description="Loading..." />}
