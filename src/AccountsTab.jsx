@@ -275,6 +275,32 @@ export default function AccountsTab({ token }) {
     return { totalCash, received, pending, expected, expensesTotal, paid, outstanding, net, collectionPct, expensePct, unpaidCount, pendingCount, accountCount: balances.length };
   }, [summary, expenses, collections]);
 
+  // Build overview breakdowns from live category names (by id) so renamed
+  // categories don't appear twice via stale denormalized category_name.
+  const overviewExpenseBreakdown = useMemo(() => {
+    const nameById = Object.fromEntries(expenseCategories.map((c) => [c.id, c.name]));
+    const map = {};
+    for (const e of expenses) {
+      const name = nameById[e.category_id] || e.category_name || "Uncategorized";
+      if (!map[name]) map[name] = { total: 0, paid: 0 };
+      map[name].total += e.total_amount || 0;
+      map[name].paid += e.paid_amount || 0;
+    }
+    return Object.entries(map).sort((a, b) => b[1].total - a[1].total);
+  }, [expenses, expenseCategories]);
+
+  const overviewCollectionBreakdown = useMemo(() => {
+    const nameById = Object.fromEntries(collectionCategories.map((c) => [c.id, c.name]));
+    const map = {};
+    for (const c of collections) {
+      const name = nameById[c.category_id] || c.category_name || "Uncategorized";
+      if (!map[name]) map[name] = { total: 0, received: 0 };
+      map[name].total += c.total_amount || 0;
+      map[name].received += c.received_amount || 0;
+    }
+    return Object.entries(map).sort((a, b) => b[1].total - a[1].total);
+  }, [collections, collectionCategories]);
+
   // ── API Actions ──
   const apiPost = async (url, action, body) => {
     const res = await fetch(`${API_BASE}${url}`, { method: "POST", headers: authHeaders, body: JSON.stringify({ action, ...body }) });
@@ -1008,9 +1034,19 @@ export default function AccountsTab({ token }) {
               </Card>
 
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14, marginBottom: 16 }}>
-                <Card size="small" title="Collections by category" style={{ background: "#141720" }} styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}>
-                  {Object.keys(summary.collection_category_breakdown || {}).length === 0 ? <Empty description="No collections" /> :
-                    Object.entries(summary.collection_category_breakdown || {}).map(([cat, v]) => {
+                <Card
+                  size="small"
+                  title="Collections by category"
+                  extra={
+                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
+                      {fmtAmount(overviewStats.received)} / {fmtAmount(overviewStats.expected)}
+                    </span>
+                  }
+                  style={{ background: "#141720" }}
+                  styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
+                >
+                  {overviewCollectionBreakdown.length === 0 ? <Empty description="No collections" /> :
+                    overviewCollectionBreakdown.map(([cat, v]) => {
                       const pct = v.total > 0 ? Math.round((v.received / v.total) * 100) : 0;
                       return (
                         <div key={cat} style={{ padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
@@ -1023,9 +1059,19 @@ export default function AccountsTab({ token }) {
                       );
                     })}
                 </Card>
-                <Card size="small" title="Expenses by category" style={{ background: "#141720" }} styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}>
-                  {Object.keys(summary.expense_category_breakdown || {}).length === 0 ? <Empty description="No expenses" /> :
-                    Object.entries(summary.expense_category_breakdown || {}).map(([cat, v]) => {
+                <Card
+                  size="small"
+                  title="Expenses by category"
+                  extra={
+                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
+                      {fmtAmount(overviewStats.paid)} / {fmtAmount(overviewStats.expensesTotal)}
+                    </span>
+                  }
+                  style={{ background: "#141720" }}
+                  styles={{ header: { borderBottom: "1px solid rgba(255,255,255,0.06)" } }}
+                >
+                  {overviewExpenseBreakdown.length === 0 ? <Empty description="No expenses" /> :
+                    overviewExpenseBreakdown.map(([cat, v]) => {
                       const pct = v.total > 0 ? Math.round((v.paid / v.total) * 100) : 0;
                       return (
                         <div key={cat} style={{ padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
