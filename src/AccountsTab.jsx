@@ -252,7 +252,10 @@ export default function AccountsTab({ token }) {
 
   const attentionCollections = useMemo(() =>
     [...collections]
-      .filter((c) => c.status === "pending" || c.status === "partially_received")
+      .filter((c) => {
+        const remaining = (c.total_amount || 0) - (c.received_amount || 0);
+        return remaining > 0 && (c.status === "pending" || c.status === "partially_received");
+      })
       .sort((a, b) => ((b.total_amount || 0) - (b.received_amount || 0)) - ((a.total_amount || 0) - (a.received_amount || 0)))
       .slice(0, 6),
   [collections]);
@@ -271,7 +274,7 @@ export default function AccountsTab({ token }) {
     const collectionPct = expected > 0 ? Math.round((received / expected) * 100) : 0;
     const expensePct = expensesTotal > 0 ? Math.round((paid / expensesTotal) * 100) : 0;
     const unpaidCount = expenses.filter((e) => e.status === "unpaid" || e.status === "partially_paid").length;
-    const pendingCount = collections.filter((c) => c.status === "pending" || c.status === "partially_received").length;
+    const pendingCount = collections.filter((c) => ((c.total_amount || 0) - (c.received_amount || 0)) > 0 && (c.status === "pending" || c.status === "partially_received")).length;
     return { totalCash, received, pending, expected, expensesTotal, paid, outstanding, net, collectionPct, expensePct, unpaidCount, pendingCount, accountCount: balances.length };
   }, [summary, expenses, collections]);
 
