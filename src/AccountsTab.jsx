@@ -16,8 +16,8 @@ const { Title, Text } = Typography;
 const ACCOUNT_TYPE_COLORS = { razorpay: "blue", bank: "green", cash: "gold", person: "purple", other: "default" };
 const TXN_TYPE_COLORS = { expense_payment: "red", collection: "green", transfer: "blue" };
 const TXN_TYPE_LABELS = { expense_payment: "Expense Payment", collection: "Collection", transfer: "Transfer" };
-const EXPENSE_STATUS_COLORS = { unpaid: "red", partially_paid: "orange", fully_paid: "green" };
-const COLLECTION_STATUS_COLORS = { pending: "red", partially_received: "orange", fully_received: "green" };
+const EXPENSE_STATUS_COLORS = { unpaid: "red", partially_paid: "orange", fully_paid: "green", overpaid: "blue" };
+const COLLECTION_STATUS_COLORS = { pending: "red", partially_received: "orange", fully_received: "green", over_received: "blue" };
 
 const fmtAmount = (v) =>
   `₹${(Number(v) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -251,24 +251,28 @@ export default function AccountsTab({ token, hasPermission }) {
   // ── Groupings ──
   const expensesByCategory = useMemo(() => {
     const map = {};
-    for (const cat of expenseCategories) map[cat.id] = { category: cat, items: [], total: 0, paid: 0 };
+    for (const cat of expenseCategories) map[cat.id] = { category: cat, items: [], total: 0, paid: 0, outstanding: 0 };
     for (const e of expenses) {
-      if (!map[e.category_id]) map[e.category_id] = { category: { id: e.category_id, name: e.category_name, sub_categories: [] }, items: [], total: 0, paid: 0 };
+      if (!map[e.category_id]) map[e.category_id] = { category: { id: e.category_id, name: e.category_name, sub_categories: [] }, items: [], total: 0, paid: 0, outstanding: 0 };
       map[e.category_id].items.push(e);
       map[e.category_id].total += e.total_amount || 0;
       map[e.category_id].paid += e.paid_amount || 0;
+      // Overpayments must not shrink category outstanding.
+      map[e.category_id].outstanding += Math.max(0, (e.total_amount || 0) - (e.paid_amount || 0));
     }
     return Object.values(map);
   }, [expenses, expenseCategories]);
 
   const collectionsByCategory = useMemo(() => {
     const map = {};
-    for (const cat of collectionCategories) map[cat.id] = { category: cat, items: [], total: 0, received: 0 };
+    for (const cat of collectionCategories) map[cat.id] = { category: cat, items: [], total: 0, received: 0, pending: 0 };
     for (const c of collections) {
-      if (!map[c.category_id]) map[c.category_id] = { category: { id: c.category_id, name: c.category_name, sub_categories: [] }, items: [], total: 0, received: 0 };
+      if (!map[c.category_id]) map[c.category_id] = { category: { id: c.category_id, name: c.category_name, sub_categories: [] }, items: [], total: 0, received: 0, pending: 0 };
       map[c.category_id].items.push(c);
       map[c.category_id].total += c.total_amount || 0;
       map[c.category_id].received += c.received_amount || 0;
+      // Over-receipts must not shrink category pending.
+      map[c.category_id].pending += Math.max(0, (c.total_amount || 0) - (c.received_amount || 0));
     }
     return Object.values(map);
   }, [collections, collectionCategories]);
@@ -688,7 +692,10 @@ export default function AccountsTab({ token, hasPermission }) {
     const { category, items, total } = group;
     const isExpense = type === "expense";
     const paid = isExpense ? group.paid : group.received;
-    const remaining = total - paid;
+    // Prefer precomputed remainders so overpay/over-receipt does not create negatives.
+    const remaining = isExpense
+      ? (group.outstanding ?? Math.max(0, total - paid))
+      : (group.pending ?? Math.max(0, total - paid));
     const subGroups = groupBySubCategory(items, type);
     const hasSubCategories = subGroups.length > 1 || (subGroups.length === 1 && subGroups[0].subCategory !== "(No sub-category)");
 
@@ -1173,10 +1180,14 @@ export default function AccountsTab({ token, hasPermission }) {
           {(() => {
             const total = expenses.reduce((s, e) => s + (e.total_amount || 0), 0);
             const paid = expenses.reduce((s, e) => s + (e.paid_amount || 0), 0);
+            const outstanding = expenses.reduce(
+              (s, e) => s + Math.max(0, (e.total_amount || 0) - (e.paid_amount || 0)),
+              0
+            );
             const totals = renderTotalsSidebar([
               { title: "Total", value: total, color: "#f87171" },
               { title: "Paid", value: paid, color: "#4ade80" },
-              { title: "Outstanding", value: total - paid, color: "#fbbf24" },
+              { title: "Outstanding", value: outstanding, color: "#fbbf24" },
             ]);
             const cards = (
               <>
@@ -1214,10 +1225,14 @@ export default function AccountsTab({ token, hasPermission }) {
           {(() => {
             const total = collections.reduce((s, c) => s + (c.total_amount || 0), 0);
             const received = collections.reduce((s, c) => s + (c.received_amount || 0), 0);
+            const pending = collections.reduce(
+              (s, c) => s + Math.max(0, (c.total_amount || 0) - (c.received_amount || 0)),
+              0
+            );
             const totals = renderTotalsSidebar([
               { title: "Expected", value: total, color: "#60a5fa" },
               { title: "Received", value: received, color: "#4ade80" },
-              { title: "Pending", value: total - received, color: "#fbbf24" },
+              { title: "Pending", value: pending, color: "#fbbf24" },
             ]);
             const cards = (
               <>
