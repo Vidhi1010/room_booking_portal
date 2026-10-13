@@ -6,7 +6,7 @@ import {
 } from "antd";
 import {
   PlusOutlined, DeleteOutlined, EditOutlined, SwapOutlined, FolderOutlined, EyeOutlined,
-  WalletOutlined, AlertOutlined, ArrowUpOutlined, ArrowDownOutlined,
+  WalletOutlined, AlertOutlined, ArrowUpOutlined, ArrowDownOutlined, SyncOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { API_BASE } from "./config";
@@ -37,12 +37,13 @@ function useIsMobile(breakpoint = 768) {
   return isMobile;
 }
 
-export default function AccountsTab({ token }) {
+export default function AccountsTab({ token, hasPermission }) {
   const navigate = useNavigate();
   const isMobile = useIsMobile(768);
   const isStacked = useIsMobile(991); // below Ant Design lg
   const modalWidth = (desktop) => (isMobile ? "calc(100vw - 24px)" : desktop);
   const formGrid = isMobile ? "1fr" : "1fr 1fr";
+  const canSyncSheet = typeof hasPermission === "function" ? hasPermission("accounts:sync") : false;
 
   const [expenseCategories, setExpenseCategories] = useState([]);
   const [collectionCategories, setCollectionCategories] = useState([]);
@@ -53,6 +54,10 @@ export default function AccountsTab({ token }) {
   const [summary, setSummary] = useState(null);
   const [settlements, setSettlements] = useState([]);
   const [settlementTotals, setSettlementTotals] = useState(null);
+  const [syncingSheet, setSyncingSheet] = useState(false);
+  const [lastAccountsSyncedAt, setLastAccountsSyncedAt] = useState(() =>
+    localStorage.getItem("accounts_last_synced_at") || null
+  );
 
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [expensesLoading, setExpensesLoading] = useState(false);
@@ -178,6 +183,31 @@ export default function AccountsTab({ token }) {
     } catch { message.error("Failed to fetch settlements"); }
     finally { setSettlementsLoading(false); }
   }, [token]);
+
+  const handleSyncAccountsSheet = useCallback(async () => {
+    setSyncingSheet(true);
+    try {
+      const res = await fetch(`${API_BASE}/sync-accounts-sheet`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (handleAuthError(res)) return;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to sync accounts sheet");
+      if (data.synced_at) {
+        setLastAccountsSyncedAt(data.synced_at);
+        localStorage.setItem("accounts_last_synced_at", data.synced_at);
+      }
+      message.success("Accounts sheet synced successfully");
+      if (data.sheet_url) {
+        window.open(data.sheet_url, "_blank", "noopener,noreferrer");
+      }
+    } catch (e) {
+      message.error(e.message || "Failed to sync accounts sheet");
+    } finally {
+      setSyncingSheet(false);
+    }
+  }, [token, handleAuthError]);
 
   const openSettlementDetail = useCallback(async (settlementId) => {
     setSettlementDetailOpen(true);
@@ -869,11 +899,26 @@ export default function AccountsTab({ token }) {
                   <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 13 }}>
                     Cash on hand, what you&apos;re owed, what you owe, and what needs action.
                   </Text>
+                  {canSyncSheet && lastAccountsSyncedAt && (
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 4 }}>
+                      Sheet last synced: {fmtDate(lastAccountsSyncedAt)}
+                    </div>
+                  )}
                 </div>
                 <Space wrap size="small">
                   <Button size="small" icon={<PlusOutlined />} onClick={() => { setEditingExpense(null); setExpenseModalOpen(true); }}>Expense</Button>
                   <Button size="small" icon={<PlusOutlined />} onClick={() => { setEditingCollection(null); setCollectionModalOpen(true); }}>Collection</Button>
                   <Button size="small" icon={<SwapOutlined />} onClick={() => setAddTransferOpen(true)}>Transfer</Button>
+                  {canSyncSheet && (
+                    <Button
+                      size="small"
+                      icon={<SyncOutlined />}
+                      loading={syncingSheet}
+                      onClick={handleSyncAccountsSheet}
+                    >
+                      Sync Sheet
+                    </Button>
+                  )}
                 </Space>
               </div>
 
