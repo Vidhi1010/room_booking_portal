@@ -2260,7 +2260,7 @@ export default function AdminDashboard() {
             )}
 
             {activeTab === "accounts" && (
-              <AccountsTab token={token} />
+              <AccountsTab token={token} hasPermission={hasPermission} />
             )}
 
             {activeTab === "feedback" && (
